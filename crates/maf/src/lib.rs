@@ -1,3 +1,4 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+mod app;
+mod rpc;
+
+pub use app::App;

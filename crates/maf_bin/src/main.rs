@@ -1,8 +1,6 @@
 use wasmtime::*;
 
-fn main() -> eyre::Result<()> {
-    color_eyre::install()?;
-
+fn main() -> anyhow::Result<()> {
     let wasm_module_path = std::env::args()
         .nth(1)
         .expect("missing wasm module path in first argument");
@@ -10,27 +8,41 @@ fn main() -> eyre::Result<()> {
     let bytes = std::fs::read(wasm_module_path)?;
 
     let engine = Engine::default();
-    let module = Module::new(&engine, bytes)
-        .map_err(|e| eyre::eyre!("failed to instantiate webassembly module {e:?}"))?;
+    let module = Module::new(&engine, bytes)?;
 
     let mut linker = Linker::new(&engine);
 
-    linker
-        .func_wrap("maf", "foo", |caller: Caller<'_, ()>, x: u64| {
-            println!("foo({})", x);
-        })
-        .map_err(|e| eyre::eyre!("failed to wrap foo: {e:?}"))?;
+    linker.func_wrap(
+        "maf",
+        "ffi_print",
+        |mut caller: Caller<'_, ()>, ptr: u32, len: u64| -> anyhow::Result<()> {
+            println!("print({}, {})", ptr, len);
+            let memory = caller
+                .get_export("memory")
+                .ok_or_else(|| anyhow::anyhow!("failed to find `memory` export on caller"))?
+                .into_memory()
+                .ok_or_else(|| anyhow::anyhow!("`memory` export on caller is not a memory"))?;
+
+            let data = memory.data(&caller).get(ptr as usize..).ok_or_else(|| {
+                anyhow::anyhow!("failed to get data from memory at offset {}", ptr)
+            })?;
+
+            let data = &data[..len as usize];
+
+            let message = std::str::from_utf8(data)?;
+
+            print!("{}", message);
+            println!("memory size = {}", memory.size(&caller));
+
+            Ok(())
+        },
+    )?;
 
     let mut store = Store::new(&engine, ());
-    let instance = linker
-        .instantiate(&mut store, &module)
-        .map_err(|e| eyre::eyre!("failed to instantiate module: {e:?}"))?;
-    let init = instance
-        .get_typed_func::<(), ()>(&mut store, "init")
-        .map_err(|e| eyre::eyre!("failed to instantiate module: {e:?}"))?;
+    let instance = linker.instantiate(&mut store, &module)?;
+    let init = instance.get_typed_func::<(), ()>(&mut store, "init")?;
 
-    init.call(&mut store, ())
-        .map_err(|e| eyre::eyre!("failed to call init: {e:?}"))?;
+    init.call(&mut store, ())?;
 
     Ok(())
 }
