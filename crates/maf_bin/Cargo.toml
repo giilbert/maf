@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.96"
+anyhow = "^1.0.96"
 maf_server = { path = "../maf_server" }
 wasmtime = "29.0.1"

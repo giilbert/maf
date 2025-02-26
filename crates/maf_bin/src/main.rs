@@ -7,7 +7,7 @@ fn main() -> anyhow::Result<()> {
 
     let bytes = std::fs::read(wasm_module_path)?;
 
-    let engine = Engine::default();
+    let engine = Engine::new(&Config::new().wasm_memory64(false))?;
     let module = Module::new(&engine, bytes)?;
 
     let mut linker = Linker::new(&engine);
@@ -16,7 +16,6 @@ fn main() -> anyhow::Result<()> {
         "maf",
         "ffi_print",
         |mut caller: Caller<'_, ()>, ptr: u32, len: u64| -> anyhow::Result<()> {
-            println!("print({}, {})", ptr, len);
             let memory = caller
                 .get_export("memory")
                 .ok_or_else(|| anyhow::anyhow!("failed to find `memory` export on caller"))?
@@ -31,8 +30,8 @@ fn main() -> anyhow::Result<()> {
 
             let message = std::str::from_utf8(data)?;
 
-            print!("{}", message);
-            println!("memory size = {}", memory.size(&caller));
+            println!("{}", message);
+            // println!("memory size = {}", memory.size(&caller));
 
             Ok(())
         },
@@ -40,9 +39,22 @@ fn main() -> anyhow::Result<()> {
 
     let mut store = Store::new(&engine, ());
     let instance = linker.instantiate(&mut store, &module)?;
-    let init = instance.get_typed_func::<(), ()>(&mut store, "init")?;
 
+    let init = instance.get_typed_func::<(), ()>(&mut store, "init")?;
     init.call(&mut store, ())?;
+
+    let alloc = instance.get_typed_func::<(u32, u32), u32>(&mut store, "alloc")?;
+
+    let ptr = alloc.call(&mut store, (12, 1))?;
+    println!("Allocated memory at: {}", ptr);
+
+    let memory = instance
+        .get_memory(&mut store, "memory")
+        .ok_or_else(|| anyhow::anyhow!("failed to find `memory` export on instance"))?;
+    memory.write(&mut store, ptr as usize, b"Hello, Wasm!")?;
+
+    let handle_request = instance.get_typed_func::<(u32, u64), ()>(&mut store, "handle_request")?;
+    handle_request.call(&mut store, (ptr, 12))?;
 
     Ok(())
 }
