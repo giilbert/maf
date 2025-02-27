@@ -1,3 +1,6 @@
+mod container;
+mod runtime;
+
 use wasmtime::*;
 
 fn main() -> anyhow::Result<()> {
@@ -5,9 +8,9 @@ fn main() -> anyhow::Result<()> {
         .nth(1)
         .expect("missing wasm module path in first argument");
 
-    let bytes = std::fs::read(wasm_module_path)?;
-
     let engine = Engine::new(&Config::new().wasm_memory64(false))?;
+
+    let bytes = std::fs::read(wasm_module_path)?;
     let module = Module::new(&engine, bytes)?;
 
     let mut linker = Linker::new(&engine);
