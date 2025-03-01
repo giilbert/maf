@@ -1,9 +1,8 @@
 mod abi;
 mod exports;
 
-use std::{collections::VecDeque, sync::mpsc};
-
 use exports::ContainerExports;
+use tokio::sync::mpsc;
 use wasmtime as wt;
 
 #[derive(Debug)]
@@ -14,17 +13,17 @@ pub struct Container {
     pub(super) store: wt::Store<ContainerData>,
     pub(super) exports: ContainerExports,
 
-    pub output: mpsc::Receiver<String>,
+    pub output: Option<mpsc::Receiver<String>>,
 }
 
 #[derive(Debug)]
 pub struct ContainerData {
     // TODO: make a data structure that will will dequeue old messages
-    pub(crate) output_tx: mpsc::SyncSender<String>,
+    pub output_tx: mpsc::Sender<String>,
 }
 
 impl Container {
-    pub fn load_from_file(
+    pub async fn load_from_file(
         runtime: &super::ContainerRuntime,
         path: impl AsRef<str>,
     ) -> anyhow::Result<Self> {
@@ -33,13 +32,19 @@ impl Container {
 
         let module = wt::Module::new(&runtime.engine, &bytes)?;
 
-        let (output_tx, output_rx) = mpsc::sync_channel(100);
+        let (output_tx, output_rx) = mpsc::channel(100);
         let mut store = wt::Store::new(&runtime.engine, ContainerData { output_tx });
-        let instance = runtime.linker.instantiate(&mut store, &module)?;
+
+        store.epoch_deadline_async_yield_and_update(1);
+
+        let instance = runtime
+            .linker
+            .instantiate_async(&mut store, &module)
+            .await?;
+
+        // store.fuel_async_yield_interval(Some(10000))?;
 
         let exports = ContainerExports::new(&instance, &mut store)?;
-
-        exports.init.call(&mut store, ())?;
 
         println!("loaded container `{}`", path);
 
@@ -49,8 +54,16 @@ impl Container {
             instance,
             store,
             exports,
-            output: output_rx,
+            output: Some(output_rx),
         })
+    }
+
+    pub async fn init(&mut self) -> anyhow::Result<()> {
+        self.exports.init.call_async(&mut self.store, ()).await
+    }
+
+    pub fn take_output(&mut self) -> Option<mpsc::Receiver<String>> {
+        self.output.take()
     }
 
     pub fn get_memory(&mut self) -> anyhow::Result<wt::Memory> {

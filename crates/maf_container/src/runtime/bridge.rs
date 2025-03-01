@@ -7,11 +7,12 @@ use super::ContainerRuntime;
 
 static NUMBER: AtomicI32 = AtomicI32::new(0);
 
-pub(crate) fn wasm_fn_print(
+pub(crate) async fn wasm_fn_print(
     mut caller: wt::Caller<'_, ContainerData>,
-    ptr: u32,
-    len: u64,
+    params: (u32, u64),
 ) -> anyhow::Result<()> {
+    let (ptr, len) = params;
+
     let message = {
         let memory = caller
             .get_export("memory")
@@ -32,7 +33,8 @@ pub(crate) fn wasm_fn_print(
     caller
         .data_mut()
         .output_tx
-        .try_send(message.to_string())
+        .send(message.to_string())
+        .await
         .map_err(|_| anyhow::anyhow!("failed to send message to output channel"))?;
 
     Ok(())
@@ -43,7 +45,9 @@ impl ContainerRuntime {
         engine: &wt::Engine,
     ) -> anyhow::Result<wt::Linker<ContainerData>> {
         let mut linker = wt::Linker::new(engine);
-        linker.func_wrap("maf", "ffi_print", wasm_fn_print)?;
+        linker.func_wrap_async("maf", "ffi_print", |caller, params: (u32, u64)| {
+            Box::new(wasm_fn_print(caller, params))
+        })?;
         Ok(linker)
     }
 }
