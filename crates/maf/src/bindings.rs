@@ -48,6 +48,20 @@ pub extern "C" fn alloc(size: usize, align: usize) -> *mut u8 {
     }
 }
 
+#[no_mangle]
+pub extern "C" fn dealloc(ptr: *mut u8, size: usize, align: usize) {
+    assert!(!ptr.is_null(), "ptr must not be null");
+    assert!(size > 0, "size must be greater than 0");
+
+    unsafe {
+        // SAFETY: `ptr`, `size`, and `align` are validated.
+        std::alloc::dealloc(
+            ptr,
+            std::alloc::Layout::from_size_align(size, align).expect("invalid size or alignment"),
+        );
+    }
+}
+
 pub fn init_panic_handler() {
     std::panic::set_hook(Box::new(|panic_info| log!("{}", panic_info)));
 }

@@ -1,4 +1,4 @@
-use maf::{self, register_build, App, Body};
+use maf::{self, App, Body};
 
 fn test_rpc(body: Body<i32>) -> i32 {
     maf::log!("test_rpc: {:?}", body);
@@ -6,8 +6,10 @@ fn test_rpc(body: Body<i32>) -> i32 {
 }
 
 fn build() -> App {
-    maf::log!("building app");
+    loop {
+        maf::log!("building app");
+    }
     App::new().add_rpc_function("test", test_rpc)
 }
 
-register_build!(build);
+maf::register_build!(build);
