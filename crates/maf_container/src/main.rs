@@ -12,12 +12,27 @@ async fn main() -> anyhow::Result<()> {
 
     let path = wasm_module_path.clone();
     let runtime = ContainerRuntime::new()?;
+
+    let one = init_one_container(&runtime, &path, 1);
+    let two = init_one_container(&runtime, &path, 2);
+
+    tokio::try_join!(one, two)?;
+
+    Ok(())
+}
+
+async fn init_one_container(
+    runtime: &ContainerRuntime,
+    path: &str,
+    number: u32,
+) -> anyhow::Result<()> {
     let mut container = Container::load_from_file(&runtime, path).await?;
 
     let mut output = container.output.take().expect("output channel missing");
+
     tokio::spawn(async move {
         while let Some(message) = output.recv().await {
-            println!("output: {}", message);
+            println!("output({number}): {message}");
         }
     });
 

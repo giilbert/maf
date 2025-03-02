@@ -42,8 +42,6 @@ impl Container {
             .instantiate_async(&mut store, &module)
             .await?;
 
-        // store.fuel_async_yield_interval(Some(10000))?;
-
         let exports = ContainerExports::new(&instance, &mut store)?;
 
         println!("loaded container `{}`", path);
