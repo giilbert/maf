@@ -1,11 +1,14 @@
 use std::{
     any::Any,
     cell::{Ref, RefCell, RefMut},
-    future::{Future, IntoFuture},
+    future::{self, Future, IntoFuture},
     marker::PhantomData,
     pin::{pin, Pin},
     rc::Rc,
+    task::Waker,
 };
+
+use super::waker;
 
 #[derive(Clone)]
 pub struct WasmAsyncRuntime {
@@ -113,8 +116,13 @@ impl WasmAsyncRuntime {
         let task = self
             .get_task(task_id)
             .ok_or_else(|| anyhow::anyhow!("task with id {:?} not found", task_id))?;
+        let mut task = task.borrow_mut();
 
-        let fut = unsafe { Pin::new_unchecked(&mut task.borrow_mut().future.as_mut()) };
+        let fut = unsafe { Pin::new_unchecked(task.future.as_mut()) };
+        let waker = waker::create_waker();
+        let mut ctx = std::task::Context::from_waker(&waker);
+
+        fut.poll(&mut ctx);
 
         Ok(())
     }
