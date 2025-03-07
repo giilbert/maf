@@ -3,7 +3,12 @@ use std::{
     task::{RawWaker, RawWakerVTable, Waker},
 };
 
-struct WakerData {}
+use super::{runtime::TaskId, Runtime};
+
+struct WakerData {
+    runtime: Runtime,
+    task_id: TaskId,
+}
 
 impl WakerData {
     pub unsafe fn from_raw(raw: *const ()) -> Rc<Self> {
@@ -23,8 +28,8 @@ fn create_raw_waker(data: Rc<WakerData>) -> RawWaker {
     )
 }
 
-pub(super) fn create_waker() -> Waker {
-    let data = Rc::new(WakerData {});
+pub(super) fn create_waker(runtime: Runtime, task_id: TaskId) -> Waker {
+    let data = Rc::new(WakerData { runtime, task_id });
     let waker = unsafe { Waker::from_raw(create_raw_waker(data)) };
     waker
 }
@@ -47,16 +52,18 @@ unsafe fn clone_callback(ptr: *const ()) -> RawWaker {
 
 unsafe fn wake_callback(ptr: *const ()) {
     let rc = WakerData::from_raw(ptr);
-
-    todo!();
-
+    rc.runtime
+        .poll_task(rc.task_id)
+        .expect("error polling task");
     std::mem::forget(rc);
 }
 
 unsafe fn wake_by_ref_callback(ptr: *const ()) {
     let rc = WakerData::from_raw(ptr);
 
-    todo!();
+    rc.runtime
+        .poll_task(rc.task_id)
+        .expect("error polling task");
 
     std::mem::forget(rc);
 }

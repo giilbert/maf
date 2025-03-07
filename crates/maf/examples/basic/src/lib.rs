@@ -6,14 +6,20 @@ fn test_rpc(body: Body<i32>) -> i32 {
 }
 
 fn build() -> App {
-    let runtime = tasks::WasmAsyncRuntime::new();
+    let app = App::new().add_rpc_function("test", test_rpc);
 
+    let runtime = tasks::Runtime::new();
     let capture = 2;
-    runtime.spawn(async move {
-        maf::log!("Hello from async task! capture = {capture}");
-    });
 
-    App::new().add_rpc_function("test", test_rpc)
+    runtime
+        .spawn(async move {
+            maf::log!("Hello from async task! capture = {capture}");
+        })
+        .on_finish(|_| {
+            maf::log!("Task finished!");
+        });
+
+    app
 }
 
 maf::register_build!(build);

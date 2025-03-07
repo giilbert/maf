@@ -1,4 +1,4 @@
 mod runtime;
 mod waker;
 
-pub use runtime::WasmAsyncRuntime;
+pub use runtime::Runtime;

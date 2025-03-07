@@ -1,28 +1,32 @@
 use std::{
     any::Any,
     cell::{Ref, RefCell, RefMut},
+    collections::VecDeque,
     future::{self, Future, IntoFuture},
     marker::PhantomData,
     pin::{pin, Pin},
     rc::Rc,
-    task::Waker,
+    task::{Poll, Waker},
 };
+
+use crate::log;
 
 use super::waker;
 
 #[derive(Clone)]
-pub struct WasmAsyncRuntime {
-    inner: Rc<RefCell<WasmAsyncRuntimeInner>>,
+pub struct Runtime {
+    inner: Rc<RefCell<RuntimeInner>>,
 }
 
 #[derive(Debug)]
-pub struct WasmAsyncRuntimeInner {
+pub struct RuntimeInner {
     tasks: Vec<(TaskId, Option<Rc<RefCell<Task>>>)>,
     free_task_ids: Vec<u32>,
 }
 
 pub struct Task {
     future: Box<dyn Future<Output = Box<dyn Any + 'static>>>,
+    handler: Option<Box<dyn FnOnce(Box<dyn Any>)>>,
 }
 
 impl std::fmt::Debug for Task {
@@ -37,21 +41,21 @@ pub struct TaskId {
     index: u32,
 }
 
-impl WasmAsyncRuntime {
+impl Runtime {
     pub fn new() -> Self {
         Self {
-            inner: Rc::new(RefCell::new(WasmAsyncRuntimeInner {
+            inner: Rc::new(RefCell::new(RuntimeInner {
                 tasks: Vec::new(),
                 free_task_ids: Vec::new(),
             })),
         }
     }
 
-    pub(crate) fn inner(&self) -> Ref<WasmAsyncRuntimeInner> {
+    pub(crate) fn inner(&self) -> Ref<RuntimeInner> {
         self.inner.borrow()
     }
 
-    pub(crate) fn inner_mut(&self) -> RefMut<WasmAsyncRuntimeInner> {
+    pub(crate) fn inner_mut(&self) -> RefMut<RuntimeInner> {
         self.inner.borrow_mut()
     }
 
@@ -111,18 +115,31 @@ impl WasmAsyncRuntime {
         }
     }
 
+    // pub(crate) fn waker_called(&self, task_id: TaskId) {
+    //     let mut inner = self.inner_mut();
+    //     inner.resumed_tasks.push_back(task_id);
+    // }
+
     // Used by external code to signal that a task is ready to be processed.
-    pub fn ready_task(&self, task_id: TaskId) -> anyhow::Result<()> {
+    pub fn poll_task(&self, task_id: TaskId) -> anyhow::Result<()> {
         let task = self
             .get_task(task_id)
             .ok_or_else(|| anyhow::anyhow!("task with id {:?} not found", task_id))?;
         let mut task = task.borrow_mut();
 
         let fut = unsafe { Pin::new_unchecked(task.future.as_mut()) };
-        let waker = waker::create_waker();
+        let waker = waker::create_waker(self.clone(), task_id);
         let mut ctx = std::task::Context::from_waker(&waker);
 
-        fut.poll(&mut ctx);
+        match fut.poll(&mut ctx) {
+            Poll::Ready(output) => {
+                task.handler.take().map(|handler| handler(output));
+                self.remove_task(task_id);
+            }
+            Poll::Pending => {
+                log!("task {:?} is pending. putting to sleep..", task_id);
+            }
+        }
 
         Ok(())
     }
@@ -136,16 +153,46 @@ impl WasmAsyncRuntime {
             Box::new(result) as Box<dyn Any + 'static>
         });
 
-        let id = self.push_task(Task { future });
-        self.ready_task(id);
+        let id = self.push_task(Task {
+            future,
+            handler: None,
+        });
+
+        if self.get_task(id).is_none() {
+            log!("task {:?} finished immediately", id);
+        }
 
         JoinHandle {
+            runtime: self.clone(),
+            task_id: id,
             _phantom: PhantomData,
         }
     }
 }
 
-#[derive(Debug)]
 pub struct JoinHandle<T> {
+    runtime: Runtime,
+    task_id: TaskId,
     _phantom: PhantomData<T>,
+}
+
+impl<T: 'static> JoinHandle<T> {
+    pub fn execute(self) {
+        self.runtime
+            .poll_task(self.task_id)
+            .expect("error polling task");
+    }
+
+    pub fn on_finish(self, f: impl FnOnce(T) + 'static) {
+        let handler = Box::new(move |output: Box<dyn Any>| {
+            let output = output.downcast::<T>().expect("output downcast failed");
+            f(*output);
+        });
+
+        self.runtime
+            .get_task(self.task_id)
+            .map(|task| task.borrow_mut().handler = Some(handler));
+
+        self.execute();
+    }
 }

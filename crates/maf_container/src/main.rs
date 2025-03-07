@@ -13,10 +13,10 @@ async fn main() -> anyhow::Result<()> {
     let path = wasm_module_path.clone();
     let runtime = ContainerRuntime::new()?;
 
-    let one = init_one_container(&runtime, &path, 1);
-    let two = init_one_container(&runtime, &path, 2);
+    init_one_container(&runtime, &path, 1).await?;
+    // let two = init_one_container(&runtime, &path, 2);
 
-    tokio::try_join!(one, two)?;
+    // tokio::try_join!(one, two)?;
 
     Ok(())
 }
@@ -30,13 +30,24 @@ async fn init_one_container(
 
     let mut output = container.output.take().expect("output channel missing");
 
-    tokio::spawn(async move {
+    let handle = tokio::spawn(async move {
         while let Some(message) = output.recv().await {
             println!("output({number}): {message}");
         }
+
+        println!("output done");
     });
 
-    container.init().await?;
+    match container.init().await {
+        Ok(_) => {
+            println!("container initialized");
+        }
+        Err(e) => {
+            println!("container failed to initialize: {e}");
+        }
+    };
+
+    handle.await?;
 
     Ok(())
 }
