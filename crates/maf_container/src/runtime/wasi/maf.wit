@@ -5,8 +5,6 @@ world bindings {
         path: string
     }
 
-    import print: func(message: string) -> result;
-
     export init: func() -> result;
     export handle-request: func(request: request) -> result;
 }

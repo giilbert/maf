@@ -8,8 +8,6 @@ use std::{
     task::Poll,
 };
 
-use crate::log;
-
 use super::waker;
 
 #[derive(Clone)]
@@ -136,7 +134,7 @@ impl Runtime {
                 self.remove_task(task_id);
             }
             Poll::Pending => {
-                log!("task {:?} is pending. putting to sleep..", task_id);
+                println!("task {:?} is pending. putting to sleep..", task_id);
             }
         }
 
@@ -158,7 +156,7 @@ impl Runtime {
         });
 
         if self.get_task(id).is_none() {
-            log!("task {:?} finished immediately", id);
+            println!("task {:?} finished immediately", id);
         }
 
         JoinHandle {

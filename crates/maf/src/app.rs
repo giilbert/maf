@@ -71,7 +71,6 @@ macro_rules! register_build {
 
         impl bindgen::Guest for GuestImpl {
             fn init() -> Result<(), ()> {
-                $crate::bindings::init_panic_handler();
                 let app = $func();
                 $crate::app::GLOBAL_APP.register(app);
                 Ok(())

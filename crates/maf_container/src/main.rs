@@ -32,7 +32,7 @@ async fn init_one_container(
 
     let handle = tokio::spawn(async move {
         while let Some(message) = output.recv().await {
-            println!("output({number}): {message}");
+            println!("[{number}]: {}", message.trim());
         }
 
         println!("output done");

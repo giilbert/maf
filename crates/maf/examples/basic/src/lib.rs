@@ -1,7 +1,7 @@
 use maf::{self, tasks, App, Body};
 
 fn test_rpc(body: Body<i32>) -> i32 {
-    maf::log!("test_rpc: {:?}", body);
+    println!("test_rpc: {:?}", body);
     42
 }
 
@@ -13,10 +13,10 @@ fn build() -> App {
 
     runtime
         .spawn(async move {
-            maf::log!("Hello from async task! capture = {capture}");
+            println!("Hello from async task! capture = {capture}");
         })
         .on_finish(|_| {
-            maf::log!("Task finished!");
+            println!("Task finished!");
         });
 
     app

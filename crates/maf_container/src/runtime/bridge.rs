@@ -13,8 +13,8 @@ impl ContainerRuntime {
     ) -> anyhow::Result<wt::component::Linker<ContainerData>> {
         let mut linker = wt::component::Linker::new(engine);
 
-        CustomBindings::add_to_linker(&mut linker, |state: &mut ContainerData| state)?;
-        wasmtime_wasi::add_to_linker_sync(&mut linker)?;
+        // CustomBindings::add_to_linker(&mut linker, |state: &mut ContainerData| state)?;
+        wasmtime_wasi::add_to_linker_async(&mut linker)?;
 
         Ok(linker)
     }

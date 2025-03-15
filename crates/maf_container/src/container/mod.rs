@@ -1,5 +1,7 @@
 mod exports;
+mod io;
 
+use io::ContainerStdoutFactory;
 use tokio::sync::mpsc;
 use wasmtime as wt;
 
@@ -23,8 +25,6 @@ impl std::fmt::Debug for Container {
 }
 
 pub struct ContainerData {
-    // TODO: make a data structure that will will dequeue old messages
-    pub output_tx: mpsc::Sender<String>,
     pub resources: wasmtime_wasi::ResourceTable,
     pub wasi_ctx: wasmtime_wasi::WasiCtx,
 }
@@ -32,7 +32,6 @@ pub struct ContainerData {
 impl std::fmt::Debug for ContainerData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ContainerData")
-            .field("output_tx", &self.output_tx)
             .field("resources", &self.resources)
             .finish_non_exhaustive()
     }
@@ -50,11 +49,13 @@ impl Container {
 
         let (output_tx, output_rx) = mpsc::channel(100);
         let resources = wasmtime_wasi::ResourceTable::default();
-        let wasi_ctx = wasmtime_wasi::WasiCtx::builder().build();
+        let stdout = ContainerStdoutFactory {
+            output_tx: output_tx.clone(),
+        };
+        let wasi_ctx = wasmtime_wasi::WasiCtx::builder().stdout(stdout).build();
         let mut store = wt::Store::new(
             &runtime.engine,
             ContainerData {
-                output_tx,
                 resources,
                 wasi_ctx,
             },
