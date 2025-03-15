@@ -1,0 +1,12 @@
+package maf:bindings;
+
+world bindings {
+    record request {
+        path: string
+    }
+
+    import print: func(message: string) -> result;
+
+    export init: func() -> result;
+    export handle-request: func(request: request) -> result;
+}

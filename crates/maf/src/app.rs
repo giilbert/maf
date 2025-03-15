@@ -1,9 +1,4 @@
-use std::{
-    cell::{RefCell, RefMut, UnsafeCell},
-    collections::HashMap,
-    rc::Rc,
-    sync::{RwLock, RwLockWriteGuard},
-};
+use std::{cell::RefCell, rc::Rc};
 
 use crate::rpc::{IntoRpcFunction, RpcStore};
 
@@ -67,11 +62,26 @@ impl App {
 #[macro_export]
 macro_rules! register_build {
     ($func:ident) => {
-        #[no_mangle]
-        pub extern "C" fn init() {
-            $crate::bindings::init_panic_handler();
-            let app = $func();
-            $crate::app::GLOBAL_APP.register(app);
+        pub use $crate::bindings::bindgen::{
+            self, __export_world_bindings_cabi, _export_handle_request_cabi, _export_init_cabi,
+            export,
+        };
+
+        pub struct GuestImpl {}
+
+        impl bindgen::Guest for GuestImpl {
+            fn init() -> Result<(), ()> {
+                $crate::bindings::init_panic_handler();
+                let app = $func();
+                $crate::app::GLOBAL_APP.register(app);
+                Ok(())
+            }
+
+            fn handle_request(request: bindgen::Request) -> Result<(), ()> {
+                todo!("handle_request");
+            }
         }
+
+        export!(GuestImpl);
     };
 }

@@ -1,25 +1,41 @@
-mod abi;
 mod exports;
 
-use exports::ContainerExports;
 use tokio::sync::mpsc;
 use wasmtime as wt;
 
-#[derive(Debug)]
+use crate::runtime::wasi::Bindings;
+
 pub struct Container {
     pub(super) path: String,
-    pub(super) module: wt::Module,
-    pub(super) instance: wt::Instance,
+    pub(super) instance: Bindings,
     pub(super) store: wt::Store<ContainerData>,
-    pub(super) exports: ContainerExports,
-
     pub output: Option<mpsc::Receiver<String>>,
 }
 
-#[derive(Debug)]
+impl std::fmt::Debug for Container {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Container")
+            .field("path", &self.path)
+            .field("store", &self.store)
+            .field("output", &self.output)
+            .finish_non_exhaustive()
+    }
+}
+
 pub struct ContainerData {
     // TODO: make a data structure that will will dequeue old messages
     pub output_tx: mpsc::Sender<String>,
+    pub resources: wasmtime_wasi::ResourceTable,
+    pub wasi_ctx: wasmtime_wasi::WasiCtx,
+}
+
+impl std::fmt::Debug for ContainerData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ContainerData")
+            .field("output_tx", &self.output_tx)
+            .field("resources", &self.resources)
+            .finish_non_exhaustive()
+    }
 }
 
 impl Container {
@@ -30,48 +46,53 @@ impl Container {
         let path = path.as_ref();
         let bytes = std::fs::read(path)?;
 
-        let module = wt::Module::new(&runtime.engine, &bytes)?;
+        let component = wt::component::Component::new(&runtime.engine, &bytes)?;
 
         let (output_tx, output_rx) = mpsc::channel(100);
-        let mut store = wt::Store::new(&runtime.engine, ContainerData { output_tx });
+        let resources = wasmtime_wasi::ResourceTable::default();
+        let wasi_ctx = wasmtime_wasi::WasiCtx::builder().build();
+        let mut store = wt::Store::new(
+            &runtime.engine,
+            ContainerData {
+                output_tx,
+                resources,
+                wasi_ctx,
+            },
+        );
 
         store.epoch_deadline_async_yield_and_update(1);
 
-        let instance = runtime
-            .linker
-            .instantiate_async(&mut store, &module)
-            .await?;
-
-        let exports = ContainerExports::new(&instance, &mut store)?;
+        let instance = Bindings::instantiate_async(&mut store, &component, &runtime.linker).await?;
 
         println!("loaded container `{}`", path);
 
         Ok(Self {
             path: path.to_string(),
-            module,
             instance,
             store,
-            exports,
             output: Some(output_rx),
         })
     }
 
     pub async fn init(&mut self) -> anyhow::Result<()> {
-        self.exports.init.call_async(&mut self.store, ()).await
+        Ok(self
+            .instance
+            .call_init(&mut self.store)
+            .await?
+            .map_err(|_| anyhow::anyhow!("failed to init due to wasm exception"))?)
     }
 
     pub fn take_output(&mut self) -> Option<mpsc::Receiver<String>> {
         self.output.take()
     }
+}
 
-    pub fn get_memory(&mut self) -> anyhow::Result<wt::Memory> {
-        self.instance
-            .get_memory(&mut self.store, "memory")
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "failed to find `memory` export in instance of `{}`",
-                    self.path
-                )
-            })
+impl wasmtime_wasi::WasiView for ContainerData {
+    fn table(&mut self) -> &mut wasmtime_wasi::ResourceTable {
+        &mut self.resources
+    }
+
+    fn ctx(&mut self) -> &mut wasmtime_wasi::WasiCtx {
+        &mut self.wasi_ctx
     }
 }

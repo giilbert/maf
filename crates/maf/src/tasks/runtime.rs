@@ -1,12 +1,11 @@
 use std::{
     any::Any,
     cell::{Ref, RefCell, RefMut},
-    collections::VecDeque,
-    future::{self, Future, IntoFuture},
+    future::{Future, IntoFuture},
     marker::PhantomData,
-    pin::{pin, Pin},
+    pin::Pin,
     rc::Rc,
-    task::{Poll, Waker},
+    task::Poll,
 };
 
 use crate::log;

@@ -1,11 +1,12 @@
 mod bridge;
+pub mod wasi;
 
 use crate::container::ContainerData;
 use wasmtime as wt;
 
 pub struct ContainerRuntime {
     pub(super) engine: wt::Engine,
-    pub(super) linker: wt::Linker<ContainerData>,
+    pub(super) linker: wt::component::Linker<ContainerData>,
 }
 
 impl ContainerRuntime {
@@ -16,7 +17,7 @@ impl ContainerRuntime {
                 .async_support(true)
                 .epoch_interruption(true),
         )?;
-        let linker = Self::create_linker_with_ffi(&engine)?;
+        let linker = Self::create_component_linker(&engine)?;
 
         Ok(Self { engine, linker })
     }
