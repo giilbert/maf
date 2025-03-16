@@ -5,12 +5,14 @@ use std::{
     marker::PhantomData,
     pin::Pin,
     rc::Rc,
-    task::Poll,
+    task::{Poll, Waker},
 };
+
+use wasi::io::poll::Pollable;
 
 use super::waker;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Runtime {
     inner: Rc<RefCell<RuntimeInner>>,
 }
@@ -19,6 +21,8 @@ pub struct Runtime {
 pub struct RuntimeInner {
     tasks: Vec<(TaskId, Option<Rc<RefCell<Task>>>)>,
     free_task_ids: Vec<u32>,
+
+    pollables: Vec<(Pollable, Waker)>,
 }
 
 pub struct Task {
@@ -44,6 +48,8 @@ impl Runtime {
             inner: Rc::new(RefCell::new(RuntimeInner {
                 tasks: Vec::new(),
                 free_task_ids: Vec::new(),
+
+                pollables: Vec::new(),
             })),
         }
     }
@@ -118,7 +124,7 @@ impl Runtime {
     // }
 
     // Used by external code to signal that a task is ready to be processed.
-    pub fn poll_task(&self, task_id: TaskId) -> anyhow::Result<()> {
+    pub fn resume_task(&self, task_id: TaskId) -> anyhow::Result<()> {
         let task = self
             .get_task(task_id)
             .ok_or_else(|| anyhow::anyhow!("task with id {:?} not found", task_id))?;
@@ -139,6 +145,47 @@ impl Runtime {
         }
 
         Ok(())
+    }
+
+    pub fn blocking_poll(&self) {
+        loop {
+            let inner = self.inner();
+            let pollable_ref = inner
+                .pollables
+                .as_slice()
+                .iter()
+                .map(|(p, _)| &*p)
+                .collect::<Vec<_>>();
+
+            if pollable_ref.is_empty() {
+                break;
+            }
+
+            let ready_poll_indices = wasi::io::poll::poll(&pollable_ref);
+            drop(inner);
+
+            for index in ready_poll_indices {
+                println!("pollable {:?} is ready", index);
+
+                let waker = {
+                    let inner = self.inner();
+                    let (_, waker_ref) = &inner.pollables[index as usize];
+                    waker_ref.clone() // End the borrow of inner before calling wake_by_ref
+                };
+
+                waker.wake_by_ref();
+
+                let mut inner_mut = self.inner_mut();
+                inner_mut.pollables.remove(index as usize);
+            }
+        }
+
+        println!("blocking_poll finished");
+    }
+
+    pub fn add_pollable(&self, pollable: Pollable, waker: Waker) {
+        println!("adding pollable");
+        self.inner_mut().pollables.push((pollable, waker));
     }
 
     pub fn spawn<F: IntoFuture + 'static>(&self, fut: F) -> JoinHandle<F::Output>
@@ -176,7 +223,7 @@ pub struct JoinHandle<T> {
 impl<T: 'static> JoinHandle<T> {
     pub fn execute(self) {
         self.runtime
-            .poll_task(self.task_id)
+            .resume_task(self.task_id)
             .expect("error polling task");
     }
 

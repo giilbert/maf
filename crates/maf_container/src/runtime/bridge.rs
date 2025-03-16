@@ -1,9 +1,10 @@
 use std::sync::atomic::AtomicI32;
 
-use crate::container::ContainerData;
+use crate::container::{Container, ContainerData};
 use wasmtime::{self as wt};
+use wasmtime_wasi::IoImpl;
 
-use super::{wasi::Bindings as CustomBindings, ContainerRuntime};
+use super::{wasi, ContainerRuntime};
 
 static NUMBER: AtomicI32 = AtomicI32::new(0);
 
@@ -13,7 +14,7 @@ impl ContainerRuntime {
     ) -> anyhow::Result<wt::component::Linker<ContainerData>> {
         let mut linker = wt::component::Linker::new(engine);
 
-        // CustomBindings::add_to_linker(&mut linker, |state: &mut ContainerData| state)?;
+        wasi::Bindings::add_to_linker(&mut linker, |state| &mut IoImpl(state));
         wasmtime_wasi::add_to_linker_async(&mut linker)?;
 
         Ok(linker)

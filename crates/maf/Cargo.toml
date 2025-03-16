@@ -7,4 +7,7 @@ edition = "2021"
 anyhow = "^1.0.96"
 serde = "^1"
 serde_json = { version = "^1", default-features = false, features = ["alloc"] }
+
+# [target."wasm32-wasip2".dependencies]
 wit-bindgen = "0.40.0"
+wasi = "0.14.2"

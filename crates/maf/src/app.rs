@@ -63,21 +63,17 @@ impl App {
 macro_rules! register_build {
     ($func:ident) => {
         pub use $crate::bindings::bindgen::{
-            self, __export_world_bindings_cabi, _export_handle_request_cabi, _export_init_cabi,
-            export,
+            self, __export_world_bindings_cabi, _export_init_cabi, export,
         };
 
         pub struct GuestImpl {}
 
         impl bindgen::Guest for GuestImpl {
             fn init() -> Result<(), ()> {
+                $crate::bindings::init_panic_hook();
                 let app = $func();
                 $crate::app::GLOBAL_APP.register(app);
                 Ok(())
-            }
-
-            fn handle_request(request: bindgen::Request) -> Result<(), ()> {
-                todo!("handle_request");
             }
         }
 

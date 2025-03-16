@@ -53,7 +53,7 @@ unsafe fn clone_callback(ptr: *const ()) -> RawWaker {
 unsafe fn wake_callback(ptr: *const ()) {
     let rc = WakerData::from_raw(ptr);
     rc.runtime
-        .poll_task(rc.task_id)
+        .resume_task(rc.task_id)
         .expect("error polling task");
     std::mem::forget(rc);
 }
@@ -62,7 +62,7 @@ unsafe fn wake_by_ref_callback(ptr: *const ()) {
     let rc = WakerData::from_raw(ptr);
 
     rc.runtime
-        .poll_task(rc.task_id)
+        .resume_task(rc.task_id)
         .expect("error polling task");
 
     std::mem::forget(rc);

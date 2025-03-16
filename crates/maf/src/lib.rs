@@ -5,3 +5,4 @@ pub mod tasks;
 
 pub use app::App;
 pub use rpc::{Body, FromRequest, IntoRpcFunction, RpcFunction, RpcRequest, RpcResponse};
+pub use wasi;

@@ -1,0 +1,31 @@
+package maf:bindings;
+
+world bindings {
+    use wasi:io/poll@0.2.4.{pollable};
+
+    resource user {
+        constructor(id: tuple<u64, u64>);
+        send: func(bytes: list<u8>) -> result;
+    }
+
+    record request {
+        user: user,
+        path: string,
+    }
+
+    resource future-connection {
+        subscribe: func() -> pollable;
+        get: func() -> user;
+    }
+
+    import next-connection: func() -> future-connection;
+
+    resource future-request {
+        subscribe: func() -> pollable;
+        get: func() -> request;
+    }
+
+    import next-request: func() -> future-request;
+
+    export init: func() -> result;
+}
