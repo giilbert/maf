@@ -2,7 +2,7 @@ use std::sync::atomic::AtomicI32;
 
 use crate::container::{Container, ContainerData};
 use wasmtime::{self as wt};
-use wasmtime_wasi::IoImpl;
+use wasmtime_wasi::{IoImpl, IoView, WasiImpl, WasiView};
 
 use super::{wasi, ContainerRuntime};
 
@@ -14,9 +14,16 @@ impl ContainerRuntime {
     ) -> anyhow::Result<wt::component::Linker<ContainerData>> {
         let mut linker = wt::component::Linker::new(engine);
 
-        wasi::Bindings::add_to_linker(&mut linker, |state| &mut IoImpl(state));
         wasmtime_wasi::add_to_linker_async(&mut linker)?;
+        wasi::add_to_linker(&mut linker, |state| state)?;
 
         Ok(linker)
     }
+}
+
+fn io_type_annotate<T: IoView, F>(val: F) -> F
+where
+    F: Fn(&mut T) -> IoImpl<&mut T>,
+{
+    val
 }

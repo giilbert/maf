@@ -1,6 +1,6 @@
 package maf:bindings;
 
-world bindings {
+interface bindings {
     use wasi:io/poll@0.2.4.{pollable};
 
     resource user {
@@ -18,14 +18,19 @@ world bindings {
         get: func() -> user;
     }
 
-    import next-connection: func() -> future-connection;
+    next-connection: func() -> future-connection;
 
     resource future-request {
         subscribe: func() -> pollable;
         get: func() -> request;
     }
 
-    import next-request: func() -> future-request;
+    next-request: func() -> future-request;
+
+}
+
+world imports {
+    import bindings;
 
     export init: func() -> result;
 }

@@ -4,6 +4,7 @@ mod io;
 use io::ContainerStdoutFactory;
 use tokio::sync::mpsc;
 use wasmtime as wt;
+use wasmtime_wasi::IoView;
 
 use crate::runtime::wasi::Bindings;
 
@@ -89,11 +90,13 @@ impl Container {
 }
 
 impl wasmtime_wasi::WasiView for ContainerData {
-    fn table(&mut self) -> &mut wasmtime_wasi::ResourceTable {
-        &mut self.resources
-    }
-
     fn ctx(&mut self) -> &mut wasmtime_wasi::WasiCtx {
         &mut self.wasi_ctx
+    }
+}
+
+impl IoView for ContainerData {
+    fn table(&mut self) -> &mut wasmtime_wasi::ResourceTable {
+        &mut self.resources
     }
 }

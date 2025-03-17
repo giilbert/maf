@@ -2,7 +2,9 @@ use std::{future::Future, pin::Pin};
 
 use bytes::Bytes;
 use tokio::sync::mpsc;
-use wasmtime_wasi::{async_trait, bindings::io::streams::HostOutputStream, StdoutStream};
+use wasmtime_wasi::{
+    async_trait, bindings::io::streams::HostOutputStream, OutputStream, StdoutStream, StreamResult,
+};
 
 #[derive(Debug, Clone)]
 pub struct ContainerStdoutFactory {
@@ -30,13 +32,9 @@ pub struct ContainerStdout {
 }
 
 // FIXME: limit buffer size
-impl HostOutputStream for ContainerStdout {
-    fn write(
-        &mut self,
-        self_: wasmtime::component::Resource<wasmtime_wasi::DynOutputStream>,
-        contents: Vec<u8>,
-    ) -> Result<(), wasmtime_wasi_io::bindings::wasi::io::super::super::_TrappableError0> {
-        self.buffer_length += contents.len();
+impl OutputStream for ContainerStdout {
+    fn write(&mut self, bytes: Bytes) -> StreamResult<()> {
+        self.buffer_length += bytes.len();
         self.buffer.push(bytes);
         Ok(())
     }
@@ -59,6 +57,6 @@ impl HostOutputStream for ContainerStdout {
 }
 
 #[async_trait]
-impl wasmtime_wasi::Subscribe for ContainerStdout {
+impl wasmtime_wasi::Pollable for ContainerStdout {
     async fn ready(&mut self) {}
 }

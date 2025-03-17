@@ -63,7 +63,7 @@ impl App {
 macro_rules! register_build {
     ($func:ident) => {
         pub use $crate::bindings::bindgen::{
-            self, __export_world_bindings_cabi, _export_init_cabi, export,
+            self, __export_world_imports_cabi, _export_init_cabi, export,
         };
 
         pub struct GuestImpl {}

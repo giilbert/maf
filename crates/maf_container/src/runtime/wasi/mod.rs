@@ -2,17 +2,20 @@ use crate::container::ContainerData;
 
 mod generated {
     wasmtime::component::bindgen!({
-        world: "bindings",
         path: "../../wit",
         async: true,
         with: {
-            "wasi:io": wasmtime_wasi::bindings::io
+            // "wasi:io/poll/pollable": wasmtime_wasi_io::poll::DynPollable,
+            "wasi:io/poll": wasmtime_wasi_io::bindings::wasi::io::poll,
         }
     });
 }
-pub use generated::*;
 
-impl generated::HostFutureConnection for ContainerData {
+pub use generated::maf::bindings::bindings::*;
+pub use generated::Imports as Bindings;
+use wasmtime_wasi::IoImpl;
+
+impl HostFutureConnection for ContainerData {
     async fn drop(
         &mut self,
         rep: wasmtime::component::Resource<FutureConnection>,
@@ -35,7 +38,7 @@ impl generated::HostFutureConnection for ContainerData {
     }
 }
 
-impl generated::HostFutureRequest for ContainerData {
+impl HostFutureRequest for ContainerData {
     async fn drop(
         &mut self,
         rep: wasmtime::component::Resource<FutureRequest>,
@@ -43,10 +46,7 @@ impl generated::HostFutureRequest for ContainerData {
         todo!();
     }
 
-    async fn get(
-        &mut self,
-        self_: wasmtime::component::Resource<FutureRequest>,
-    ) -> generated::Request {
+    async fn get(&mut self, self_: wasmtime::component::Resource<FutureRequest>) -> Request {
         todo!();
     }
 
@@ -58,7 +58,7 @@ impl generated::HostFutureRequest for ContainerData {
     }
 }
 
-impl generated::HostUser for ContainerData {
+impl HostUser for ContainerData {
     async fn drop(&mut self, rep: wasmtime::component::Resource<User>) -> wasmtime::Result<()> {
         todo!();
     }
@@ -76,7 +76,7 @@ impl generated::HostUser for ContainerData {
     }
 }
 
-impl generated::BindingsImports for ContainerData {
+impl generated::maf::bindings::bindings::Host for ContainerData {
     async fn next_connection(&mut self) -> wasmtime::component::Resource<FutureConnection> {
         todo!();
     }
