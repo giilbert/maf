@@ -18,15 +18,13 @@ interface bindings {
         get: func() -> user;
     }
 
-    next-connection: func() -> future-connection;
-
     resource future-request {
         subscribe: func() -> pollable;
         get: func() -> request;
     }
-
+    
+    next-connection: func() -> future-connection;
     next-request: func() -> future-request;
-
 }
 
 world imports {
