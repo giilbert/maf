@@ -6,14 +6,18 @@ mod generated {
         path: "../../wit",
         async: true,
         with: {
-            // "wasi:io/poll/pollable": wasmtime_wasi_io::poll::DynPollable,
             "wasi:io/poll": wasmtime_wasi_io::bindings::wasi::io::poll,
+            "maf:bindings/bindings/future-connection": crate::runtime::wasi::FutureConnection
         }
     });
 }
 
-pub use generated::maf::bindings::bindings::*;
+pub use generated::maf::bindings::bindings::{self, *};
 pub use generated::Imports as Bindings;
+
+pub struct FutureConnection {
+    a: u32,
+}
 
 impl HostFutureConnection for ContainerData {
     async fn drop(&mut self, connection: Resource<FutureConnection>) -> wasmtime::Result<()> {
@@ -58,11 +62,14 @@ impl HostUser for ContainerData {
 }
 
 impl Host for ContainerData {
-    async fn next_connection(&mut self) -> Resource<FutureConnection> {
+    async fn listen_connection(&mut self) -> Result<Resource<FutureConnection>, ()> {
+        self.resources
+            .push(FutureConnection { a: 0 })
+            .map_err(|_| ())?;
         todo!();
     }
 
-    async fn next_request(&mut self) -> Resource<FutureRequest> {
+    async fn listen_request(&mut self) -> Result<Resource<FutureRequest>, ()> {
         todo!();
     }
 }

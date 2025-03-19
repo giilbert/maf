@@ -20,10 +20,3 @@ impl ContainerRuntime {
         Ok(linker)
     }
 }
-
-fn io_type_annotate<T: IoView, F>(val: F) -> F
-where
-    F: Fn(&mut T) -> IoImpl<&mut T>,
-{
-    val
-}

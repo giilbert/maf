@@ -23,8 +23,8 @@ interface bindings {
         get: func() -> request;
     }
     
-    next-connection: func() -> future-connection;
-    next-request: func() -> future-request;
+    listen-connection: func() -> result<future-connection>;
+    listen-request: func() -> result<future-request>;
 }
 
 world imports {
