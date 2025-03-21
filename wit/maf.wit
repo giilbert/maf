@@ -14,17 +14,23 @@ interface bindings {
     }
 
     resource future-connection {
-        subscribe: func() -> pollable;
-        get: func() -> user;
+        subscribe: func() -> result<pollable, listen-error>;
+        get: func() -> result<user, listen-error>;
     }
 
     resource future-request {
-        subscribe: func() -> pollable;
-        get: func() -> request;
+        subscribe: func() -> result<pollable, listen-error>;
+        get: func() -> result<request, listen-error>;
+    }
+
+    variant listen-error {
+        already-listening,
+        object-not-found,
+        closed
     }
     
-    listen-connection: func() -> result<future-connection>;
-    listen-request: func() -> result<future-request>;
+    listen-connection: func() -> result<future-connection, listen-error>;
+    listen-request: func() -> result<future-request, listen-error>;
 }
 
 world imports {

@@ -1,6 +1,8 @@
+pub mod connection;
 mod exports;
 mod io;
 
+use connection::ConnectionHandle;
 use io::ContainerStdoutFactory;
 use tokio::sync::mpsc;
 use wasmtime as wt;
@@ -28,6 +30,8 @@ impl std::fmt::Debug for Container {
 pub struct ContainerData {
     pub resources: wasmtime_wasi::ResourceTable,
     pub wasi_ctx: wasmtime_wasi::WasiCtx,
+    pub connection_tx: mpsc::Sender<ConnectionHandle>,
+    pub connection_rx: Option<mpsc::Receiver<ConnectionHandle>>,
 }
 
 impl std::fmt::Debug for ContainerData {
@@ -48,6 +52,7 @@ impl Container {
 
         let component = wt::component::Component::new(&runtime.engine, &bytes)?;
 
+        let (connection_tx, connection_rx) = mpsc::channel(10);
         let (output_tx, output_rx) = mpsc::channel(100);
         let resources = wasmtime_wasi::ResourceTable::default();
         let stdout = ContainerStdoutFactory {
@@ -59,6 +64,8 @@ impl Container {
             ContainerData {
                 resources,
                 wasi_ctx,
+                connection_tx,
+                connection_rx: Some(connection_rx),
             },
         );
 
