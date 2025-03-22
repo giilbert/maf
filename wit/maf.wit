@@ -5,7 +5,12 @@ interface bindings {
 
     resource user {
         constructor(id: tuple<u64, u64>);
+        get-meta: func() -> result<user-meta>;
         send: func(bytes: list<u8>) -> result;
+    }
+
+    record user-meta {
+        id: tuple<u64, u64>,
     }
 
     record request {
@@ -13,7 +18,7 @@ interface bindings {
         path: string,
     }
 
-    resource future-connection {
+    resource future-user {
         subscribe: func() -> result<pollable, listen-error>;
         get: func() -> result<user, listen-error>;
     }
@@ -25,11 +30,11 @@ interface bindings {
 
     variant listen-error {
         already-listening,
-        object-not-found,
+        not-ready,
         closed
     }
     
-    listen-connection: func() -> result<future-connection, listen-error>;
+    listen-user: func() -> result<future-user, listen-error>;
     listen-request: func() -> result<future-request, listen-error>;
 }
 

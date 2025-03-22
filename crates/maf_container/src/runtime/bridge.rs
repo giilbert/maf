@@ -15,7 +15,7 @@ impl ContainerRuntime {
         let mut linker = wt::component::Linker::new(engine);
 
         wasmtime_wasi::add_to_linker_async(&mut linker)?;
-        wasi::add_to_linker(&mut linker, |state| state)?;
+        wasi::bindings::add_to_linker(&mut linker, |state| state)?;
 
         Ok(linker)
     }

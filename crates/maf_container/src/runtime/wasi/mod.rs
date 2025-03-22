@@ -1,7 +1,12 @@
-use crate::container::connection::ConnectionHandle;
+mod errors;
+mod request;
+mod user;
+
+pub use user::{FutureUser, User};
+use wasmtime::component::Resource;
+
 use crate::container::ContainerData;
-use tokio::sync::mpsc;
-use wasmtime::{component::Resource, Trap};
+use errors::ListenError;
 
 mod generated {
     wasmtime::component::bindgen!({
@@ -9,7 +14,8 @@ mod generated {
         async: true,
         with: {
             "wasi:io/poll": wasmtime_wasi_io::bindings::wasi::io::poll,
-            "maf:bindings/bindings/future-connection": crate::runtime::wasi::FutureConnection
+            "maf:bindings/bindings/future-user": crate::runtime::wasi::FutureUser,
+            "maf:bindings/bindings/user": crate::runtime::wasi::User
         },
         trappable_imports: true,
         trappable_error_type: {
@@ -18,83 +24,16 @@ mod generated {
     });
 }
 
-pub use generated::maf::bindings::bindings::{self, *};
+pub use generated::maf::bindings::bindings;
 pub use generated::Imports as Bindings;
 
-pub struct FutureConnection {
-    channel: mpsc::Receiver<ConnectionHandle>,
-}
-
-pub struct ListenError(pub wasmtime_wasi::TrappableError<bindings::ListenError>);
-
-impl From<wasmtime::component::ResourceTableError> for ListenError {
-    fn from(error: wasmtime::component::ResourceTableError) -> Self {
-        Self(wasmtime_wasi::TrappableError::trap(error))
-    }
-}
-
-impl HostFutureConnection for ContainerData {
-    async fn drop(&mut self, connection: Resource<FutureConnection>) -> anyhow::Result<()> {
-        todo!();
+impl bindings::Host for ContainerData {
+    async fn listen_user(&mut self) -> Result<Resource<FutureUser>, ListenError> {
+        let res = FutureUser::new(self)?;
+        Ok(self.resources.push(res)?)
     }
 
-    async fn get(
-        &mut self,
-        connection: Resource<FutureConnection>,
-    ) -> Result<Resource<User>, ListenError> {
-        let connection = self.resources.get_mut(&connection)?;
-        todo!();
-    }
-
-    async fn subscribe(
-        &mut self,
-        connection: Resource<FutureConnection>,
-    ) -> Result<Resource<Pollable>, ListenError> {
-        todo!();
-    }
-}
-
-impl HostFutureRequest for ContainerData {
-    async fn drop(&mut self, request: Resource<FutureRequest>) -> anyhow::Result<()> {
-        todo!();
-    }
-
-    async fn get(&mut self, request: Resource<FutureRequest>) -> Result<Request, ListenError> {
-        todo!();
-    }
-
-    async fn subscribe(
-        &mut self,
-        request: Resource<FutureRequest>,
-    ) -> Result<Resource<Pollable>, ListenError> {
-        todo!();
-    }
-}
-
-impl HostUser for ContainerData {
-    async fn drop(&mut self, user: Resource<User>) -> anyhow::Result<()> {
-        todo!();
-    }
-
-    async fn new(&mut self, id: (u64, u64)) -> anyhow::Result<Resource<User>> {
-        todo!();
-    }
-
-    async fn send(
-        &mut self,
-        user: Resource<User>,
-        bytes: Vec<u8>,
-    ) -> anyhow::Result<Result<(), ()>> {
-        todo!();
-    }
-}
-
-impl Host for ContainerData {
-    async fn listen_connection(&mut self) -> Result<Resource<FutureConnection>, ListenError> {
-        todo!();
-    }
-
-    async fn listen_request(&mut self) -> Result<Resource<FutureRequest>, ListenError> {
+    async fn listen_request(&mut self) -> Result<Resource<bindings::FutureRequest>, ListenError> {
         todo!();
     }
 
