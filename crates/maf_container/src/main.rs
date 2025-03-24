@@ -1,53 +1,26 @@
 use container::Container;
 use runtime::ContainerRuntime;
 
+use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+
+mod api;
 mod container;
 mod runtime;
 
-#[tokio::main(flavor = "current_thread")]
+#[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let wasm_module_path = std::env::args()
-        .nth(1)
-        .expect("missing wasm module path in first argument");
+    tracing_subscriber::registry()
+        .with(fmt::layer())
+        .with(EnvFilter::from_default_env())
+        .init();
 
-    let path = wasm_module_path.clone();
-    let runtime = ContainerRuntime::new()?;
+    let address = "0.0.0.0:3000";
 
-    init_one_container(&runtime, &path, 1).await?;
-    // let two = init_one_container(&runtime, &path, 2);
+    let (_state, app) = api::create_app();
+    let listener = tokio::net::TcpListener::bind(address).await?;
 
-    // tokio::try_join!(one, two)?;
-
-    Ok(())
-}
-
-async fn init_one_container(
-    runtime: &ContainerRuntime,
-    path: &str,
-    number: u32,
-) -> anyhow::Result<()> {
-    let mut container = Container::load_from_file(&runtime, path).await?;
-
-    let mut output = container.output.take().expect("output channel missing");
-
-    let handle = tokio::spawn(async move {
-        while let Some(message) = output.recv().await {
-            println!("[{number}]: {}", message.trim());
-        }
-
-        println!("output done");
-    });
-
-    match container.init().await {
-        Ok(_) => {
-            println!("container initialized");
-        }
-        Err(e) => {
-            println!("container failed to initialize: {e}");
-        }
-    };
-
-    handle.await?;
+    tracing::info!("starting server on {}", address);
+    axum::serve(listener, app).await?;
 
     Ok(())
 }
