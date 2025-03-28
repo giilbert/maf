@@ -9,7 +9,7 @@ pub fn create_app() -> (AppState, Router) {
 
     let router = Router::<AppState>::new()
         .route("/", get(|| async { "Hello, World!" }))
-        .nest("/@", gateway::create_gateway_router(state.clone()));
+        .merge(gateway::create_gateway_router(state.clone()));
 
     (state.clone(), router.with_state(state))
 }
