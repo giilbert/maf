@@ -1,4 +1,4 @@
-import { MafClient } from "../../../src/client";
+import { MafClient } from "@maf/client";
 
 const client = new MafClient({
   url: "http://localhost:3000",
@@ -6,9 +6,11 @@ const client = new MafClient({
 });
 
 async function run() {
-  console.log("trying to connect..");
   await client.connect();
-  console.log("connected!");
 }
+
+client.on("ready", () => {
+  console.log("Client is ready!");
+});
 
 run();

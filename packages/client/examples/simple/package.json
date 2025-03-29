@@ -1,6 +1,6 @@
 {
   "name": "example-simple",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -10,6 +10,9 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "dependencies": {
+    "@maf/client": "workspace:*"
+  },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
     "typescript": "^5.8.2",
