@@ -46,8 +46,6 @@ impl Connection {
 
         match timeout(Duration::from_secs(1), ws_rx.next()).await {
             Ok(Some(Ok(Message::Text(message)))) => {
-                tracing::debug!("got message {message:?}");
-
                 ws_tx
                     .send(Message::Text(
                         serde_json::to_string(&serde_json::json!({
@@ -94,6 +92,21 @@ impl Connection {
     }
 
     fn handle_websocket_message(&self, message: Message) -> anyhow::Result<()> {
+        match message {
+            Message::Text(data) => {
+                let (packet_type, data) = data
+                    .split_once(":")
+                    .ok_or_else(|| anyhow::anyhow!("invalid message format, expected type:data"))?;
+
+                println!("got message type: {packet_type:?}");
+            }
+            Message::Close(close_frame) => {
+                tracing::debug!("got close frame: {close_frame:?}");
+                return Ok(());
+            }
+            _ => anyhow::bail!("invalid message type"),
+        };
+
         Ok(())
     }
 
@@ -108,7 +121,6 @@ impl Connection {
                 message = &mut takeable.ws_rx.next() => {
                     match message {
                         Some(Ok(message)) => {
-                            tracing::debug!("got message {message:?}");
                             self.handle_websocket_message(message)?;
                         }
                         Some(Err(error)) => {

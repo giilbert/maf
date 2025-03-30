@@ -1,4 +1,5 @@
 import Emittery from "emittery";
+import { Channel } from "./channel";
 
 export interface MafClientOptions {
   url: URL | string;
@@ -6,15 +7,28 @@ export interface MafClientOptions {
 }
 
 export interface MafClientEvents {
-  ready: undefined;
+  ready: SessionInfo;
+}
+
+export interface SessionInfo {
+  id: string;
 }
 
 export class MafClient extends Emittery<MafClientEvents> {
   public readonly url: URL;
 
-  private sessionInfo?: {
-    id: string;
-  };
+  private _sessionInfo?: SessionInfo;
+  private _ws?: WebSocket;
+
+  public get ws() {
+    if (!this._ws) throw new Error("WebSocket is not connected");
+    return this._ws;
+  }
+
+  public get sessionInfo() {
+    if (!this._sessionInfo) throw new Error("Session info is not available");
+    return this._sessionInfo;
+  }
 
   constructor(options: MafClientOptions) {
     super();
@@ -26,8 +40,6 @@ export class MafClient extends Emittery<MafClientEvents> {
       url.pathname = `@/${options.app}`;
     }
 
-    console.log(url);
-
     this.url = url;
   }
 
@@ -36,6 +48,7 @@ export class MafClient extends Emittery<MafClientEvents> {
     connectionUrl.pathname += "/connect";
 
     const ws = new WebSocket(connectionUrl);
+    this._ws = ws;
 
     await new Promise((resolve, reject) => {
       ws.addEventListener("open", resolve, { once: true });
@@ -54,17 +67,28 @@ export class MafClient extends Emittery<MafClientEvents> {
       })
     );
 
-    const handshakeResponse = await new Promise((resolve, reject) => {
-      ws.addEventListener("message", (event) => {
-        const data = JSON.parse(event.data);
-        if (data.type === "handshake") {
-          resolve(data);
-        }
-      });
+    const handshakeResponse = await new Promise<SessionInfo>(
+      (resolve, reject) => {
+        ws.addEventListener("message", (event) => {
+          const { data, type } = JSON.parse(event.data);
+          if (type === "handshake") resolve(data);
+        });
 
-      ws.addEventListener("error", reject, { once: true });
-    });
+        ws.addEventListener("error", reject, { once: true });
+      }
+    );
 
-    await this.emit("ready");
+    this._sessionInfo = handshakeResponse;
+    this.emit("ready", handshakeResponse);
+
+    return handshakeResponse;
+  }
+
+  public send(message: TxPacket) {
+    this.ws.send(message.type + ":" + JSON.stringify(message.data));
+  }
+
+  channel<T>(name: string) {
+    return new Channel<T>(this, name);
   }
 }

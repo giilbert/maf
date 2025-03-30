@@ -7,10 +7,19 @@ const client = new MafClient({
 
 async function run() {
   await client.connect();
+
+  const channel = client.channel<string>("example-channel");
+
+  while (true) {
+    const message = channel.send("hello");
+    await new Promise((resolve) => {
+      setTimeout(resolve, 1000);
+    });
+  }
 }
 
-client.on("ready", () => {
-  console.log("Client is ready!");
+client.on("ready", (session) => {
+  console.log("client is ready!", session);
 });
 
 run();
