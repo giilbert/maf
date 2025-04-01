@@ -1,16 +1,26 @@
 mod bridge;
 pub mod wasi;
 
-use crate::container::ContainerData;
+use std::{fmt::Debug, sync::Arc};
+
+use crate::container::{Container, ContainerData};
+use tokio::sync::{mpsc, oneshot};
 use wasmtime as wt;
 
+#[derive(Clone)]
 pub struct ContainerRuntime {
     pub(super) engine: wt::Engine,
     pub(super) linker: wt::component::Linker<ContainerData>,
 }
 
+impl Debug for ContainerRuntime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ContainerRuntime").finish_non_exhaustive()
+    }
+}
+
 impl ContainerRuntime {
-    pub fn new() -> anyhow::Result<Self> {
+    pub fn init() -> anyhow::Result<Self> {
         let engine = wt::Engine::new(
             &wt::Config::new()
                 .wasm_memory64(false)
@@ -19,6 +29,9 @@ impl ContainerRuntime {
         )?;
         let linker = Self::create_component_linker(&engine)?;
 
-        Ok(Self { engine, linker })
+        Ok(Self {
+            engine: engine.clone(),
+            linker: linker.clone(),
+        })
     }
 }

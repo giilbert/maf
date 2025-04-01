@@ -1,6 +1,6 @@
 use wasmtime as wt;
 
-use super::ContainerData;
+use super::{Container, ContainerData};
 
 pub struct ContainerExports {
     pub(super) init: wt::TypedFunc<(), ()>,

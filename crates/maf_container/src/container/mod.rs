@@ -34,6 +34,11 @@ pub struct ContainerData {
     pub connection_rx: Option<mpsc::Receiver<ConnectionHandle>>,
 }
 
+// TODO: make container data threadsafe in the future by ensuring that all accesses to wasm
+// resources happen in the same thread. this can be done by ensuring that all communication with
+// the wasm module is done via channels, with rx handled by a single thread
+unsafe impl Sync for ContainerData {}
+
 impl std::fmt::Debug for ContainerData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ContainerData")
@@ -107,3 +112,5 @@ impl IoView for ContainerData {
         &mut self.resources
     }
 }
+
+fn a<T: Send + Sync + 'static>() {}
