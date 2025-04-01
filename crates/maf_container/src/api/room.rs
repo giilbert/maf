@@ -16,7 +16,7 @@ impl Room {
 
         let mut container = Container::load_from_file(
             &state.container_runtime,
-            "target/debug/wasm32-wasip2/example_basic.wasm",
+            "target/wasm32-wasip2/debug/example_basic.wasm",
         )
         .await?;
 

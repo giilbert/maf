@@ -40,8 +40,8 @@ async fn connect_route(
             {
                 Some(room_id) => room_id,
                 None => {
-                    let room = Room::new(&state).await.map_err(|_| {
-                        tracing::warn!("failed to create room");
+                    let room = Room::new(&state).await.map_err(|e| {
+                        tracing::warn!("failed to create room: {e:?}");
                         axum::http::StatusCode::INTERNAL_SERVER_ERROR
                     })?;
 
