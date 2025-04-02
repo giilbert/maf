@@ -1,4 +1,4 @@
-mod connection;
+pub mod connection;
 mod gateway;
 mod room;
 mod state;

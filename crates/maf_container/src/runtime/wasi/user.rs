@@ -4,7 +4,7 @@ use wasmtime::component::Resource;
 use wasmtime_wasi::async_trait;
 use wasmtime_wasi_io::poll;
 
-use crate::container::{connection::ConnectionHandle, ContainerData};
+use crate::{api::connection::ConnectionHandle, container::ContainerData};
 
 use super::{bindings, errors::ListenError};
 

@@ -1,10 +1,9 @@
 use axum::{
-    extract::{Path, Query, State, WebSocketUpgrade},
-    response::{IntoResponse, Response},
+    extract::{ws::WebSocket, Path, Query, State, WebSocketUpgrade},
+    response::Response,
     routing::get,
     Router,
 };
-use futures_util::StreamExt;
 use serde::Deserialize;
 
 use super::{
@@ -54,26 +53,33 @@ async fn connect_route(
                 }
             };
 
-            state.rooms.get(&room_id).expect("room not found")
+            state.rooms.get(&room_id).expect("room not found").clone()
         }
     };
 
     Ok(ws.on_upgrade(|ws| async move {
-        let connection = match Connection::init(ws, query_params).await {
+        async fn try_init(
+            ws: WebSocket,
+            query_params: ConnectQueryParams,
+            room: Room,
+        ) -> anyhow::Result<Connection> {
+            let connection = Connection::init(ws, query_params).await?;
+            let handle = connection.handle();
+            room.add_connection(handle).await?;
+            Ok(connection)
+        }
+
+        let connection = match try_init(ws, query_params, room).await {
             Ok(connection) => connection,
             Err(error) => {
-                tracing::warn!("websocket init failed: {error:?}");
+                tracing::warn!("failed to initialize connection: {error:?}");
                 return;
             }
         };
 
         match connection.run().await {
-            Ok(_) => {
-                tracing::info!("websocket connection closed");
-            }
-            Err(error) => {
-                tracing::warn!("websocket connection error: {error:?}");
-            }
+            Ok(_) => tracing::info!("websocket connection closed"),
+            Err(error) => tracing::warn!("websocket connection error: {error:?}"),
         }
     }))
 }

@@ -8,7 +8,6 @@ use super::Runtime;
 
 #[derive(Debug)]
 pub struct SleepFuture {
-    runtime: Runtime,
     deadline: u64,
 }
 
@@ -23,14 +22,14 @@ impl Future for SleepFuture {
             return Poll::Ready(());
         }
 
-        self.runtime.add_pollable(pollable, cx.waker().clone());
+        Runtime::current().add_pollable(pollable, cx.waker().clone());
 
         Poll::Pending
     }
 }
 
 impl SleepFuture {
-    pub fn new(runtime: Runtime, deadline: u64) -> Self {
-        Self { runtime, deadline }
+    pub fn new(deadline: u64) -> Self {
+        Self { deadline }
     }
 }

@@ -98,7 +98,7 @@ impl Connection {
                     .split_once(":")
                     .ok_or_else(|| anyhow::anyhow!("invalid message format, expected type:data"))?;
 
-                println!("got message type: {packet_type:?}");
+                // println!("got message type: {packet_type:?}");
             }
             Message::Close(close_frame) => {
                 tracing::debug!("got close frame: {close_frame:?}");

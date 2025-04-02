@@ -12,6 +12,28 @@ use wasi::io::poll::Pollable;
 
 use super::waker;
 
+#[doc(hidden)]
+pub static GLOBAL_APP: GlobalRuntime = GlobalRuntime::new();
+
+#[repr(transparent)]
+pub struct GlobalRuntime(RefCell<Option<Rc<Runtime>>>);
+
+unsafe impl Sync for GlobalRuntime {}
+
+impl GlobalRuntime {
+    pub const fn new() -> Self {
+        Self(RefCell::new(None))
+    }
+
+    pub fn set(&self, runtime: Rc<Runtime>) {
+        self.0.replace(Some(runtime));
+    }
+
+    pub fn get(&self) -> Option<Rc<Runtime>> {
+        self.0.borrow().clone()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Runtime {
     inner: Rc<RefCell<RuntimeInner>>,
@@ -184,7 +206,6 @@ impl Runtime {
     }
 
     pub fn add_pollable(&self, pollable: Pollable, waker: Waker) {
-        println!("adding pollable");
         self.inner_mut().pollables.push((pollable, waker));
     }
 
@@ -211,6 +232,14 @@ impl Runtime {
             task_id: id,
             _phantom: PhantomData,
         }
+    }
+
+    pub fn current() -> Runtime {
+        Runtime::clone(GLOBAL_APP.get().expect("no global runtime set").as_ref())
+    }
+
+    pub fn global(self) {
+        GLOBAL_APP.set(Rc::new(self));
     }
 }
 

@@ -1,14 +1,12 @@
-pub mod connection;
 mod exports;
 mod io;
 
-use connection::ConnectionHandle;
 use io::ContainerStdoutFactory;
 use tokio::sync::mpsc;
 use wasmtime as wt;
 use wasmtime_wasi::IoView;
 
-use crate::runtime::wasi::Bindings;
+use crate::{api::connection::ConnectionHandle, runtime::wasi::Bindings};
 
 pub struct Container {
     pub(super) path: String,
@@ -78,7 +76,7 @@ impl Container {
 
         let instance = Bindings::instantiate_async(&mut store, &component, &runtime.linker).await?;
 
-        println!("loaded container `{}`", path);
+        tracing::info!("loaded container `{}`", path);
 
         Ok(Self {
             path: path.to_string(),
@@ -88,10 +86,10 @@ impl Container {
         })
     }
 
-    pub async fn init(&mut self) -> anyhow::Result<()> {
+    pub async fn run(&mut self) -> anyhow::Result<()> {
         Ok(self
             .instance
-            .call_init(&mut self.store)
+            .call_run(&mut self.store)
             .await?
             .map_err(|_| anyhow::anyhow!("failed to init due to wasm exception"))?)
     }

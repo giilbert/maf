@@ -7,28 +7,21 @@ fn test_rpc(body: Body<i32>) -> i32 {
 
 fn build() -> App {
     let app = App::new().add_rpc_function("test", test_rpc);
+    println!("hello wororldld!!");
 
-    let runtime = tasks::Runtime::new();
-    let capture = 2;
+    tasks::spawn(async move {
+        println!("Hello from async task!");
+        let now = wasi::clocks::monotonic_clock::now();
+        println!("Monotonic clock: {:?}", now);
 
-    let runtime_clone = runtime.clone();
-    runtime
-        .spawn(async move {
-            println!("Hello from async task! capture = {capture}");
-            let now = wasi::clocks::monotonic_clock::now();
-            println!("Monotonic clock: {:?}", now);
+        let deadline = now + 1_000_000_000;
+        tasks::sleep_until(deadline).await;
 
-            let deadline = now + 1_000_000_000;
-            let sleep_future = tasks::timers::SleepFuture::new(runtime_clone.clone(), deadline);
-            sleep_future.await;
-
-            println!("Task resumed after sleep!");
-        })
-        .on_finish(|_| {
-            println!("Task finished!");
-        });
-
-    runtime.blocking_poll();
+        println!("Task resumed after sleep!");
+    })
+    .on_finish(|_| {
+        println!("Task finished!");
+    });
 
     app
 }

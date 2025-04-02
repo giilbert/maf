@@ -1,6 +1,9 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::rpc::{IntoRpcFunction, RpcStore};
+use crate::{
+    rpc::{IntoRpcFunction, RpcStore},
+    tasks::Runtime,
+};
 
 #[doc(hidden)]
 pub static GLOBAL_APP: GlobalApp = GlobalApp::new();
@@ -57,22 +60,27 @@ impl App {
             .add_rpc_function(handler.into_rpc_function(path));
         self
     }
+
+    pub fn run(self) {
+        Runtime::current().blocking_poll();
+    }
 }
 
 #[macro_export]
 macro_rules! register_build {
     ($func:ident) => {
         pub use $crate::bindings::bindgen::{
-            self, __export_world_imports_cabi, _export_init_cabi, export,
+            self, __export_world_imports_cabi, _export_run_cabi, export,
         };
 
         pub struct GuestImpl {}
 
         impl bindgen::Guest for GuestImpl {
-            fn init() -> Result<(), ()> {
+            fn run() -> Result<(), ()> {
                 $crate::bindings::init_panic_hook();
+                $crate::tasks::Runtime::new().global();
                 let app = $func();
-                $crate::app::GLOBAL_APP.register(app);
+                app.run();
                 Ok(())
             }
         }

@@ -41,5 +41,5 @@ interface bindings {
 world imports {
     import bindings;
 
-    export init: func() -> result;
+    export run: func() -> result;
 }
