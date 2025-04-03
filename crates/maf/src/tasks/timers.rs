@@ -15,16 +15,13 @@ impl Future for SleepFuture {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        println!("poll() called on SleepFuture");
-
         let pollable = wasi::clocks::monotonic_clock::subscribe_instant(self.deadline);
         if pollable.ready() {
-            return Poll::Ready(());
+            Poll::Ready(())
+        } else {
+            Runtime::current().add_pollable(pollable, cx.waker().clone());
+            Poll::Pending
         }
-
-        Runtime::current().add_pollable(pollable, cx.waker().clone());
-
-        Poll::Pending
     }
 }
 

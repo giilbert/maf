@@ -3,9 +3,11 @@ pub mod bindgen {
         path: "../../wit",
         pub_export_macro: true,
         with: {
-            "wasi:io/poll@0.2.4": generate
+            "wasi:io/poll@0.2.4": wasi::io::poll
         }
     });
+
+    pub use maf::bindings::bindings::*;
 }
 
 pub fn init_panic_hook() {

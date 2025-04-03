@@ -7,7 +7,6 @@ fn test_rpc(body: Body<i32>) -> i32 {
 
 fn build() -> App {
     let app = App::new().add_rpc_function("test", test_rpc);
-    println!("hello wororldld!!");
 
     tasks::spawn(async move {
         println!("Hello from async task!");
