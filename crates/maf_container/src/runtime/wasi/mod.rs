@@ -2,7 +2,7 @@ mod errors;
 mod request;
 mod user;
 
-pub use user::{FutureUser, User};
+pub use user::{FutureMessage, FutureUser, User};
 use wasmtime::component::Resource;
 
 use crate::container::ContainerData;
@@ -15,6 +15,7 @@ mod generated {
         with: {
             "wasi:io/poll": wasmtime_wasi_io::bindings::wasi::io::poll,
             "maf:bindings/bindings/future-user": crate::runtime::wasi::FutureUser,
+            "maf:bindings/bindings/future-message": crate::runtime::wasi::FutureMessage,
             "maf:bindings/bindings/user": crate::runtime::wasi::User
         },
         trappable_imports: true,

@@ -59,17 +59,51 @@ impl bindings::HostFutureUser for ContainerData {
 #[async_trait]
 impl wasmtime_wasi::Pollable for FutureUser {
     async fn ready(&mut self) {
-        let next_user = self.channel.recv().await;
-        self.next_user = next_user;
+        self.next_user = self.channel.recv().await;
+    }
+}
+
+pub struct FutureMessage {
+    next_message: Option<bindings::Message>,
+    channel: mpsc::Receiver<bindings::Message>,
+}
+
+#[async_trait]
+impl wasmtime_wasi::Pollable for FutureMessage {
+    async fn ready(&mut self) {
+        self.next_message = self.channel.recv().await;
+    }
+}
+
+impl bindings::HostFutureMessage for ContainerData {
+    async fn drop(&mut self, future_message: Resource<FutureMessage>) -> wasmtime::Result<()> {
+        let mut future_message = self.resources.delete(future_message)?;
+        future_message.channel.close();
+        Ok(())
+    }
+
+    async fn get(
+        &mut self,
+        future_message: Resource<FutureMessage>,
+    ) -> Result<bindings::Message, ListenError> {
+        let future_message = self.resources.get_mut(&future_message)?;
+        match future_message.next_message.take() {
+            Some(handle) => Ok(handle),
+            None => Err(bindings::ListenError::NotReady.into()),
+        }
+    }
+
+    async fn subscribe(
+        &mut self,
+        future_message: Resource<FutureMessage>,
+    ) -> Result<Resource<bindings::Pollable>, ListenError> {
+        Ok(poll::subscribe(&mut self.resources, future_message)?)
     }
 }
 
 impl bindings::HostUser for ContainerData {
-    async fn get_meta(
-        &mut self,
-        user: Resource<User>,
-    ) -> wasmtime::Result<Result<bindings::UserMeta, ()>> {
-        todo!()
+    async fn new(&mut self, id: (u64, u64)) -> anyhow::Result<Resource<bindings::User>> {
+        todo!();
     }
 
     async fn drop(&mut self, user: Resource<User>) -> anyhow::Result<()> {
@@ -77,8 +111,25 @@ impl bindings::HostUser for ContainerData {
         Ok(())
     }
 
-    async fn new(&mut self, id: (u64, u64)) -> anyhow::Result<Resource<bindings::User>> {
-        todo!();
+    async fn get_meta(
+        &mut self,
+        user: Resource<User>,
+    ) -> wasmtime::Result<Result<bindings::UserMeta, ()>> {
+        todo!()
+    }
+
+    async fn listen_message(
+        &mut self,
+        user: Resource<User>,
+    ) -> anyhow::Result<Resource<bindings::FutureMessage>, ListenError> {
+        let message_rx = self.resources.get(&user)?.handle.take_message_rx().await?;
+        Ok(self.resources.push_child(
+            FutureMessage {
+                channel: message_rx,
+                next_message: None,
+            },
+            &user,
+        )?)
     }
 
     async fn send(
