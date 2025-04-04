@@ -28,28 +28,3 @@ impl bindings::HostFutureRequest for ContainerData {
         todo!();
     }
 }
-
-impl bindings::HostUser for ContainerData {
-    async fn get_meta(
-        &mut self,
-        user: Resource<User>,
-    ) -> wasmtime::Result<Result<bindings::UserMeta, ()>> {
-        todo!()
-    }
-
-    async fn drop(&mut self, user: Resource<User>) -> anyhow::Result<()> {
-        todo!();
-    }
-
-    async fn new(&mut self, id: (u64, u64)) -> anyhow::Result<Resource<bindings::User>> {
-        todo!();
-    }
-
-    async fn send(
-        &mut self,
-        user: Resource<bindings::User>,
-        bytes: Vec<u8>,
-    ) -> anyhow::Result<Result<(), ()>> {
-        todo!();
-    }
-}

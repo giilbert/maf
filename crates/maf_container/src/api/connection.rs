@@ -1,6 +1,7 @@
 use std::{any, time::Duration};
 
 use axum::extract::ws::{Message, WebSocket};
+use bytes::Bytes;
 use futures_util::{
     stream::{SplitSink, SplitStream},
     SinkExt, StreamExt,
@@ -32,6 +33,7 @@ struct TakeableConnection {
 
 enum ConnectionCommand {
     Close,
+    Send(Message),
 }
 
 impl Connection {
@@ -97,8 +99,6 @@ impl Connection {
                 let (packet_type, data) = data
                     .split_once(":")
                     .ok_or_else(|| anyhow::anyhow!("invalid message format, expected type:data"))?;
-
-                // println!("got message type: {packet_type:?}");
             }
             Message::Close(close_frame) => {
                 tracing::debug!("got close frame: {close_frame:?}");
@@ -133,10 +133,26 @@ impl Connection {
                 command = takeable.command_rx.recv() => {
                     match command {
                         Some(ConnectionCommand::Close) | None => break,
+                        Some(ConnectionCommand::Send(message)) => {
+                            if let Err(error) = takeable.ws_tx.send(message).await {
+                                tracing::warn!("an error occurred sending WebSocket message: {error:?}");
+                            }
+                        }
                     }
                 }
             }
         }
+
+        Ok(())
+    }
+}
+
+impl ConnectionHandle {
+    pub async fn send(&self, message: Message) -> anyhow::Result<()> {
+        self.command_tx
+            .send(ConnectionCommand::Send(message))
+            .await
+            .map_err(|_| anyhow::anyhow!("failed to send command"))?;
 
         Ok(())
     }

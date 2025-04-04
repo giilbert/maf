@@ -1,6 +1,7 @@
 use std::{
     any::Any,
     cell::{Ref, RefCell, RefMut},
+    collections::VecDeque,
     future::{Future, IntoFuture},
     marker::PhantomData,
     pin::Pin,
@@ -42,6 +43,7 @@ pub struct Runtime {
 #[derive(Debug)]
 pub struct RuntimeInner {
     tasks: Vec<(TaskId, Option<Rc<RefCell<Task>>>)>,
+    new_tasks: VecDeque<TaskId>,
     free_task_ids: Vec<u32>,
 
     pollables: Vec<(Pollable, Waker)>,
@@ -69,6 +71,7 @@ impl Runtime {
         Self {
             inner: Rc::new(RefCell::new(RuntimeInner {
                 tasks: Vec::new(),
+                new_tasks: VecDeque::new(),
                 free_task_ids: Vec::new(),
 
                 pollables: Vec::new(),
@@ -101,6 +104,7 @@ impl Runtime {
                 generation: 0,
                 index: inner.tasks.len() as u32,
             };
+
             inner
                 .tasks
                 .push((new_task_id, Some(Rc::new(RefCell::new(task)))));
@@ -162,7 +166,7 @@ impl Runtime {
                 self.remove_task(task_id);
             }
             Poll::Pending => {
-                println!("task {:?} is pending. putting to sleep..", task_id);
+                // Task is still pending, do nothing
             }
         }
 
@@ -170,7 +174,17 @@ impl Runtime {
     }
 
     pub fn blocking_poll(&self) {
+        let new_tasks = self.inner_mut().new_tasks.drain(..).collect::<Vec<_>>();
+        for task_id in new_tasks {
+            self.resume_task(task_id).expect("failed to resume task");
+        }
+
         loop {
+            // println!(
+            //     "blocking_poll started. num pollables = {}",
+            //     self.inner().pollables.len()
+            // );
+
             let inner = self.inner();
             let pollable_ref = inner
                 .pollables
@@ -187,8 +201,6 @@ impl Runtime {
             drop(inner);
 
             for index in ready_poll_indices {
-                println!("pollable {:?} is ready", index);
-
                 let waker = {
                     let inner = self.inner();
                     let (_, waker_ref) = &inner.pollables[index as usize];
@@ -201,8 +213,6 @@ impl Runtime {
                 inner_mut.pollables.remove(index as usize);
             }
         }
-
-        println!("blocking_poll finished");
     }
 
     pub fn add_pollable(&self, pollable: Pollable, waker: Waker) {
@@ -227,6 +237,8 @@ impl Runtime {
             println!("task {:?} finished immediately", id);
         }
 
+        self.inner_mut().new_tasks.push_back(id);
+
         JoinHandle {
             runtime: self.clone(),
             task_id: id,
@@ -250,12 +262,6 @@ pub struct JoinHandle<T> {
 }
 
 impl<T: 'static> JoinHandle<T> {
-    pub fn execute(self) {
-        self.runtime
-            .resume_task(self.task_id)
-            .expect("error polling task");
-    }
-
     pub fn on_finish(self, f: impl FnOnce(T) + 'static) {
         let handler = Box::new(move |output: Box<dyn Any>| {
             let output = output.downcast::<T>().expect("output downcast failed");
@@ -265,7 +271,5 @@ impl<T: 'static> JoinHandle<T> {
         self.runtime
             .get_task(self.task_id)
             .map(|task| task.borrow_mut().handler = Some(handler));
-
-        self.execute();
     }
 }

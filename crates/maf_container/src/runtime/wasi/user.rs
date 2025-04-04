@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use axum::extract::ws::Message;
 use tokio::sync::mpsc;
 use wasmtime::component::Resource;
 use wasmtime_wasi::async_trait;
@@ -60,5 +61,37 @@ impl wasmtime_wasi::Pollable for FutureUser {
     async fn ready(&mut self) {
         let next_user = self.channel.recv().await;
         self.next_user = next_user;
+    }
+}
+
+impl bindings::HostUser for ContainerData {
+    async fn get_meta(
+        &mut self,
+        user: Resource<User>,
+    ) -> wasmtime::Result<Result<bindings::UserMeta, ()>> {
+        todo!()
+    }
+
+    async fn drop(&mut self, user: Resource<User>) -> anyhow::Result<()> {
+        tracing::info!("drop(user {})", user.rep());
+        Ok(())
+    }
+
+    async fn new(&mut self, id: (u64, u64)) -> anyhow::Result<Resource<bindings::User>> {
+        todo!();
+    }
+
+    async fn send(
+        &mut self,
+        user: Resource<bindings::User>,
+        message: bindings::Message,
+    ) -> anyhow::Result<Result<(), ()>> {
+        let user = self.resources.get_mut(&user)?;
+        let message = match message {
+            bindings::Message::Text(text) => Message::Text(text.into()),
+            bindings::Message::Binary(bytes) => Message::Binary(bytes.into()),
+        };
+        user.handle.send(message).await?;
+        Ok(Ok(()))
     }
 }

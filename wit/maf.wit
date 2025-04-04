@@ -3,10 +3,15 @@ package maf:bindings;
 interface bindings {
     use wasi:io/poll@0.2.4.{pollable};
 
+    variant message {
+        binary(list<u8>),
+        text(string),
+    }
+
     resource user {
         constructor(id: tuple<u64, u64>);
         get-meta: func() -> result<user-meta>;
-        send: func(bytes: list<u8>) -> result;
+        send: func(message: message) -> result;
     }
 
     record user-meta {

@@ -69,10 +69,14 @@ export class MafClient extends Emittery<MafClientEvents> {
 
     const handshakeResponse = await new Promise<SessionInfo>(
       (resolve, reject) => {
-        ws.addEventListener("message", (event) => {
-          const { data, type } = JSON.parse(event.data);
-          if (type === "handshake") resolve(data);
-        });
+        ws.addEventListener(
+          "message",
+          (event) => {
+            const { data, type } = JSON.parse(event.data);
+            if (type === "handshake") resolve(data);
+          },
+          { once: true }
+        );
 
         ws.addEventListener("error", reject, { once: true });
       }
@@ -80,6 +84,10 @@ export class MafClient extends Emittery<MafClientEvents> {
 
     this._sessionInfo = handshakeResponse;
     this.emit("ready", handshakeResponse);
+
+    ws.addEventListener("message", (event) => {
+      console.log("got message! ", event.data);
+    });
 
     return handshakeResponse;
   }
