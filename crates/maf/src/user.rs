@@ -1,6 +1,7 @@
 use std::{
     future::Future,
     pin::Pin,
+    sync::Arc,
     task::{Context, Poll},
 };
 
@@ -40,7 +41,7 @@ impl UserListenerNextFuture<'_> {
                 if pollable.ready() {
                     return self.try_poll(cx);
                 } else {
-                    Runtime::current().add_pollable(pollable, cx.waker().clone());
+                    Runtime::new_waker(cx, pollable);
                     Ok(Poll::Pending)
                 }
             }
@@ -61,13 +62,16 @@ impl Future for UserListenerNextFuture<'_> {
     }
 }
 
+#[derive(Clone)]
 pub struct User {
-    inner: bindgen::User,
+    inner: Arc<bindgen::User>,
 }
 
 impl User {
-    pub fn new(inner: bindgen::User) -> Self {
-        Self { inner }
+    pub fn new(raw: bindgen::User) -> Self {
+        Self {
+            inner: Arc::new(raw),
+        }
     }
 
     // TODO: proper error handling

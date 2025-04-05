@@ -14,7 +14,7 @@ use wasi::io::poll::Pollable;
 use super::waker;
 
 #[doc(hidden)]
-pub static GLOBAL_APP: GlobalRuntime = GlobalRuntime::new();
+pub static GLOBAL_RUNTIME: GlobalRuntime = GlobalRuntime::new();
 
 #[repr(transparent)]
 pub struct GlobalRuntime(RefCell<Option<Rc<Runtime>>>);
@@ -156,6 +156,8 @@ impl Runtime {
             .ok_or_else(|| anyhow::anyhow!("task with id {:?} not found", task_id))?;
         let mut task = task.borrow_mut();
 
+        // println!("resuming task {:?}", task_id);
+
         let fut = unsafe { Pin::new_unchecked(task.future.as_mut()) };
         let waker = waker::create_waker(self.clone(), task_id);
         let mut ctx = std::task::Context::from_waker(&waker);
@@ -174,16 +176,16 @@ impl Runtime {
     }
 
     pub fn blocking_poll(&self) {
-        let new_tasks = self.inner_mut().new_tasks.drain(..).collect::<Vec<_>>();
-        for task_id in new_tasks {
-            self.resume_task(task_id).expect("failed to resume task");
-        }
-
         loop {
-            // println!(
-            //     "blocking_poll started. num pollables = {}",
-            //     self.inner().pollables.len()
-            // );
+            loop {
+                let new_tasks = self.inner_mut().new_tasks.drain(..).collect::<Vec<_>>();
+                if new_tasks.is_empty() {
+                    break;
+                }
+                for task_id in new_tasks {
+                    self.resume_task(task_id).expect("failed to resume task");
+                }
+            }
 
             let inner = self.inner();
             let pollable_ref = inner
@@ -196,6 +198,12 @@ impl Runtime {
             if pollable_ref.is_empty() {
                 break;
             }
+
+            // println!(
+            //     "waiting for pollables to finish. num pollables = {}",
+            //     pollable_ref.len()
+            // );
+            // println!("{:#?}", pollable_ref);
 
             let ready_poll_indices = wasi::io::poll::poll(&pollable_ref);
             drop(inner);
@@ -233,9 +241,11 @@ impl Runtime {
             handler: None,
         });
 
-        if self.get_task(id).is_none() {
-            println!("task {:?} finished immediately", id);
-        }
+        // println!("task {:?} spawned", id);
+
+        // if self.get_task(id).is_none() {
+        // println!("task {:?} finished immediately", id);
+        // }
 
         self.inner_mut().new_tasks.push_back(id);
 
@@ -247,11 +257,20 @@ impl Runtime {
     }
 
     pub fn current() -> Runtime {
-        Runtime::clone(GLOBAL_APP.get().expect("no global runtime set").as_ref())
+        Runtime::clone(
+            GLOBAL_RUNTIME
+                .get()
+                .expect("no global runtime set")
+                .as_ref(),
+        )
+    }
+
+    pub fn new_waker(cx: &std::task::Context, pollable: Pollable) {
+        Self::current().add_pollable(pollable, cx.waker().clone());
     }
 
     pub fn global(self) {
-        GLOBAL_APP.set(Rc::new(self));
+        GLOBAL_RUNTIME.set(Rc::new(self));
     }
 }
 

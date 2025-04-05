@@ -86,7 +86,7 @@ export class MafClient extends Emittery<MafClientEvents> {
     this.emit("ready", handshakeResponse);
 
     ws.addEventListener("message", (event) => {
-      console.log("got message! ", event.data);
+      console.log("got message!", event.data);
     });
 
     return handshakeResponse;

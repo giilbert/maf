@@ -1303,6 +1303,7 @@ name = "maf"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "futures-util",
  "serde",
  "serde_json",
  "wasi 0.14.2+wasi-0.2.4",

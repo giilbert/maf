@@ -2,31 +2,36 @@ use std::{
     future::Future,
     pin::Pin,
     task::{Context, Poll},
+    time::Duration,
 };
+
+use wasi::clocks::monotonic_clock::{self, Pollable};
 
 use super::Runtime;
 
 #[derive(Debug)]
 pub struct SleepFuture {
-    deadline: u64,
+    pollable: Option<Pollable>,
 }
 
 impl Future for SleepFuture {
     type Output = ();
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let pollable = wasi::clocks::monotonic_clock::subscribe_instant(self.deadline);
-        if pollable.ready() {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        if self.pollable.as_ref().map(|p| p.ready()).unwrap_or(true) {
             Poll::Ready(())
         } else {
-            Runtime::current().add_pollable(pollable, cx.waker().clone());
+            Runtime::new_waker(cx, self.pollable.take().expect("pollable not set"));
             Poll::Pending
         }
     }
 }
 
 impl SleepFuture {
-    pub fn new(deadline: u64) -> Self {
-        Self { deadline }
+    pub fn new(duration: Duration) -> Self {
+        let pollable = monotonic_clock::subscribe_duration(duration.as_nanos() as u64);
+        Self {
+            pollable: Some(pollable),
+        }
     }
 }
