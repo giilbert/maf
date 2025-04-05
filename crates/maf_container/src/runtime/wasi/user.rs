@@ -142,7 +142,11 @@ impl bindings::HostUser for ContainerData {
             bindings::Message::Text(text) => Message::Text(text.into()),
             bindings::Message::Binary(bytes) => Message::Binary(bytes.into()),
         };
-        user.handle.send(message).await?;
+        if let Err(_) = user.handle.send(message).await {
+            // tracing::error!("failed to send message: {e:?}");
+            return Ok(Err(()));
+        }
+
         Ok(Ok(()))
     }
 }
