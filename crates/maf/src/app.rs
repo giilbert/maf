@@ -51,7 +51,7 @@ impl App {
     }
 
     async fn handle_connections(self: Arc<Self>) -> anyhow::Result<()> {
-        let users = UserListener::new()?;
+        let users = UserListener::new(self.state.clone())?;
 
         loop {
             let user = users.next().await?;

@@ -8,7 +8,9 @@ fn test_rpc(body: Body<i32>) -> i32 {
 }
 
 async fn on_connect(user: User) {
-    let mut number = 0;
+    println!("user connected!");
+
+    user.channel("hello").send("Hello, world!").unwrap();
 }
 
 fn build() -> App {

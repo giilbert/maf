@@ -173,10 +173,9 @@ impl Connection {
 }
 
 impl ConnectionHandle {
-    pub async fn send(&self, message: Message) -> anyhow::Result<()> {
+    pub fn send(&self, message: Message) -> anyhow::Result<()> {
         self.command_tx
-            .send(ConnectionCommand::Send(message))
-            .await
+            .try_send(ConnectionCommand::Send(message))
             .map_err(|_| anyhow::anyhow!("failed to send command"))?;
 
         Ok(())

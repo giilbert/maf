@@ -7,27 +7,31 @@ use std::{
 
 use uuid::Uuid;
 
-use crate::{bindings::bindgen, tasks::Runtime};
+use crate::{app::AppState, bindings::bindgen, channel::BoundChannel, tasks::Runtime, Channel};
 
 pub struct UserListener {
+    state: Arc<AppState>,
     future_user: bindgen::FutureUser,
 }
 
 impl UserListener {
-    pub fn new() -> anyhow::Result<Self> {
+    pub fn new(state: Arc<AppState>) -> anyhow::Result<Self> {
         Ok(Self {
+            state,
             future_user: bindgen::listen_user()?,
         })
     }
 
     pub fn next(&self) -> UserListenerNextFuture<'_> {
         UserListenerNextFuture {
+            state: self.state.clone(),
             listener: &self.future_user,
         }
     }
 }
 
 pub struct UserListenerNextFuture<'a> {
+    state: Arc<AppState>,
     listener: &'a bindgen::FutureUser,
 }
 
@@ -37,7 +41,7 @@ impl UserListenerNextFuture<'_> {
         cx: &mut Context<'_>,
     ) -> Result<Poll<User>, bindgen::ListenError> {
         match self.listener.get() {
-            Ok(raw_user) => return Ok(Poll::Ready(User::new(raw_user))),
+            Ok(raw_user) => return Ok(Poll::Ready(User::new(self.state.clone(), raw_user))),
             Err(bindgen::ListenError::NotReady) => {
                 let pollable = self.listener.subscribe()?;
                 if pollable.ready() {
@@ -67,6 +71,7 @@ impl Future for UserListenerNextFuture<'_> {
 #[derive(Debug, Clone)]
 pub struct User {
     pub meta: UserMeta,
+    state: Arc<AppState>,
     inner: Arc<bindgen::User>,
 }
 
@@ -76,12 +81,13 @@ pub struct UserMeta {
 }
 
 impl User {
-    pub fn new(raw: bindgen::User) -> Self {
+    pub(crate) fn new(state: Arc<AppState>, raw: bindgen::User) -> Self {
         let raw_meta = raw.meta();
         Self {
             meta: UserMeta {
                 id: Uuid::from_u64_pair(raw_meta.id.0, raw_meta.id.1),
             },
+            state,
             inner: Arc::new(raw),
         }
     }
@@ -98,6 +104,11 @@ impl User {
         self.inner
             .send(&bindgen::Message::Binary(bytes))
             .map_err(|_| anyhow::anyhow!("Failed to send binary message"))
+    }
+
+    pub fn channel<T>(&self, name: impl ToString) -> BoundChannel<T> {
+        let name = name.to_string();
+        BoundChannel::new(Channel::new(self.state.clone(), name), &self)
     }
 }
 
