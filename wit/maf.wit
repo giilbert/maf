@@ -10,7 +10,7 @@ interface bindings {
 
     resource user {
         constructor(id: tuple<u64, u64>);
-        get-meta: func() -> result<user-meta>;
+        meta: func() -> user-meta;
         listen-message: func() -> result<future-message, listen-error>;
         send: func(message: message) -> result;
     }

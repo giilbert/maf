@@ -1,6 +1,8 @@
-use std::{cell::RefCell, future::Future, pin::Pin, rc::Rc, sync::Arc};
+use std::{cell::RefCell, collections::HashMap, future::Future, pin::Pin, rc::Rc, sync::Arc};
 
+use async_lock::RwLock;
 use serde_json::json;
+use uuid::Uuid;
 
 use crate::{
     rpc::{IntoRpcFunction, RpcStore},
@@ -8,49 +10,25 @@ use crate::{
     User, UserListener,
 };
 
-#[doc(hidden)]
-pub static GLOBAL_APP: GlobalApp = GlobalApp::new();
-
-#[repr(transparent)]
-pub struct GlobalApp(RefCell<Option<Rc<App>>>);
-
-unsafe impl Sync for GlobalApp {}
-
-impl GlobalApp {
-    const fn new() -> Self {
-        Self(RefCell::new(None))
-    }
-
-    pub fn get(&self) -> Rc<App> {
-        self.0
-            .borrow()
-            .as_ref()
-            .expect("global app not registered")
-            .clone()
-    }
-
-    pub fn register(&self, app: App) {
-        assert!(
-            cfg!(target_arch = "wasm32"),
-            "global app can only be used in WebAssembly"
-        );
-
-        if self.0.borrow().is_some() {
-            panic!("global app already registered");
-        }
-        *self.0.borrow_mut() = Some(Rc::new(app));
-    }
-}
-
 type OnConnectFn = dyn Fn(User) -> Pin<Box<dyn Future<Output = ()>>> + Send;
+
 pub struct App {
+    pub(crate) state: Arc<AppState>,
     pub(crate) rpc_functions: RpcStore,
     pub(crate) on_connect: Option<Arc<OnConnectFn>>,
+}
+
+#[derive(Debug)]
+pub struct AppState {
+    pub(crate) users: RwLock<HashMap<Uuid, User>>,
 }
 
 impl App {
     pub fn new() -> Self {
         Self {
+            state: Arc::new(AppState {
+                users: RwLock::new(HashMap::new()),
+            }),
             rpc_functions: RpcStore::default(),
             on_connect: None,
         }
@@ -77,6 +55,11 @@ impl App {
 
         loop {
             let user = users.next().await?;
+            self.state
+                .users
+                .write()
+                .await
+                .insert(user.meta.id, user.clone());
 
             self.on_connect.as_ref().map(|handler| {
                 let handler = handler.clone();

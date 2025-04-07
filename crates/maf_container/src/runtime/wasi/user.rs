@@ -111,11 +111,11 @@ impl bindings::HostUser for ContainerData {
         Ok(())
     }
 
-    async fn get_meta(
-        &mut self,
-        user: Resource<User>,
-    ) -> wasmtime::Result<Result<bindings::UserMeta, ()>> {
-        todo!()
+    async fn meta(&mut self, user: Resource<User>) -> wasmtime::Result<bindings::UserMeta> {
+        let user = self.resources.get_mut(&user)?;
+        Ok(bindings::UserMeta {
+            id: user.handle.id.as_u64_pair(),
+        })
     }
 
     async fn listen_message(

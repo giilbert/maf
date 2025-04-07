@@ -24,7 +24,7 @@ pub struct Connection {
 
 #[derive(Clone)]
 pub struct ConnectionHandle {
-    id: Uuid,
+    pub(crate) id: Uuid,
     message_rx: Arc<Mutex<Option<mpsc::Receiver<bindings::Message>>>>,
     command_tx: mpsc::Sender<ConnectionCommand>,
 }

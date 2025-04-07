@@ -5,6 +5,8 @@ use std::{
     task::{Context, Poll},
 };
 
+use uuid::Uuid;
+
 use crate::{bindings::bindgen, tasks::Runtime};
 
 pub struct UserListener {
@@ -62,25 +64,45 @@ impl Future for UserListenerNextFuture<'_> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct User {
+    pub meta: UserMeta,
     inner: Arc<bindgen::User>,
+}
+
+#[derive(Debug, Clone)]
+pub struct UserMeta {
+    pub(crate) id: Uuid,
 }
 
 impl User {
     pub fn new(raw: bindgen::User) -> Self {
+        let raw_meta = raw.meta();
         Self {
+            meta: UserMeta {
+                id: Uuid::from_u64_pair(raw_meta.id.0, raw_meta.id.1),
+            },
             inner: Arc::new(raw),
         }
     }
 
     // TODO: proper error handling
-    pub fn send(&self, data: impl serde::Serialize) -> Result<(), ()> {
-        let text = serde_json::to_string(&data).map_err(|_| ())?;
-        self.inner.send(&bindgen::Message::Text(text))
+    pub(crate) fn send(&self, data: impl serde::Serialize) -> anyhow::Result<()> {
+        let text = serde_json::to_string(&data)?;
+        self.inner
+            .send(&bindgen::Message::Text(text))
+            .map_err(|_| anyhow::anyhow!("Failed to send message"))
     }
 
-    pub fn send_binary(&self, bytes: Vec<u8>) -> Result<(), ()> {
-        self.inner.send(&bindgen::Message::Binary(bytes))
+    pub(crate) fn send_binary(&self, bytes: Vec<u8>) -> anyhow::Result<()> {
+        self.inner
+            .send(&bindgen::Message::Binary(bytes))
+            .map_err(|_| anyhow::anyhow!("Failed to send binary message"))
+    }
+}
+
+impl UserMeta {
+    pub fn id(&self) -> Uuid {
+        self.id
     }
 }

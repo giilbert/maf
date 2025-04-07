@@ -5,9 +5,11 @@ edition = "2021"
 
 [dependencies]
 anyhow = "^1.0.96"
+async-lock = "3.4.0"
+futures-util = "0.3.31"
 serde = "^1"
 serde_json = { version = "^1", default-features = false, features = ["alloc"] }
-futures-util = "0.3.31"
+uuid = { version = "1.16.0", features = ["serde", "v4"] }
 
 # [target."wasm32-wasip2".dependencies]
 wit-bindgen = "0.40.0"

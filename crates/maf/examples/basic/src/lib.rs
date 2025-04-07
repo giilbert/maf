@@ -9,15 +9,6 @@ fn test_rpc(body: Body<i32>) -> i32 {
 
 async fn on_connect(user: User) {
     let mut number = 0;
-    loop {
-        println!("sending number to user: {number}");
-        user.send(json!({
-            "number": number,
-        }))
-        .unwrap();
-        number += 1;
-        tasks::sleep(Duration::from_secs(1)).await;
-    }
 }
 
 fn build() -> App {
