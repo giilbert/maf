@@ -5,3 +5,11 @@ type TxPacket = {
     data: unknown;
   };
 };
+
+type RxPacket = {
+  type: "ChannelSend";
+  data: {
+    channel: string;
+    data: unknown;
+  };
+};
