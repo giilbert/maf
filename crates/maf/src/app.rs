@@ -1,13 +1,17 @@
-use std::{cell::RefCell, collections::HashMap, future::Future, pin::Pin, rc::Rc, sync::Arc};
+use std::{
+    any::Any, cell::RefCell, collections::HashMap, future::Future, pin::Pin, rc::Rc, sync::Arc,
+};
 
 use async_lock::RwLock;
 use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
+    bindings::bindgen::ListenError,
+    channel::UntypedChannelBroadcast,
     rpc::{IntoRpcFunction, RpcStore},
     tasks::{self, Runtime},
-    User, UserListener,
+    Channel, User, UserListener,
 };
 
 type OnConnectFn = dyn Fn(User) -> Pin<Box<dyn Future<Output = ()>>> + Send;
@@ -21,6 +25,7 @@ pub struct App {
 #[derive(Debug)]
 pub struct AppState {
     pub(crate) users: RwLock<HashMap<Uuid, User>>,
+    pub(crate) channels: RwLock<HashMap<String, UntypedChannelBroadcast>>,
 }
 
 impl App {
@@ -28,6 +33,7 @@ impl App {
         Self {
             state: Arc::new(AppState {
                 users: RwLock::new(HashMap::new()),
+                channels: RwLock::new(HashMap::default()),
             }),
             rpc_functions: RpcStore::default(),
             on_connect: None,
@@ -60,6 +66,23 @@ impl App {
                 .write()
                 .await
                 .insert(user.meta.id, user.clone());
+
+            let user_clone = user.clone();
+            tasks::spawn(async move {
+                let messages = user_clone.listen_messages()?;
+
+                loop {
+                    let message = match messages.next().await {
+                        Ok(message) => message,
+                        Err(ListenError::Closed) => break,
+                        Err(e) => anyhow::bail!(e),
+                    };
+
+                    println!("got message: {message:?}");
+                }
+
+                Ok::<_, anyhow::Error>(())
+            });
 
             self.on_connect.as_ref().map(|handler| {
                 let handler = handler.clone();

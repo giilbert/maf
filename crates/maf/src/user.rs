@@ -7,7 +7,14 @@ use std::{
 
 use uuid::Uuid;
 
-use crate::{app::AppState, bindings::bindgen, channel::BoundChannel, tasks::Runtime, Channel};
+use crate::{
+    app::AppState,
+    bindings::bindgen::{self, maf::bindings::bindings},
+    channel::BoundChannel,
+    packet::RxPacket,
+    tasks::Runtime,
+    Channel,
+};
 
 pub struct UserListener {
     state: Arc<AppState>,
@@ -92,6 +99,18 @@ impl User {
         }
     }
 
+    pub(crate) fn listen_messages(&self) -> anyhow::Result<UserMessageListener> {
+        let future_message = self
+            .inner
+            .listen_message()
+            .map_err(|_| anyhow::anyhow!("failed to listen for message"))?;
+
+        Ok(UserMessageListener {
+            user: self,
+            listener: future_message,
+        })
+    }
+
     // TODO: proper error handling
     pub(crate) fn send(&self, data: impl serde::Serialize) -> anyhow::Result<()> {
         let text = serde_json::to_string(&data)?;
@@ -115,5 +134,68 @@ impl User {
 impl UserMeta {
     pub fn id(&self) -> Uuid {
         self.id
+    }
+}
+
+pub struct UserNextMessageFuture<'a> {
+    user: &'a User,
+    listener: &'a bindings::FutureMessage,
+}
+
+impl<'a> UserNextMessageFuture<'a> {
+    pub fn try_poll(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Result<Poll<UserMessage<'a>>, bindgen::ListenError> {
+        match self.listener.get() {
+            Ok(raw_message) => {
+                return Ok(Poll::Ready(UserMessage {
+                    user: self.user,
+                    packet: RxPacket::ChannelSend {},
+                }))
+            }
+            Err(bindgen::ListenError::NotReady) => {
+                let pollable = self.listener.subscribe()?;
+                if pollable.ready() {
+                    return self.try_poll(cx);
+                } else {
+                    Runtime::new_waker(cx, pollable);
+                    Ok(Poll::Pending)
+                }
+            }
+            Err(err) => return Err(err),
+        }
+    }
+}
+
+impl<'a> Future for UserNextMessageFuture<'a> {
+    type Output = Result<UserMessage<'a>, bindgen::ListenError>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        match self.try_poll(cx) {
+            Ok(Poll::Ready(value)) => Poll::Ready(Ok(value)),
+            Ok(Poll::Pending) => Poll::Pending,
+            Err(err) => Poll::Ready(Err(err)),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct UserMessage<'a> {
+    user: &'a User,
+    packet: RxPacket,
+}
+
+pub(crate) struct UserMessageListener<'a> {
+    user: &'a User,
+    listener: bindings::FutureMessage,
+}
+
+impl<'a> UserMessageListener<'a> {
+    pub fn next(&self) -> UserNextMessageFuture {
+        UserNextMessageFuture {
+            user: self.user,
+            listener: &self.listener,
+        }
     }
 }

@@ -1,6 +1,7 @@
-use std::{marker::PhantomData, sync::Arc};
+use std::{any::Any, marker::PhantomData, sync::Arc};
 
 use serde::{de::DeserializeOwned, Serialize};
+use tokio::sync::broadcast;
 
 use crate::{app::AppState, packet::TxPacket, App, User};
 
@@ -46,6 +47,18 @@ impl<T: Serialize> Channel<T> {
     pub fn name(&self) -> &str {
         &self.name
     }
+
+    pub async fn recv(&self) -> anyhow::Result<T> {
+        // self.state
+        //     .channels
+        //     .write()
+        //     .await
+        //     .entry(self.name.clone())
+        //     .or_default()
+        //     .push();
+
+        todo!();
+    }
 }
 
 pub struct BoundChannel<T> {
@@ -65,5 +78,19 @@ impl<T> BoundChannel<T> {
 impl<T: Serialize> BoundChannel<T> {
     pub fn send(&self, message: T) -> anyhow::Result<()> {
         self.channel.send(&self.user, message)
+    }
+}
+
+#[derive(Debug)]
+pub struct UntypedChannelBroadcast {
+    // pub(crate) rx: broadcast::Receiver<Message>,
+    // pub(crate) tx: broadcast::Sender<Box<dyn Any>>,
+}
+
+impl Default for UntypedChannelBroadcast {
+    fn default() -> Self {
+        Self {}
+        // let (tx, rx) = broadcast::channel(20);
+        // Self { rx, tx }
     }
 }
