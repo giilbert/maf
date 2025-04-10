@@ -8,7 +8,11 @@ const client = new MafClient({
 async function run() {
   await client.connect();
 
-  const channel = client.channel<string>("example-channel");
+  const channel = client.channel<string>("hello");
+
+  channel.on("message", (message) => {
+    console.log("received message:", message);
+  });
 
   while (true) {
     const message = channel.send("hello");

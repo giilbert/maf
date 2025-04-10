@@ -20,6 +20,8 @@ export class MafClient extends Emittery<MafClientEvents> {
   private _sessionInfo?: SessionInfo;
   private _ws?: WebSocket;
 
+  private _channels: Record<string, Channel<any>> = {};
+
   public get ws() {
     if (!this._ws) throw new Error("WebSocket is not connected");
     return this._ws;
@@ -86,17 +88,30 @@ export class MafClient extends Emittery<MafClientEvents> {
     this.emit("ready", handshakeResponse);
 
     ws.addEventListener("message", (event) => {
-      console.log("got message!", event.data);
+      if (typeof event.data === "string") {
+        this.handleMessage(JSON.parse(event.data));
+      } else {
+        console.warn("Received non-string message:", event.data);
+      }
     });
 
     return handshakeResponse;
   }
 
-  public send(message: TxPacket) {
-    this.ws.send(message.type + ":" + JSON.stringify(message.data));
+  private async handleMessage(packet: RxPacket) {
+    if (packet.type === "ChannelSend") {
+      const { channel, data } = packet.data;
+      this._channels[channel]?.emit("message", data);
+    }
   }
 
-  channel<T>(name: string) {
-    return new Channel<T>(this, name);
+  public channel<T>(name: string) {
+    if (!this._channels[name])
+      this._channels[name] = new Channel<T>(this, name);
+    return this._channels[name];
+  }
+
+  public send(message: TxPacket) {
+    this.ws.send(message.type + ":" + JSON.stringify(message.data));
   }
 }

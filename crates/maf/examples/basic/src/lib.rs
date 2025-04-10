@@ -10,7 +10,10 @@ fn test_rpc(body: Body<i32>) -> i32 {
 async fn on_connect(user: User) {
     println!("user connected!");
 
-    user.channel("hello").send("Hello, world!").unwrap();
+    loop {
+        let _ = user.channel("hello").send("Hello, world!");
+        tasks::sleep(Duration::from_secs(1)).await;
+    }
 }
 
 fn build() -> App {
