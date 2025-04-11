@@ -15,7 +15,7 @@ async function run() {
   });
 
   while (true) {
-    const message = channel.send("hello");
+    channel.send("hello");
     await new Promise((resolve) => {
       setTimeout(resolve, 1000);
     });

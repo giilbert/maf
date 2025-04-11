@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", content = "data")]
 pub enum RxPacket {
-    ChannelSend {},
+    ChannelSend(ChannelSendRx),
 }
 
 /// Messages sent from the server to the client
@@ -12,4 +12,10 @@ pub enum RxPacket {
 #[serde(tag = "type", content = "data")]
 pub enum TxPacket<'a, T> {
     ChannelSend { channel: &'a str, data: &'a T },
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct ChannelSendRx {
+    pub channel: String,
+    pub data: serde_json::Value,
 }

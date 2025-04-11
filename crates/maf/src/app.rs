@@ -8,9 +8,11 @@ use uuid::Uuid;
 
 use crate::{
     bindings::bindgen::ListenError,
-    channel::UntypedChannelBroadcast,
+    channel::{self, UntypedChannelBroadcast},
+    packet::RxPacket,
     rpc::{IntoRpcFunction, RpcStore},
     tasks::{self, Runtime},
+    user::UserMessage,
     Channel, User, UserListener,
 };
 
@@ -67,18 +69,28 @@ impl App {
                 .await
                 .insert(user.meta.id, user.clone());
 
+            let app = self.clone();
             let user_clone = user.clone();
+
             tasks::spawn(async move {
                 let messages = user_clone.listen_messages()?;
 
                 loop {
                     let message = match messages.next().await {
                         Ok(message) => message,
-                        Err(ListenError::Closed) => break,
-                        Err(e) => anyhow::bail!(e),
+                        Err(e) => {
+                            if e.downcast_ref::<ListenError>()
+                                .map(|e| matches!(e, ListenError::Closed))
+                                .unwrap_or(false)
+                            {
+                                break;
+                            } else {
+                                return Err(e);
+                            }
+                        }
                     };
 
-                    println!("got message: {message:?}");
+                    app.handle_message(message).await?;
                 }
 
                 Ok::<_, anyhow::Error>(())
@@ -89,6 +101,26 @@ impl App {
                 tasks::spawn(handler(user));
             });
         }
+    }
+
+    async fn handle_message<'a>(&self, message: UserMessage<'a>) -> anyhow::Result<()> {
+        match message.packet {
+            RxPacket::ChannelSend(channel_data) => {
+                self.state
+                    .channels
+                    .read()
+                    .await
+                    .get(&channel_data.channel)
+                    .map(|channel| {
+                        channel
+                            .tx
+                            .send(channel_data)
+                            .expect("failed to send message");
+                    });
+            }
+        }
+
+        Ok(())
     }
 
     async fn run_async(self) {

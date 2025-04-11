@@ -112,6 +112,6 @@ export class MafClient extends Emittery<MafClientEvents> {
   }
 
   public send(message: TxPacket) {
-    this.ws.send(message.type + ":" + JSON.stringify(message.data));
+    this.ws.send(JSON.stringify(message));
   }
 }

@@ -110,5 +110,3 @@ impl IoView for ContainerData {
         &mut self.resources
     }
 }
-
-fn a<T: Send + Sync + 'static>() {}

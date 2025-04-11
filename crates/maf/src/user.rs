@@ -78,7 +78,7 @@ impl Future for UserListenerNextFuture<'_> {
 #[derive(Debug, Clone)]
 pub struct User {
     pub meta: UserMeta,
-    state: Arc<AppState>,
+    pub state: Arc<AppState>,
     inner: Arc<bindgen::User>,
 }
 
@@ -146,14 +146,20 @@ impl<'a> UserNextMessageFuture<'a> {
     pub fn try_poll(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
-    ) -> Result<Poll<UserMessage<'a>>, bindgen::ListenError> {
+    ) -> anyhow::Result<Poll<UserMessage<'a>>> {
         match self.listener.get() {
-            Ok(raw_message) => {
-                return Ok(Poll::Ready(UserMessage {
-                    user: self.user,
-                    packet: RxPacket::ChannelSend {},
-                }))
-            }
+            Ok(raw_message) => match raw_message {
+                bindgen::Message::Text(text) => {
+                    return Ok(Poll::Ready(UserMessage {
+                        user: self.user,
+                        packet: serde_json::from_str(text.as_str())
+                            .map_err(|e| anyhow::anyhow!("Failed to deserialize message: {e}"))?,
+                    }));
+                }
+                bindgen::Message::Binary(_bytes) => {
+                    todo!("handle binary messages");
+                }
+            },
             Err(bindgen::ListenError::NotReady) => {
                 let pollable = self.listener.subscribe()?;
                 if pollable.ready() {
@@ -163,13 +169,13 @@ impl<'a> UserNextMessageFuture<'a> {
                     Ok(Poll::Pending)
                 }
             }
-            Err(err) => return Err(err),
+            Err(err) => return Err(err.into()),
         }
     }
 }
 
 impl<'a> Future for UserNextMessageFuture<'a> {
-    type Output = Result<UserMessage<'a>, bindgen::ListenError>;
+    type Output = anyhow::Result<UserMessage<'a>>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match self.try_poll(cx) {
@@ -182,8 +188,8 @@ impl<'a> Future for UserNextMessageFuture<'a> {
 
 #[derive(Debug)]
 pub struct UserMessage<'a> {
-    user: &'a User,
-    packet: RxPacket,
+    pub(crate) user: &'a User,
+    pub(crate) packet: RxPacket,
 }
 
 pub(crate) struct UserMessageListener<'a> {

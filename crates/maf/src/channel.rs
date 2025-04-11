@@ -3,7 +3,12 @@ use std::{any::Any, marker::PhantomData, sync::Arc};
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::broadcast;
 
-use crate::{app::AppState, packet::TxPacket, App, User};
+use crate::{
+    app::AppState,
+    bindings::bindgen,
+    packet::{ChannelSendRx, TxPacket},
+    App, User,
+};
 
 #[derive(Debug)]
 pub struct Channel<T> {
@@ -47,17 +52,33 @@ impl<T: Serialize> Channel<T> {
     pub fn name(&self) -> &str {
         &self.name
     }
+}
 
+impl<T: DeserializeOwned> Channel<T> {
     pub async fn recv(&self) -> anyhow::Result<T> {
-        // self.state
-        //     .channels
-        //     .write()
-        //     .await
-        //     .entry(self.name.clone())
-        //     .or_default()
-        //     .push();
+        if self.state.channels.read().await.get(&self.name).is_none() {
+            self.state
+                .channels
+                .write()
+                .await
+                .insert(self.name.clone(), UntypedChannelBroadcast::default());
+        }
+        let message = self
+            .state
+            .channels
+            .read()
+            .await
+            .get(&self.name)
+            .expect("channel not found")
+            .tx
+            .subscribe()
+            .recv()
+            .await?;
 
-        todo!();
+        let data = serde_json::from_value(message.data)
+            .map_err(|e| anyhow::anyhow!("Failed to deserialize message: {}", e))?;
+
+        Ok(data)
     }
 }
 
@@ -81,16 +102,21 @@ impl<T: Serialize> BoundChannel<T> {
     }
 }
 
+impl<T: DeserializeOwned> BoundChannel<T> {
+    // TODO:
+    pub async fn recv(&self) -> anyhow::Result<T> {
+        todo!("recv for channels bound to users");
+    }
+}
+
 #[derive(Debug)]
 pub struct UntypedChannelBroadcast {
-    // pub(crate) rx: broadcast::Receiver<Message>,
-    // pub(crate) tx: broadcast::Sender<Box<dyn Any>>,
+    pub(crate) tx: broadcast::Sender<ChannelSendRx>,
 }
 
 impl Default for UntypedChannelBroadcast {
     fn default() -> Self {
-        Self {}
-        // let (tx, rx) = broadcast::channel(20);
-        // Self { rx, tx }
+        let (tx, rx) = broadcast::channel(20);
+        Self { tx }
     }
 }

@@ -111,10 +111,6 @@ impl Connection {
     ) -> anyhow::Result<()> {
         match message {
             Message::Text(data) => {
-                let (packet_type, data) = data
-                    .split_once(":")
-                    .ok_or_else(|| anyhow::anyhow!("invalid message format, expected type:data"))?;
-
                 // TODO: is there a way to pass data without copying it?
                 message_tx
                     .send(bindings::Message::Text(data.to_string()))

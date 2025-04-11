@@ -123,13 +123,10 @@ impl bindings::HostUser for ContainerData {
         user: Resource<User>,
     ) -> anyhow::Result<Resource<bindings::FutureMessage>, ListenError> {
         let message_rx = self.resources.get(&user)?.handle.take_message_rx().await?;
-        Ok(self.resources.push_child(
-            FutureMessage {
-                channel: message_rx,
-                next_message: None,
-            },
-            &user,
-        )?)
+        Ok(self.resources.push(FutureMessage {
+            channel: message_rx,
+            next_message: None,
+        })?)
     }
 
     async fn send(
