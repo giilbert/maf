@@ -6,7 +6,7 @@ use std::{
     marker::PhantomData,
     pin::Pin,
     rc::Rc,
-    task::{Poll, Waker},
+    task::{Context, Poll, Waker},
 };
 
 use wasi::io::poll::Pollable;
@@ -289,6 +289,50 @@ impl<T: 'static> JoinHandle<T> {
 
         self.runtime
             .get_task(self.task_id)
-            .map(|task| task.borrow_mut().handler = Some(handler));
+            .expect("task not found")
+            .borrow_mut()
+            .handler = Some(handler);
+    }
+}
+
+impl<T: 'static> IntoFuture for JoinHandle<T> {
+    type IntoFuture = JoinHandleFuture<T>;
+    type Output = T;
+
+    fn into_future(self) -> Self::IntoFuture {
+        JoinHandleFuture {
+            runtime: self.runtime,
+            task_id: self.task_id,
+            output: Rc::new(RefCell::new(None)),
+            _phantom: PhantomData,
+        }
+    }
+}
+
+pub struct JoinHandleFuture<T> {
+    runtime: Runtime,
+    task_id: TaskId,
+    output: Rc<RefCell<Option<T>>>,
+    _phantom: PhantomData<T>,
+}
+
+impl<T: 'static> Future for JoinHandleFuture<T> {
+    type Output = T;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let task = self.runtime.get_task(self.task_id).expect("task not found");
+
+        let waker = cx.waker().clone();
+        let output_cell = self.output.clone();
+        task.borrow_mut().handler = Some(Box::new(move |output: Box<dyn Any>| {
+            let output = output.downcast::<T>().expect("output downcast failed");
+            output_cell.borrow_mut().replace(*output);
+            waker.wake_by_ref();
+        }));
+
+        match self.output.borrow().as_ref() {
+            Some(output) => Poll::Ready(output.clone()),
+            None => Poll::Pending,
+        }
     }
 }
