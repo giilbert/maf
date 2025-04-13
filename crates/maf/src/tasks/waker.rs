@@ -3,7 +3,7 @@ use std::{
     task::{RawWaker, RawWakerVTable, Waker},
 };
 
-use super::{runtime::TaskId, Runtime};
+use super::{task::TaskId, Runtime};
 
 struct WakerData {
     runtime: Runtime,
@@ -52,9 +52,11 @@ unsafe fn clone_callback(ptr: *const ()) -> RawWaker {
 
 unsafe fn wake_callback(ptr: *const ()) {
     let rc = WakerData::from_raw(ptr);
+
     rc.runtime
         .resume_task(rc.task_id)
         .expect("error polling task");
+
     std::mem::forget(rc);
 }
 

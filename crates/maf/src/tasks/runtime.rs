@@ -11,7 +11,11 @@ use std::{
 
 use wasi::io::poll::Pollable;
 
-use super::waker;
+use super::{
+    gen_vec::GenVec,
+    task::{Task, TaskHandle, TaskId},
+    waker,
+};
 
 #[doc(hidden)]
 pub static GLOBAL_RUNTIME: GlobalRuntime = GlobalRuntime::new();
@@ -42,38 +46,17 @@ pub struct Runtime {
 
 #[derive(Debug)]
 pub struct RuntimeInner {
-    tasks: Vec<(TaskId, Option<Rc<RefCell<Task>>>)>,
+    tasks: GenVec<TaskHandle>,
     new_tasks: VecDeque<TaskId>,
-    free_task_ids: Vec<u32>,
-
     pollables: Vec<(Pollable, Waker)>,
-}
-
-pub struct Task {
-    future: Box<dyn Future<Output = Box<dyn Any + 'static>>>,
-    handler: Option<Box<dyn FnOnce(Box<dyn Any>)>>,
-}
-
-impl std::fmt::Debug for Task {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Task").finish_non_exhaustive()
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TaskId {
-    generation: u32,
-    index: u32,
 }
 
 impl Runtime {
     pub fn new() -> Self {
         Self {
             inner: Rc::new(RefCell::new(RuntimeInner {
-                tasks: Vec::new(),
+                tasks: GenVec::new(),
                 new_tasks: VecDeque::new(),
-                free_task_ids: Vec::new(),
-
                 pollables: Vec::new(),
             })),
         }
@@ -87,76 +70,23 @@ impl Runtime {
         self.inner.borrow_mut()
     }
 
-    fn push_task(&self, task: Task) -> TaskId {
-        let mut inner = self.inner_mut();
-
-        if let Some(id) = inner.free_task_ids.pop() {
-            let old_task_id = inner.tasks[id as usize].0;
-            let new_task_id = TaskId {
-                generation: old_task_id.generation + 1,
-                index: id,
-            };
-            inner.tasks[id as usize] = (new_task_id, Some(Rc::new(RefCell::new(task))));
-
-            new_task_id
-        } else {
-            let new_task_id = TaskId {
-                generation: 0,
-                index: inner.tasks.len() as u32,
-            };
-
-            inner
-                .tasks
-                .push((new_task_id, Some(Rc::new(RefCell::new(task)))));
-
-            new_task_id
-        }
+    fn task(&self, task_id: TaskId) -> TaskHandle {
+        self.inner()
+            .tasks
+            .get(task_id)
+            .expect("task not found")
+            .clone()
     }
-
-    fn remove_task(&self, task_id: TaskId) -> Option<Rc<RefCell<Task>>> {
-        let mut inner = self.inner_mut();
-
-        if task_id.index as usize >= inner.tasks.len() {
-            return None;
-        }
-
-        let (old_task_id, task) = &mut inner.tasks[task_id.index as usize];
-        if old_task_id.generation == task_id.generation {
-            let task = task.take()?;
-            inner.free_task_ids.push(task_id.index);
-            Some(task)
-        } else {
-            None
-        }
-    }
-
-    fn get_task(&self, task_id: TaskId) -> Option<Rc<RefCell<Task>>> {
-        let inner = self.inner();
-        if task_id.index as usize >= inner.tasks.len() {
-            return None;
-        }
-
-        let (id, task) = &inner.tasks[task_id.index as usize];
-        if id.generation == task_id.generation {
-            task.clone()
-        } else {
-            None
-        }
-    }
-
-    // pub(crate) fn waker_called(&self, task_id: TaskId) {
-    //     let mut inner = self.inner_mut();
-    //     inner.resumed_tasks.push_back(task_id);
-    // }
 
     // Used by external code to signal that a task is ready to be processed.
     pub fn resume_task(&self, task_id: TaskId) -> anyhow::Result<()> {
         let task = self
-            .get_task(task_id)
-            .ok_or_else(|| anyhow::anyhow!("task with id {:?} not found", task_id))?;
-        let mut task = task.borrow_mut();
-
-        // println!("resuming task {:?}", task_id);
+            .inner()
+            .tasks
+            .get(task_id)
+            .ok_or_else(|| anyhow::anyhow!("task with id {:?} not found", task_id))?
+            .clone();
+        let mut task = task.inner_mut();
 
         let fut = unsafe { Pin::new_unchecked(task.future.as_mut()) };
         let waker = waker::create_waker(self.clone(), task_id);
@@ -165,11 +95,9 @@ impl Runtime {
         match fut.poll(&mut ctx) {
             Poll::Ready(output) => {
                 task.handler.take().map(|handler| handler(output));
-                self.remove_task(task_id);
+                self.inner_mut().tasks.remove(task_id);
             }
-            Poll::Pending => {
-                // Task is still pending, do nothing
-            }
+            Poll::Pending => {}
         }
 
         Ok(())
@@ -199,12 +127,6 @@ impl Runtime {
                 break;
             }
 
-            // println!(
-            //     "waiting for pollables to finish. num pollables = {}",
-            //     pollable_ref.len()
-            // );
-            // println!("{:#?}", pollable_ref);
-
             let ready_poll_indices = wasi::io::poll::poll(&pollable_ref);
             drop(inner);
 
@@ -217,8 +139,7 @@ impl Runtime {
 
                 waker.wake_by_ref();
 
-                let mut inner_mut = self.inner_mut();
-                inner_mut.pollables.remove(index as usize);
+                self.inner_mut().pollables.swap_remove(index as usize);
             }
         }
     }
@@ -236,10 +157,10 @@ impl Runtime {
             Box::new(result) as Box<dyn Any + 'static>
         });
 
-        let id = self.push_task(Task {
+        let id = self.inner_mut().tasks.push(TaskHandle::new(Task {
             future,
             handler: None,
-        });
+        }));
 
         // println!("task {:?} spawned", id);
 
@@ -287,11 +208,7 @@ impl<T: 'static> JoinHandle<T> {
             f(*output);
         });
 
-        self.runtime
-            .get_task(self.task_id)
-            .expect("task not found")
-            .borrow_mut()
-            .handler = Some(handler);
+        self.runtime.task(self.task_id).inner_mut().handler = Some(handler);
     }
 }
 
@@ -320,18 +237,23 @@ impl<T: 'static> Future for JoinHandleFuture<T> {
     type Output = T;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let task = self.runtime.get_task(self.task_id).expect("task not found");
+        let task = self.runtime.task(self.task_id);
 
-        let waker = cx.waker().clone();
-        let output_cell = self.output.clone();
-        task.borrow_mut().handler = Some(Box::new(move |output: Box<dyn Any>| {
-            let output = output.downcast::<T>().expect("output downcast failed");
-            output_cell.borrow_mut().replace(*output);
-            waker.wake_by_ref();
-        }));
+        match &mut task.inner_mut().handler {
+            Some(handler) => {
+                let waker = cx.waker().clone();
+                let output_cell = self.output.clone();
+                *handler = Box::new(move |output: Box<dyn Any>| {
+                    let output = output.downcast::<T>().expect("output downcast failed");
+                    output_cell.borrow_mut().replace(*output);
+                    waker.wake_by_ref();
+                });
+            }
+            None => {}
+        }
 
-        match self.output.borrow().as_ref() {
-            Some(output) => Poll::Ready(output.clone()),
+        match self.output.borrow_mut().take() {
+            Some(output) => Poll::Ready(output),
             None => Poll::Pending,
         }
     }
