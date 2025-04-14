@@ -8,7 +8,7 @@ use serde::de::DeserializeOwned;
 pub struct RpcFunction {
     pub(crate) path: String,
     pub(crate) type_id: TypeId,
-    pub(crate) handler: Box<dyn Fn(RpcRequest) -> anyhow::Result<RpcResponse> + Sync + Send>,
+    pub(crate) handler: Box<dyn Fn(RpcRequest) -> anyhow::Result<RpcResponse> + Send + Sync>,
 }
 
 impl std::fmt::Debug for RpcFunction {
@@ -69,7 +69,7 @@ pub trait IntoRpcFunction<R, P> {
 
 impl<R, F: Send + Sync + Fn() -> R + 'static> IntoRpcFunction<R, ()> for F
 where
-    R: Send + Sync + serde::Serialize + 'static,
+    R: Send + serde::Serialize + 'static,
 {
     fn into_rpc_function(self, path: String) -> RpcFunction {
         RpcFunction {
@@ -85,7 +85,7 @@ where
     }
 }
 
-macro_rules! impl_into_system {
+macro_rules! impl_rpc_fn {
     ($($members:ident),+) => {
         #[allow(unused_parens)]
         impl<
@@ -117,11 +117,11 @@ macro_rules! impl_into_system {
     }
 }
 
-impl_into_system!(P1);
-impl_into_system!(P1, P2);
-impl_into_system!(P1, P2, P3);
-impl_into_system!(P1, P2, P3, P4);
-impl_into_system!(P1, P2, P3, P4, P5);
-impl_into_system!(P1, P2, P3, P4, P5, P6);
-impl_into_system!(P1, P2, P3, P4, P5, P6, P7);
-impl_into_system!(P1, P2, P3, P4, P5, P6, P7, P8);
+impl_rpc_fn!(P1);
+impl_rpc_fn!(P1, P2);
+impl_rpc_fn!(P1, P2, P3);
+impl_rpc_fn!(P1, P2, P3, P4);
+impl_rpc_fn!(P1, P2, P3, P4, P5);
+impl_rpc_fn!(P1, P2, P3, P4, P5, P6);
+impl_rpc_fn!(P1, P2, P3, P4, P5, P6, P7);
+impl_rpc_fn!(P1, P2, P3, P4, P5, P6, P7, P8);

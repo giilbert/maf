@@ -1,17 +1,16 @@
 use std::time::Duration;
 
-use maf::{self, tasks, App, Body, Channel, User};
+use maf::*;
 
 fn test_rpc(body: Body<i32>) -> i32 {
     println!("test_rpc: {:?}", body);
     42
 }
 
-async fn on_connect(user: User) {
+async fn on_connect(app: App, user: User) {
     println!("user connected!");
 
-    // TODO: less hacky way to get app
-    let rx_channel = Channel::<String>::new(user.state.clone(), "hello");
+    let rx_channel = app.channel::<String>("hello");
     tasks::spawn(async move {
         loop {
             let message = rx_channel.recv().await.expect("failed to receive");
@@ -26,11 +25,10 @@ async fn on_connect(user: User) {
 }
 
 fn build() -> App {
-    let app = App::new()
+    App::builder()
         .on_connect(on_connect)
-        .add_rpc_function("test", test_rpc);
-
-    app
+        .rpc("test", test_rpc)
+        .build()
 }
 
-maf::register_build!(build);
+maf::register!(build);

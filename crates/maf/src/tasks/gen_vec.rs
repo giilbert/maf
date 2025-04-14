@@ -1,4 +1,4 @@
-use std::{ops::Index, ptr::NonNull};
+use std::ptr::NonNull;
 
 /// Vector with generational indices
 #[derive(Debug, Clone)]

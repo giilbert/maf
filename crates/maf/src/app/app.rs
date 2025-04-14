@@ -1,14 +1,11 @@
-use std::{
-    any::Any, cell::RefCell, collections::HashMap, future::Future, pin::Pin, rc::Rc, sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 
 use async_lock::RwLock;
-use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
     bindings::bindgen::ListenError,
-    channel::{self, UntypedChannelBroadcast},
+    channel::UntypedChannelBroadcast,
     packet::RxPacket,
     rpc::{IntoRpcFunction, RpcStore},
     tasks::{self, Runtime},
@@ -16,54 +13,43 @@ use crate::{
     Channel, User, UserListener,
 };
 
-type OnConnectFn = dyn Fn(User) -> Pin<Box<dyn Future<Output = ()>>> + Send;
+use super::{on_connect::OnConnectFn, IntoOnConnect};
 
+#[derive(Clone)]
 pub struct App {
+    pub(crate) inner: Arc<AppInner>,
+}
+
+pub struct AppInner {
     pub(crate) state: Arc<AppState>,
     pub(crate) rpc_functions: RpcStore,
     pub(crate) on_connect: Option<Arc<OnConnectFn>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct AppState {
     pub(crate) users: RwLock<HashMap<Uuid, User>>,
     pub(crate) channels: RwLock<HashMap<String, UntypedChannelBroadcast>>,
 }
 
+#[derive(Default)]
+pub struct AppBuilder {
+    on_connect: Option<Arc<OnConnectFn>>,
+    rpc_functions: RpcStore,
+}
+
 impl App {
-    pub fn new() -> Self {
-        Self {
-            state: Arc::new(AppState {
-                users: RwLock::new(HashMap::new()),
-                channels: RwLock::new(HashMap::default()),
-            }),
-            rpc_functions: RpcStore::default(),
-            on_connect: None,
-        }
-    }
-
-    pub fn on_connect<T>(mut self, handler: impl IntoOnConnect<T>) -> Self {
-        self.on_connect = Some(handler.into_on_connect());
-        self
-    }
-
-    pub fn add_rpc_function<R, P>(
-        mut self,
-        path: impl ToString,
-        handler: impl IntoRpcFunction<R, P>,
-    ) -> Self {
-        let path = path.to_string();
-        self.rpc_functions
-            .add_rpc_function(handler.into_rpc_function(path));
-        self
+    pub fn builder() -> AppBuilder {
+        AppBuilder::default()
     }
 
     async fn handle_connections(self: Arc<Self>) -> anyhow::Result<()> {
-        let users = UserListener::new(self.state.clone())?;
+        let users = UserListener::new(self.inner.state.clone())?;
 
         loop {
             let user = users.next().await?;
-            self.state
+            self.inner
+                .state
                 .users
                 .write()
                 .await
@@ -72,6 +58,7 @@ impl App {
             let app = self.clone();
             let user_clone = user.clone();
 
+            // Listen for messages from the user and handle them
             tasks::spawn(async move {
                 let messages = user_clone.listen_messages()?;
 
@@ -96,9 +83,10 @@ impl App {
                 Ok::<_, anyhow::Error>(())
             });
 
-            self.on_connect.as_ref().map(|handler| {
+            let app = self.clone();
+            self.inner.on_connect.as_ref().map(|handler| {
                 let handler = handler.clone();
-                tasks::spawn(handler(user));
+                tasks::spawn(handler(&app, user));
             });
         }
     }
@@ -106,7 +94,8 @@ impl App {
     async fn handle_message<'a>(&self, message: UserMessage<'a>) -> anyhow::Result<()> {
         match message.packet {
             RxPacket::ChannelSend(channel_data) => {
-                self.state
+                self.inner
+                    .state
                     .channels
                     .read()
                     .await
@@ -134,10 +123,42 @@ impl App {
         tasks::spawn(self.run_async());
         Runtime::current().blocking_poll();
     }
+
+    pub fn channel<T>(&self, name: impl ToString) -> Channel<T> {
+        Channel::new(self.inner.state.clone(), name.to_string())
+    }
+}
+
+impl AppBuilder {
+    pub fn on_connect<P, R>(mut self, handler: impl IntoOnConnect<P, R>) -> Self {
+        self.on_connect = Some(handler.into_on_connect());
+        self
+    }
+
+    pub fn rpc<R, P>(mut self, path: impl ToString, handler: impl IntoRpcFunction<R, P>) -> Self {
+        let path = path.to_string();
+        self.rpc_functions
+            .add_rpc_function(handler.into_rpc_function(path));
+        self
+    }
+
+    pub fn build(self) -> App {
+        let state = Arc::new(AppState::default());
+
+        let inner = AppInner {
+            state,
+            rpc_functions: self.rpc_functions,
+            on_connect: self.on_connect,
+        };
+
+        App {
+            inner: Arc::new(inner),
+        }
+    }
 }
 
 #[macro_export]
-macro_rules! register_build {
+macro_rules! register {
     ($func:ident) => {
         pub use $crate::bindings::bindgen::{
             self, __export_world_imports_cabi, _export_run_cabi, export,
@@ -157,33 +178,4 @@ macro_rules! register_build {
 
         export!(GuestImpl);
     };
-}
-
-// An R type parameter is needed to allow for different types of return values
-pub trait IntoOnConnect<R> {
-    fn into_on_connect(self) -> Arc<OnConnectFn>;
-}
-
-impl<F: Fn(User) -> () + Clone + Send + Sync + 'static> IntoOnConnect<()> for F {
-    fn into_on_connect(self) -> Arc<OnConnectFn> {
-        Arc::new(move |user| {
-            let f = self.clone();
-            Box::pin(async move {
-                f(user);
-            })
-        })
-    }
-}
-
-impl<F: Fn(User) -> R + Clone + Send + Sync + 'static, R: Future<Output = ()>>
-    IntoOnConnect<Pin<Box<dyn Future<Output = ()>>>> for F
-{
-    fn into_on_connect(self) -> Arc<OnConnectFn> {
-        Arc::new(move |user| {
-            let f = self.clone();
-            Box::pin(async move {
-                f(user).await;
-            })
-        })
-    }
 }
