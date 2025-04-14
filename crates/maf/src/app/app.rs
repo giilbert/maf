@@ -6,7 +6,7 @@ use uuid::Uuid;
 use crate::{
     bindings::bindgen::ListenError,
     channel::UntypedChannelBroadcast,
-    packet::RxPacket,
+    packet::{ChannelSendRx, RxPacket},
     rpc::{IntoRpcFunction, RpcStore},
     tasks::{self, Runtime},
     user::UserMessage,
@@ -29,7 +29,9 @@ pub struct AppInner {
 #[derive(Debug, Default)]
 pub struct AppState {
     pub(crate) users: RwLock<HashMap<Uuid, User>>,
+
     pub(crate) channels: RwLock<HashMap<String, UntypedChannelBroadcast>>,
+    pub(crate) user_rx_channels: RwLock<HashMap<(Uuid, String), UntypedChannelBroadcast>>,
 }
 
 #[derive(Default)]
@@ -91,25 +93,38 @@ impl App {
         }
     }
 
+    async fn handle_channel_send(
+        &self,
+        user: &User,
+        channel_data: ChannelSendRx,
+    ) -> anyhow::Result<()> {
+        // Send to general channels
+        self.inner
+            .state
+            .channels
+            .read()
+            .await
+            .get(&channel_data.channel)
+            .map(|c| c.tx.send(channel_data.clone()));
+
+        // Send to user-specific channels
+        self.inner
+            .state
+            .user_rx_channels
+            .read()
+            .await
+            .get(&(user.meta.id, channel_data.channel.clone()))
+            .map(|c| c.tx.send(channel_data.clone()));
+
+        Ok(())
+    }
+
     async fn handle_message<'a>(&self, message: UserMessage<'a>) -> anyhow::Result<()> {
         match message.packet {
             RxPacket::ChannelSend(channel_data) => {
-                self.inner
-                    .state
-                    .channels
-                    .read()
-                    .await
-                    .get(&channel_data.channel)
-                    .map(|channel| {
-                        channel
-                            .tx
-                            .send(channel_data)
-                            .expect("failed to send message");
-                    });
+                self.handle_channel_send(&message.user, channel_data).await
             }
         }
-
-        Ok(())
     }
 
     async fn run_async(self) {

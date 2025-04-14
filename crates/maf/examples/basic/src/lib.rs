@@ -7,13 +7,13 @@ fn test_rpc(body: Body<i32>) -> i32 {
     42
 }
 
-async fn on_connect(app: App, user: User) {
+async fn on_connect(user: User) {
     println!("user connected!");
 
-    let rx_channel = app.channel::<String>("hello");
+    let mut hello_channel = user.channel::<String>("hello");
     tasks::spawn(async move {
         loop {
-            let message = rx_channel.recv().await.expect("failed to receive");
+            let message = hello_channel.recv().await.expect("failed to receive");
             println!("channel: {message:?}");
         }
     });

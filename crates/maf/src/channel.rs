@@ -1,19 +1,19 @@
-use std::{any::Any, marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, sync::Arc};
 
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::broadcast;
 
 use crate::{
     app::AppState,
-    bindings::bindgen,
     packet::{ChannelSendRx, TxPacket},
-    App, User,
+    User,
 };
 
 #[derive(Debug)]
 pub struct Channel<T> {
     name: String,
     state: Arc<AppState>,
+    rx: Option<broadcast::Receiver<ChannelSendRx>>,
     _phantom: PhantomData<T>,
 }
 
@@ -22,6 +22,7 @@ impl<T> Channel<T> {
         Self {
             name: name.to_string(),
             state,
+            rx: None,
             _phantom: PhantomData,
         }
     }
@@ -55,29 +56,66 @@ impl<T: Serialize> Channel<T> {
 }
 
 impl<T: DeserializeOwned> Channel<T> {
-    pub async fn recv(&self) -> anyhow::Result<T> {
-        if self.state.channels.read().await.get(&self.name).is_none() {
-            self.state
-                .channels
-                .write()
-                .await
-                .insert(self.name.clone(), UntypedChannelBroadcast::default());
+    async fn lazy_init_recv(
+        &mut self,
+        user: Option<&User>,
+    ) -> anyhow::Result<&mut broadcast::Receiver<ChannelSendRx>> {
+        if self.rx.is_some() {
+            return Ok(self.rx.as_mut().expect("rx is None"));
+        } else {
+            // Create the broadcast channel if it doesn't exist
+            match user {
+                // This channel is bound to a specific user, use a different method to rx messages
+                Some(user) => {
+                    let user_id = user.meta.id;
+
+                    if !self
+                        .state
+                        .user_rx_channels
+                        .read()
+                        .await
+                        .contains_key(&(user_id, self.name.clone()))
+                    {
+                        self.state.user_rx_channels.write().await.insert(
+                            (user_id, self.name.clone()),
+                            UntypedChannelBroadcast::default(),
+                        );
+                    }
+
+                    let mut channels = self.state.user_rx_channels.write().await;
+                    let channel = channels
+                        .get_mut(&(user_id, self.name.clone()))
+                        .expect("channel not found");
+                    self.rx = Some(channel.tx.subscribe());
+                }
+                None => {
+                    if !self.state.channels.read().await.contains_key(&self.name) {
+                        self.state
+                            .channels
+                            .write()
+                            .await
+                            .insert(self.name.clone(), UntypedChannelBroadcast::default());
+                    }
+
+                    let mut channels = self.state.channels.write().await;
+                    let channel = channels.get_mut(&self.name).expect("channel not found");
+                    self.rx = Some(channel.tx.subscribe());
+                }
+            }
+
+            return Ok(self.rx.as_mut().expect("rx is None"));
         }
-        let message = self
-            .state
-            .channels
-            .read()
-            .await
-            .get(&self.name)
-            .expect("channel not found")
-            .tx
-            .subscribe()
-            .recv()
-            .await?;
+    }
 
-        let data = serde_json::from_value(message.data)
-            .map_err(|e| anyhow::anyhow!("Failed to deserialize message: {}", e))?;
+    pub async fn recv(&mut self) -> anyhow::Result<T> {
+        let message = self.lazy_init_recv(None).await?.recv().await?;
+        let data = serde_json::from_value(message.data)?;
+        Ok(data)
+    }
 
+    pub async fn recv_user(&mut self, user: &User) -> anyhow::Result<T> {
+        let message = self.lazy_init_recv(Some(user)).await?.recv().await?;
+        let data = serde_json::from_value(message.data)?;
         Ok(data)
     }
 }
@@ -103,20 +141,19 @@ impl<T: Serialize> BoundChannel<T> {
 }
 
 impl<T: DeserializeOwned> BoundChannel<T> {
-    // TODO:
-    pub async fn recv(&self) -> anyhow::Result<T> {
-        todo!("recv for channels bound to users");
+    pub async fn recv(&mut self) -> anyhow::Result<T> {
+        self.channel.recv_user(&self.user).await
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct UntypedChannelBroadcast {
     pub(crate) tx: broadcast::Sender<ChannelSendRx>,
 }
 
 impl Default for UntypedChannelBroadcast {
     fn default() -> Self {
-        let (tx, rx) = broadcast::channel(20);
+        let (tx, _rx) = broadcast::channel(20);
         Self { tx }
     }
 }
