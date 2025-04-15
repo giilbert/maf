@@ -1,4 +1,8 @@
-use std::{any, sync::Arc, time::Duration};
+use std::{
+    any,
+    sync::{mpsc::SendError, Arc},
+    time::Duration,
+};
 
 use axum::extract::ws::{Message, WebSocket};
 use bytes::Bytes;
@@ -39,7 +43,7 @@ struct TakeableConnection {
     ws_tx: SplitSink<WebSocket, Message>,
 }
 
-enum ConnectionCommand {
+pub enum ConnectionCommand {
     Close,
     Send(Message),
 }
@@ -169,21 +173,15 @@ impl Connection {
 }
 
 impl ConnectionHandle {
-    pub fn send(&self, message: Message) -> anyhow::Result<()> {
-        self.command_tx
-            .try_send(ConnectionCommand::Send(message))
-            .map_err(|_| anyhow::anyhow!("failed to send command"))?;
-
-        Ok(())
+    pub fn send(
+        &self,
+        message: Message,
+    ) -> Result<(), mpsc::error::TrySendError<ConnectionCommand>> {
+        self.command_tx.try_send(ConnectionCommand::Send(message))
     }
 
-    pub async fn close(&self) -> anyhow::Result<()> {
-        self.command_tx
-            .send(ConnectionCommand::Close)
-            .await
-            .map_err(|_| anyhow::anyhow!("failed to send command"))?;
-
-        Ok(())
+    pub async fn close(&self) -> Result<(), mpsc::error::SendError<ConnectionCommand>> {
+        self.command_tx.send(ConnectionCommand::Close).await
     }
 
     pub async fn take_message_rx(&self) -> anyhow::Result<mpsc::Receiver<bindings::Message>> {

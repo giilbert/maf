@@ -87,6 +87,16 @@ pub struct UserMeta {
     pub(crate) id: Uuid,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum SendError {
+    #[error("channel is closed")]
+    Closed,
+    #[error("buffer is full")]
+    BufferFull,
+    #[error("failed to serialize message")]
+    Serialize(#[from] serde_json::Error),
+}
+
 impl User {
     pub(crate) fn new(state: Arc<AppState>, raw: bindgen::User) -> Self {
         let raw_meta = raw.meta();
@@ -112,17 +122,15 @@ impl User {
     }
 
     // TODO: proper error handling
-    pub(crate) fn send(&self, data: impl serde::Serialize) -> anyhow::Result<()> {
+    pub(crate) fn send(&self, data: impl serde::Serialize) -> Result<(), SendError> {
         let text = serde_json::to_string(&data)?;
-        self.inner
-            .send(&bindgen::Message::Text(text))
-            .map_err(|_| anyhow::anyhow!("Failed to send message"))
+        self.inner.send(&bindgen::Message::Text(text))?;
+        Ok(())
     }
 
-    pub(crate) fn send_binary(&self, bytes: Vec<u8>) -> anyhow::Result<()> {
-        self.inner
-            .send(&bindgen::Message::Binary(bytes))
-            .map_err(|_| anyhow::anyhow!("Failed to send binary message"))
+    pub(crate) fn send_binary(&self, bytes: Vec<u8>) -> Result<(), SendError> {
+        self.inner.send(&bindgen::Message::Binary(bytes))?;
+        Ok(())
     }
 
     pub fn channel<T>(&self, name: impl ToString) -> BoundChannel<T> {
@@ -202,6 +210,15 @@ impl<'a> UserMessageListener<'a> {
         UserNextMessageFuture {
             user: self.user,
             listener: &self.listener,
+        }
+    }
+}
+
+impl From<bindgen::SendError> for SendError {
+    fn from(value: bindgen::SendError) -> Self {
+        match value {
+            bindgen::SendError::Closed => SendError::Closed,
+            bindgen::SendError::BufferFull => SendError::BufferFull,
         }
     }
 }

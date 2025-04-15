@@ -133,15 +133,20 @@ impl bindings::HostUser for ContainerData {
         &mut self,
         user: Resource<bindings::User>,
         message: bindings::Message,
-    ) -> anyhow::Result<Result<(), ()>> {
+    ) -> anyhow::Result<Result<(), bindings::SendError>> {
         let user = self.resources.get_mut(&user)?;
         let message = match message {
             bindings::Message::Text(text) => Message::Text(text.into()),
             bindings::Message::Binary(bytes) => Message::Binary(bytes.into()),
         };
-        if let Err(_) = user.handle.send(message) {
-            // tracing::error!("failed to send message: {e:?}");
-            return Ok(Err(()));
+
+        if let Err(e) = user.handle.send(message) {
+            let wasm_error = match e {
+                mpsc::error::TrySendError::Closed(_) => bindings::SendError::Closed,
+                mpsc::error::TrySendError::Full(_) => bindings::SendError::BufferFull,
+            };
+
+            return Ok(Err(wasm_error));
         }
 
         Ok(Ok(()))

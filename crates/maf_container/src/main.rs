@@ -1,4 +1,3 @@
-use container::Container;
 use runtime::ContainerRuntime;
 
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};

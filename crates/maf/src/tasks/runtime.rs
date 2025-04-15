@@ -162,12 +162,6 @@ impl Runtime {
             handler: None,
         }));
 
-        // println!("task {:?} spawned", id);
-
-        // if self.get_task(id).is_none() {
-        // println!("task {:?} finished immediately", id);
-        // }
-
         self.inner_mut().new_tasks.push_back(id);
 
         JoinHandle {

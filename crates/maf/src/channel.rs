@@ -6,6 +6,7 @@ use tokio::sync::broadcast;
 use crate::{
     app::AppState,
     packet::{ChannelSendRx, TxPacket},
+    user::SendError,
     User,
 };
 
@@ -15,6 +16,14 @@ pub struct Channel<T> {
     state: Arc<AppState>,
     rx: Option<broadcast::Receiver<ChannelSendRx>>,
     _phantom: PhantomData<T>,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum RecvError {
+    #[error("failed to receive message {0}")]
+    Recv(#[from] broadcast::error::RecvError),
+    #[error("failed to deserialize message")]
+    Deserialize(#[from] serde_json::Error),
 }
 
 impl<T> Channel<T> {
@@ -29,7 +38,7 @@ impl<T> Channel<T> {
 }
 
 impl<T: Serialize> Channel<T> {
-    pub fn send(&self, user: &User, message: T) -> anyhow::Result<()> {
+    pub fn send(&self, user: &User, message: T) -> Result<(), SendError> {
         user.send(TxPacket::ChannelSend {
             channel: &self.name,
             data: &message,
@@ -38,7 +47,7 @@ impl<T: Serialize> Channel<T> {
         Ok(())
     }
 
-    pub async fn broadcast(&self, message: T) -> anyhow::Result<()> {
+    pub async fn broadcast(&self, message: T) -> Result<(), SendError> {
         let users = self.state.users.read().await;
         for user in users.values() {
             user.send(TxPacket::ChannelSend {
@@ -59,9 +68,9 @@ impl<T: DeserializeOwned> Channel<T> {
     async fn lazy_init_recv(
         &mut self,
         user: Option<&User>,
-    ) -> anyhow::Result<&mut broadcast::Receiver<ChannelSendRx>> {
+    ) -> &mut broadcast::Receiver<ChannelSendRx> {
         if self.rx.is_some() {
-            return Ok(self.rx.as_mut().expect("rx is None"));
+            return self.rx.as_mut().expect("rx is None");
         } else {
             // Create the broadcast channel if it doesn't exist
             match user {
@@ -103,18 +112,18 @@ impl<T: DeserializeOwned> Channel<T> {
                 }
             }
 
-            return Ok(self.rx.as_mut().expect("rx is None"));
+            return self.rx.as_mut().expect("rx is None");
         }
     }
 
-    pub async fn recv(&mut self) -> anyhow::Result<T> {
-        let message = self.lazy_init_recv(None).await?.recv().await?;
+    pub async fn recv(&mut self) -> Result<T, RecvError> {
+        let message = self.lazy_init_recv(None).await.recv().await?;
         let data = serde_json::from_value(message.data)?;
         Ok(data)
     }
 
-    pub async fn recv_user(&mut self, user: &User) -> anyhow::Result<T> {
-        let message = self.lazy_init_recv(Some(user)).await?.recv().await?;
+    pub async fn recv_user(&mut self, user: &User) -> Result<T, RecvError> {
+        let message = self.lazy_init_recv(Some(user)).await.recv().await?;
         let data = serde_json::from_value(message.data)?;
         Ok(data)
     }
@@ -135,13 +144,13 @@ impl<T> BoundChannel<T> {
 }
 
 impl<T: Serialize> BoundChannel<T> {
-    pub fn send(&self, message: T) -> anyhow::Result<()> {
+    pub fn send(&self, message: T) -> Result<(), SendError> {
         self.channel.send(&self.user, message)
     }
 }
 
 impl<T: DeserializeOwned> BoundChannel<T> {
-    pub async fn recv(&mut self) -> anyhow::Result<T> {
+    pub async fn recv(&mut self) -> Result<T, RecvError> {
         self.channel.recv_user(&self.user).await
     }
 }

@@ -8,11 +8,16 @@ interface bindings {
         text(string),
     }
 
+    variant send-error {
+        closed,
+        buffer-full,
+    }
+
     resource user {
         constructor(id: tuple<u64, u64>);
         meta: func() -> user-meta;
         listen-message: func() -> result<future-message, listen-error>;
-        send: func(message: message) -> result;
+        send: func(message: message) -> result<_, send-error>;
     }
 
     record user-meta {
