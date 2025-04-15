@@ -43,7 +43,10 @@ impl bindings::HostFutureUser for ContainerData {
     ) -> Result<Resource<User>, ListenError> {
         let future_user = self.resources.get_mut(&future_user)?;
         match future_user.next_user.take() {
-            Some(handle) => Ok(self.resources.push(User { handle })?),
+            Some(handle) => {
+                self.update_last_activity();
+                Ok(self.resources.push(User { handle })?)
+            }
             None => Err(bindings::ListenError::NotReady.into()),
         }
     }
@@ -93,7 +96,10 @@ impl bindings::HostFutureMessage for ContainerData {
         }
 
         match future_message.next_message.take() {
-            Some(handle) => Ok(handle),
+            Some(handle) => {
+                self.update_last_activity();
+                Ok(handle)
+            }
             None => Err(bindings::ListenError::NotReady.into()),
         }
     }

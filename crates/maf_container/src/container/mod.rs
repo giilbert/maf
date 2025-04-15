@@ -1,8 +1,19 @@
 mod exports;
 mod io;
 
+use std::{
+    sync::{
+        atomic::{AtomicU64, AtomicUsize, Ordering},
+        Arc,
+    },
+    time::{Duration, SystemTime},
+};
+
 use io::ContainerStdoutFactory;
-use tokio::sync::mpsc;
+use tokio::{
+    sync::{mpsc, oneshot},
+    time,
+};
 use wasmtime as wt;
 use wasmtime_wasi::IoView;
 
@@ -30,12 +41,8 @@ pub struct ContainerData {
     pub wasi_ctx: wasmtime_wasi::WasiCtx,
     pub connection_tx: mpsc::Sender<ConnectionHandle>,
     pub connection_rx: Option<mpsc::Receiver<ConnectionHandle>>,
+    pub(crate) last_activity: Arc<AtomicU64>,
 }
-
-// TODO: make container data threadsafe in the future by ensuring that all accesses to wasm
-// resources happen in the same thread. this can be done by ensuring that all communication with
-// the wasm module is done via channels, with rx handled by a single thread
-unsafe impl Sync for ContainerData {}
 
 impl std::fmt::Debug for ContainerData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -69,6 +76,7 @@ impl Container {
                 wasi_ctx,
                 connection_tx,
                 connection_rx: Some(connection_rx),
+                last_activity: Arc::new(AtomicU64::new(now_as_secs())),
             },
         );
 
@@ -87,15 +95,47 @@ impl Container {
     }
 
     pub async fn run(&mut self) -> anyhow::Result<()> {
-        Ok(self
-            .instance
-            .call_run(&mut self.store)
-            .await?
-            .map_err(|_| anyhow::anyhow!("failed to init due to wasm exception"))?)
+        let (stop_tx, stop_rx) = oneshot::channel::<()>();
+
+        // Spawn a task to monitor inactivity and stop the container
+        let last_activity = self.store.data().last_activity.clone();
+        tokio::spawn(async move {
+            loop {
+                const CHECK_INTERVAL: u64 = 5; // seconds
+                const TIMEOUT: u64 = 60; // seconds
+
+                time::sleep(Duration::from_secs(CHECK_INTERVAL)).await;
+
+                // Check if the container has been inactive for more than TIMEOUT seconds
+                if now_as_secs() - last_activity.load(Ordering::Relaxed) > TIMEOUT {
+                    tracing::info!("container is inactive for too long, stopping...");
+                    let _ = stop_tx.send(());
+                    break;
+                }
+            }
+        });
+
+        tokio::select! {
+            result = self.instance.call_run(&mut self.store) => {
+                let inner_result = result?;
+                return inner_result.map_err(|e| anyhow::anyhow!("container error: {e:?}"));
+            }
+            _ = stop_rx => {
+                tracing::info!("container stopped due to inactivity");
+            }
+        }
+
+        Ok(())
     }
 
     pub fn take_output(&mut self) -> Option<mpsc::Receiver<String>> {
         self.output.take()
+    }
+}
+
+impl ContainerData {
+    pub fn update_last_activity(&self) {
+        self.last_activity.store(now_as_secs(), Ordering::Relaxed);
     }
 }
 
@@ -109,4 +149,11 @@ impl IoView for ContainerData {
     fn table(&mut self) -> &mut wasmtime_wasi::ResourceTable {
         &mut self.resources
     }
+}
+
+fn now_as_secs() -> u64 {
+    SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("time went backwards")
+        .as_secs()
 }
