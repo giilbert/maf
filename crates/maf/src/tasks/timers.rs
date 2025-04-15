@@ -21,7 +21,11 @@ impl Future for SleepFuture {
         if self.pollable.as_ref().map(|p| p.ready()).unwrap_or(true) {
             Poll::Ready(())
         } else {
-            Runtime::new_waker(cx, self.pollable.take().expect("pollable not set"));
+            Runtime::new_waker(
+                cx,
+                self.pollable.take().expect("pollable not set"),
+                Some("sleep"),
+            );
             Poll::Pending
         }
     }

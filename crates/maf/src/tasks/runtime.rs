@@ -48,7 +48,7 @@ pub struct Runtime {
 pub struct RuntimeInner {
     tasks: GenVec<TaskHandle>,
     new_tasks: VecDeque<TaskId>,
-    pollables: Vec<(Pollable, Waker)>,
+    pollables: Vec<(Pollable, Waker, Option<&'static str>)>,
 }
 
 impl Runtime {
@@ -88,6 +88,7 @@ impl Runtime {
             .clone();
         let mut task = task.inner_mut();
 
+        // SAFETY: The task is guaranteed to be valid and not moved while we are polling it.
         let fut = unsafe { Pin::new_unchecked(task.future.as_mut()) };
         let waker = waker::create_waker(self.clone(), task_id);
         let mut ctx = std::task::Context::from_waker(&waker);
@@ -120,32 +121,33 @@ impl Runtime {
                 .pollables
                 .as_slice()
                 .iter()
-                .map(|(p, _)| &*p)
+                .map(|(p, ..)| &*p)
                 .collect::<Vec<_>>();
 
             if pollable_ref.is_empty() {
                 break;
             }
 
+            // self.debug_pollables();
             let ready_poll_indices = wasi::io::poll::poll(&pollable_ref);
             drop(inner);
+            // println!("ready pollables: {:?}", ready_poll_indices);
 
             for index in ready_poll_indices {
                 let waker = {
                     let inner = self.inner();
-                    let (_, waker_ref) = &inner.pollables[index as usize];
+                    let (_pollable, waker_ref, _name) = &inner.pollables[index as usize];
                     waker_ref.clone() // End the borrow of inner before calling wake_by_ref
                 };
+                self.inner_mut().pollables.swap_remove(index as usize);
 
                 waker.wake_by_ref();
-
-                self.inner_mut().pollables.swap_remove(index as usize);
             }
         }
     }
 
-    pub fn add_pollable(&self, pollable: Pollable, waker: Waker) {
-        self.inner_mut().pollables.push((pollable, waker));
+    pub fn add_pollable(&self, pollable: Pollable, waker: Waker, name: Option<&'static str>) {
+        self.inner_mut().pollables.push((pollable, waker, name));
     }
 
     pub fn spawn<F: IntoFuture + 'static>(&self, fut: F) -> JoinHandle<F::Output>
@@ -180,12 +182,23 @@ impl Runtime {
         )
     }
 
-    pub fn new_waker(cx: &std::task::Context, pollable: Pollable) {
-        Self::current().add_pollable(pollable, cx.waker().clone());
+    pub fn new_waker(cx: &std::task::Context, pollable: Pollable, name: Option<&'static str>) {
+        Self::current().add_pollable(pollable, cx.waker().clone(), name);
     }
 
     pub fn global(self) {
         GLOBAL_RUNTIME.set(Rc::new(self));
+    }
+
+    pub(crate) fn debug_pollables(&self) {
+        let inner = self.inner();
+
+        let header = format!("----- {} pollables -----", inner.pollables.len());
+        println!("{header}");
+        for (index, (resource, _waker, name)) in inner.pollables.iter().enumerate() {
+            println!("[{index}] `{}` {resource:?}", name.unwrap_or("<unnamed>"));
+        }
+        println!("{}", "-".repeat(header.len()));
     }
 }
 

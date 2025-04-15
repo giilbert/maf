@@ -87,6 +87,11 @@ impl bindings::HostFutureMessage for ContainerData {
         future_message: Resource<FutureMessage>,
     ) -> Result<bindings::Message, ListenError> {
         let future_message = self.resources.get_mut(&future_message)?;
+
+        if future_message.channel.is_closed() {
+            return Err(bindings::ListenError::Closed.into());
+        }
+
         match future_message.next_message.take() {
             Some(handle) => Ok(handle),
             None => Err(bindings::ListenError::NotReady.into()),

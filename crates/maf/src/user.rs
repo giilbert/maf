@@ -9,11 +9,11 @@ use uuid::Uuid;
 
 use crate::{
     app::AppState,
-    bindings::bindgen::{self, maf::bindings::bindings},
+    bindings::bindgen::{self, maf::bindings::bindings, ListenError},
     channel::BoundChannel,
     packet::RxPacket,
     tasks::Runtime,
-    Channel,
+    App, Channel,
 };
 
 pub struct UserListener {
@@ -54,7 +54,7 @@ impl UserListenerNextFuture<'_> {
                 if pollable.ready() {
                     return self.try_poll(cx);
                 } else {
-                    Runtime::new_waker(cx, pollable);
+                    Runtime::new_waker(cx, pollable, Some("listen user"));
                     Ok(Poll::Pending)
                 }
             }
@@ -121,6 +121,30 @@ impl User {
         })
     }
 
+    pub(crate) async fn handle_messages(&self, app: Arc<App>) -> anyhow::Result<()> {
+        let messages = self.listen_messages()?;
+
+        loop {
+            let message = match messages.next().await {
+                Ok(message) => message,
+                Err(e) => {
+                    if e.downcast_ref::<ListenError>()
+                        .map(|e| matches!(e, ListenError::Closed))
+                        .unwrap_or(false)
+                    {
+                        break;
+                    } else {
+                        return Err(e);
+                    }
+                }
+            };
+
+            app.handle_message(message).await?;
+        }
+
+        Ok::<_, anyhow::Error>(())
+    }
+
     // TODO: proper error handling
     pub(crate) fn send(&self, data: impl serde::Serialize) -> Result<(), SendError> {
         let text = serde_json::to_string(&data)?;
@@ -173,11 +197,13 @@ impl<'a> UserNextMessageFuture<'a> {
                 if pollable.ready() {
                     return self.try_poll(cx);
                 } else {
-                    Runtime::new_waker(cx, pollable);
+                    Runtime::new_waker(cx, pollable, Some("listen user message"));
                     Ok(Poll::Pending)
                 }
             }
-            Err(err) => return Err(err.into()),
+            Err(err) => {
+                return Err(err.into());
+            }
         }
     }
 }

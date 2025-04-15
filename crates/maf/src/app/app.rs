@@ -4,7 +4,6 @@ use async_lock::RwLock;
 use uuid::Uuid;
 
 use crate::{
-    bindings::bindgen::ListenError,
     channel::UntypedChannelBroadcast,
     packet::{ChannelSendRx, RxPacket},
     rpc::{IntoRpcFunction, RpcStore},
@@ -57,32 +56,14 @@ impl App {
                 .await
                 .insert(user.meta.id, user.clone());
 
-            let app = self.clone();
-            let user_clone = user.clone();
-
             // Listen for messages from the user and handle them
+            let user_clone = user.clone();
+            let app = self.clone();
             tasks::spawn(async move {
-                let messages = user_clone.listen_messages()?;
-
-                loop {
-                    let message = match messages.next().await {
-                        Ok(message) => message,
-                        Err(e) => {
-                            if e.downcast_ref::<ListenError>()
-                                .map(|e| matches!(e, ListenError::Closed))
-                                .unwrap_or(false)
-                            {
-                                break;
-                            } else {
-                                return Err(e);
-                            }
-                        }
-                    };
-
-                    app.handle_message(message).await?;
-                }
-
-                Ok::<_, anyhow::Error>(())
+                user_clone
+                    .handle_messages(app)
+                    .await
+                    .expect("failed to handle user messages");
             });
 
             let app = self.clone();
@@ -119,7 +100,7 @@ impl App {
         Ok(())
     }
 
-    async fn handle_message<'a>(&self, message: UserMessage<'a>) -> anyhow::Result<()> {
+    pub(crate) async fn handle_message<'a>(&self, message: UserMessage<'a>) -> anyhow::Result<()> {
         match message.packet {
             RxPacket::ChannelSend(channel_data) => {
                 self.handle_channel_send(&message.user, channel_data).await
@@ -129,9 +110,10 @@ impl App {
 
     async fn run_async(self) {
         let app = Arc::new(self);
-        tasks::spawn(app.handle_connections()).on_finish(|e| {
-            panic!("failed to run app: {:?}", e);
-        });
+        app.handle_connections()
+            .await
+            .expect("failed to handle connections");
+        println!("run_async finished")
     }
 
     pub fn run(self) {
