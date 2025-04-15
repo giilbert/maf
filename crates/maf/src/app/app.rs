@@ -12,7 +12,11 @@ use crate::{
     Channel, User, UserListener,
 };
 
-use super::{on_connect::OnConnectFn, IntoOnConnect};
+use super::{
+    background::{BackgroundFn, IntoBackgroundFn},
+    on_connect::OnConnectFn,
+    IntoOnConnect,
+};
 
 #[derive(Clone)]
 pub struct App {
@@ -23,6 +27,7 @@ pub struct AppInner {
     pub(crate) state: Arc<AppState>,
     pub(crate) rpc_functions: RpcStore,
     pub(crate) on_connect: Option<Arc<OnConnectFn>>,
+    pub(crate) background: Option<Arc<BackgroundFn>>,
 }
 
 #[derive(Debug, Default)]
@@ -36,6 +41,7 @@ pub struct AppState {
 #[derive(Default)]
 pub struct AppBuilder {
     on_connect: Option<Arc<OnConnectFn>>,
+    background: Option<Arc<BackgroundFn>>,
     rpc_functions: RpcStore,
 }
 
@@ -109,10 +115,21 @@ impl App {
     }
 
     async fn run_async(self) {
+        let background = self
+            .inner
+            .background
+            .as_ref()
+            .map(|handler| tasks::spawn(handler(self.clone())));
+
         let app = Arc::new(self);
         app.handle_connections()
             .await
             .expect("failed to handle connections");
+
+        if let Some(background) = background {
+            background.await;
+        }
+
         println!("run_async finished")
     }
 
@@ -132,10 +149,15 @@ impl AppBuilder {
         self
     }
 
-    pub fn rpc<R, P>(mut self, path: impl ToString, handler: impl IntoRpcFunction<R, P>) -> Self {
+    pub fn rpc<P, R>(mut self, path: impl ToString, handler: impl IntoRpcFunction<P, R>) -> Self {
         let path = path.to_string();
         self.rpc_functions
             .add_rpc_function(handler.into_rpc_function(path));
+        self
+    }
+
+    pub fn background<T>(mut self, handler: impl IntoBackgroundFn<T>) -> Self {
+        self.background = Some(handler.into_background_fn());
         self
     }
 
@@ -146,6 +168,7 @@ impl AppBuilder {
             state,
             rpc_functions: self.rpc_functions,
             on_connect: self.on_connect,
+            background: self.background,
         };
 
         App {

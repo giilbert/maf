@@ -1,9 +1,8 @@
 use std::{future::Future, pin::Pin, sync::Arc};
 
-use crate::{App, User};
+use crate::{utils::UnitFuture, App, User};
 
 pub type OnConnectFn = dyn Fn(&App, User) -> Pin<Box<dyn Future<Output = ()>>> + Send + Sync;
-type UnitFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
 
 pub trait IntoOnConnect<Params, Returns> {
     fn into_on_connect(self) -> Arc<OnConnectFn>;

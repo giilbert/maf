@@ -63,11 +63,11 @@ impl RpcStore {
     }
 }
 
-pub trait IntoRpcFunction<R, P> {
+pub trait IntoRpcFunction<Params, Returns> {
     fn into_rpc_function(self, path: String) -> RpcFunction;
 }
 
-impl<R, F: Send + Sync + Fn() -> R + 'static> IntoRpcFunction<R, ()> for F
+impl<R, F: Send + Sync + Fn() -> R + 'static> IntoRpcFunction<(), R> for F
 where
     R: Send + serde::Serialize + 'static,
 {
@@ -92,7 +92,7 @@ macro_rules! impl_rpc_fn {
             R,
             $($members),*,
             F: Send + Sync + Fn($($members),+) -> R + 'static,
-        > IntoRpcFunction<R, ($($members),*)> for F
+        > IntoRpcFunction<($($members),*), R> for F
         where
             R: Send + Sync + serde::Serialize + 'static,
             $($members: Send + Sync + FromRequest + 'static),+

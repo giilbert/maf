@@ -5,6 +5,7 @@ pub mod packet;
 mod rpc;
 pub mod tasks;
 mod user;
+pub(crate) mod utils;
 
 pub use app::App;
 pub use channel::{Channel, RecvError};

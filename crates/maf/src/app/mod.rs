@@ -1,4 +1,5 @@
 mod app;
+mod background;
 mod on_connect;
 
 pub use app::App;
