@@ -5,6 +5,7 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 mod api;
 mod container;
 mod runtime;
+pub mod storage;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

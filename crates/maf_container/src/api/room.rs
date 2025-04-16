@@ -16,9 +16,9 @@ impl Room {
     pub async fn new(state: &AppState) -> anyhow::Result<Self> {
         tracing::info!("creating new room...");
 
-        let mut container = Container::load_from_file(
+        let mut container = Container::load_from_binary(
             &state.container_runtime,
-            "target/wasm32-wasip2/debug/example_basic.wasm",
+            state.bundle_storage.load_test_app().await?.wasm_module,
         )
         .await?;
 

@@ -20,7 +20,6 @@ use wasmtime_wasi::IoView;
 use crate::{api::connection::ConnectionHandle, runtime::wasi::Bindings};
 
 pub struct Container {
-    pub(super) path: String,
     pub(super) instance: Bindings,
     pub(super) store: wt::Store<ContainerData>,
     pub output: Option<mpsc::Receiver<String>>,
@@ -29,7 +28,6 @@ pub struct Container {
 impl std::fmt::Debug for Container {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Container")
-            .field("path", &self.path)
             .field("store", &self.store)
             .field("output", &self.output)
             .finish_non_exhaustive()
@@ -53,13 +51,10 @@ impl std::fmt::Debug for ContainerData {
 }
 
 impl Container {
-    pub async fn load_from_file(
+    pub async fn load_from_binary(
         runtime: &super::ContainerRuntime,
-        path: impl AsRef<str>,
+        bytes: impl AsRef<[u8]>,
     ) -> anyhow::Result<Self> {
-        let path = path.as_ref();
-        let bytes = std::fs::read(path)?;
-
         let component = wt::component::Component::new(&runtime.engine, &bytes)?;
 
         let (connection_tx, connection_rx) = mpsc::channel(10);
@@ -84,10 +79,7 @@ impl Container {
 
         let instance = Bindings::instantiate_async(&mut store, &component, &runtime.linker).await?;
 
-        tracing::info!("loaded container `{}`", path);
-
         Ok(Self {
-            path: path.to_string(),
             instance,
             store,
             output: Some(output_rx),

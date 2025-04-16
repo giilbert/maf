@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "^1.0.96"
 axum = { version = "0.8.1", features = ["ws"] }
+async_zip = { version = "0.0.17", features = ["full"] }
 bytes = "1.10.1"
 dashmap = "6.1.0"
 futures-util = "0.3.31"
