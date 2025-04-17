@@ -1,11 +1,6 @@
-use std::{
-    any,
-    sync::{mpsc::SendError, Arc},
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
 use axum::extract::ws::{Message, WebSocket};
-use bytes::Bytes;
 use futures_util::{
     stream::{SplitSink, SplitStream},
     SinkExt, StreamExt,
@@ -14,7 +9,6 @@ use tokio::{
     sync::{mpsc, Mutex},
     time::timeout,
 };
-use tokio_tungstenite::tungstenite::Utf8Bytes;
 use uuid::Uuid;
 
 use crate::runtime::wasi::bindings;

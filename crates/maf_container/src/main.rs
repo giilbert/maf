@@ -13,10 +13,11 @@ async fn main() -> anyhow::Result<()> {
         .with(fmt::layer())
         .with(EnvFilter::from_default_env())
         .init();
+    dotenvy::dotenv()?;
 
     let address = "0.0.0.0:3000";
 
-    let (_state, app) = api::create_app()?;
+    let (_state, app) = api::create_app().await?;
     let listener = tokio::net::TcpListener::bind(address).await?;
 
     tracing::info!("starting server on {}", address);
