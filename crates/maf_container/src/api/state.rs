@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use bitflags::Flags;
 use dashmap::DashMap;
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, Database, DatabaseConnection, EntityTrait,
@@ -83,7 +82,7 @@ impl AppState {
                 id: Set(Uuid::new_v4()),
                 username: Set(default_admin_username.clone()),
                 name: Set(default_admin_username),
-                permissions: Set(Permissions::empty()),
+                permissions: Set(Permissions::MANAGE_SERVER),
             }
             .insert(&db)
             .await
