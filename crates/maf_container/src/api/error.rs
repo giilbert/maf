@@ -56,10 +56,11 @@ impl IntoResponse for ErrorResponse {
 
 impl<E> From<E> for ErrorResponse
 where
-    E: std::error::Error,
+    E: Into<anyhow::Error>,
 {
     fn from(value: E) -> Self {
-        tracing::error!("Error response: {}", value);
+        let error = value.into();
+        tracing::error!("Error response: {}", error);
         Self::internal_server_error(None)
     }
 }

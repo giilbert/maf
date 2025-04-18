@@ -7,7 +7,7 @@ use axum::{
 };
 use sea_orm::EntityTrait;
 
-use crate::storage::db::user;
+use crate::storage::{db::user, repos::user_repo};
 
 use super::{error::ErrorResponse, state::AppState};
 
@@ -29,13 +29,7 @@ async fn authenticate_request(
         .map(|h| h.trim_start_matches("Bearer ").to_string())
         .ok_or_else(|| ErrorResponse::unauthorized(Some("Missing Authorization header")))?;
 
-    tracing::info!(
-        "Token: {:?}",
-        req.headers().get("Authorization").unwrap().to_str()
-    );
-
-    let user = state
-        .get_token_user(&token)
+    let user = user_repo::get_token_user(&state.db, &token)
         .await?
         .ok_or_else(|| ErrorResponse::unauthorized(Some("Invalid token")))?;
 

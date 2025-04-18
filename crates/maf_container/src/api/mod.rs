@@ -1,5 +1,4 @@
 mod admin;
-mod auth;
 pub mod connection;
 mod error;
 mod gateway;
