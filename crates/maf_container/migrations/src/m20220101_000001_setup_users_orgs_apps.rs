@@ -1,4 +1,4 @@
-use sea_orm_migration::{prelude::*, schema::*, seaql_migrations::PrimaryKey};
+use sea_orm_migration::{prelude::*, schema::*};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -148,18 +148,6 @@ impl MigrationTrait for Migration {
             )
             .await?;
         manager
-            .drop_table(Table::drop().table(User::Table).to_owned())
-            .await?;
-        manager
-            .drop_table(Table::drop().table(Token::Table).to_owned())
-            .await?;
-        manager
-            .drop_table(Table::drop().table(OrgMember::Table).to_owned())
-            .await?;
-        manager
-            .drop_table(Table::drop().table(Org::Table).to_owned())
-            .await?;
-        manager
             .drop_foreign_key(
                 ForeignKey::drop()
                     .name("fk_org_id")
@@ -178,14 +166,6 @@ impl MigrationTrait for Migration {
         manager
             .drop_index(
                 Index::drop()
-                    .name("idx_user_id")
-                    .table(Token::Table)
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .drop_index(
-                Index::drop()
                     .name("idx_token")
                     .table(Token::Table)
                     .to_owned(),
@@ -198,6 +178,19 @@ impl MigrationTrait for Migration {
                     .table(OrgMember::Table)
                     .to_owned(),
             )
+            .await?;
+
+        manager
+            .drop_table(Table::drop().table(User::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Token::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(OrgMember::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Org::Table).to_owned())
             .await?;
 
         Ok(())
@@ -231,7 +224,7 @@ enum OrgMember {
 }
 
 #[derive(DeriveIden)]
-enum Org {
+pub enum Org {
     Table,
     Id,
     Name,
