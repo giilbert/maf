@@ -58,7 +58,7 @@ impl MigrationTrait for Migration {
                     .from(Token::Table, Token::UserId)
                     .name("fk_user_id")
                     .to(User::Table, User::Id)
-                    .on_delete(ForeignKeyAction::NoAction)
+                    .on_delete(ForeignKeyAction::Cascade)
                     .to_owned(),
             )
             .await?;
@@ -119,7 +119,7 @@ impl MigrationTrait for Migration {
                     .from(OrgMember::Table, OrgMember::OrgId)
                     .name("fk_org_id")
                     .to(Org::Table, Org::Id)
-                    .on_delete(ForeignKeyAction::NoAction)
+                    .on_delete(ForeignKeyAction::Cascade)
                     .to_owned(),
             )
             .await?;
@@ -130,7 +130,7 @@ impl MigrationTrait for Migration {
                     .from(OrgMember::Table, OrgMember::UserId)
                     .name("fk_user_id")
                     .to(User::Table, User::Id)
-                    .on_delete(ForeignKeyAction::NoAction)
+                    .on_delete(ForeignKeyAction::Cascade)
                     .to_owned(),
             )
             .await?;
