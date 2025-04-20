@@ -26,6 +26,7 @@ pub async fn create_user_with_default_org(
         id: Set(user.id),
         slug: Set(user.username.clone()),
         name: Set(user.name.clone()),
+        is_default: Set(true),
     }
     .insert(conn)
     .await?;

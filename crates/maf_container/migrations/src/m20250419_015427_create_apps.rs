@@ -15,8 +15,8 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(pk_uuid(App::Id))
                     .col(string(App::Name))
-                    .col(timestamp(App::UpdatedAt))
                     .col(uuid(App::OrgId))
+                    .col(timestamp(App::UpdatedAt))
                     .to_owned(),
             )
             .await?;

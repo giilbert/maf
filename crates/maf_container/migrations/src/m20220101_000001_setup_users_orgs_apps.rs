@@ -89,6 +89,7 @@ impl MigrationTrait for Migration {
                     .col(pk_uuid(Org::Id))
                     .col(string(Org::Name))
                     .col(string(Org::Slug).unique_key())
+                    .col(boolean(Org::IsDefault))
                     .to_owned(),
             )
             .await?;
@@ -229,4 +230,5 @@ pub enum Org {
     Id,
     Name,
     Slug,
+    IsDefault,
 }

@@ -1,34 +1,22 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use super::{org, user};
+use super::org;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, DeriveEntityModel)]
-#[sea_orm(table_name = "org_member")]
+#[sea_orm(table_name = "app")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub user_id: Uuid,
-    #[sea_orm(primary_key)]
+    pub id: Uuid,
+    pub name: String,
     pub org_id: Uuid,
-    pub role: String,
+    pub updated_at: chrono::NaiveDateTime,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "user::Entity")]
-    User,
-    #[sea_orm(
-        belongs_to = "org::Entity",
-        from = "Column::OrgId",
-        to = "org::Column::Id"
-    )]
+    #[sea_orm(has_one = "org::Entity")]
     Org,
-}
-
-impl Related<user::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::User.def()
-    }
 }
 
 impl Related<org::Entity> for Entity {

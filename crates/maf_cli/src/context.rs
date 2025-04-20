@@ -1,6 +1,6 @@
 use anyhow::Context as _;
 use reqwest::header::HeaderMap;
-use serde::{de::DeserializeOwned, Deserialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use url::Url;
 
 use crate::pretty;
@@ -54,6 +54,29 @@ impl Context {
                     .join(url.as_ref())
                     .context("failed to join url")?,
             )
+            .send()
+            .await?;
+
+        if response.status().is_success() {
+            return Ok(response.json().await?);
+        } else {
+            return Err(handle_error_response(response).await?);
+        }
+    }
+
+    pub async fn post<T: DeserializeOwned>(
+        &self,
+        url: impl AsRef<str>,
+        body: impl Serialize,
+    ) -> anyhow::Result<T> {
+        let response = self
+            .client
+            .post(
+                self.server_url
+                    .join(url.as_ref())
+                    .context("failed to join url")?,
+            )
+            .json(&body)
             .send()
             .await?;
 

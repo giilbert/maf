@@ -39,6 +39,9 @@
                 }
             },
             "args": [],
+            "env": {
+                "RUST_LOG": "maf_container=info"
+            },
             "cwd": "${workspaceFolder}"
         },
         {

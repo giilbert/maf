@@ -1,8 +1,10 @@
 mod admin;
+mod app;
 mod context;
 mod pretty;
 
 use admin::AdminCommands;
+use app::AppCommands;
 use clap::{Parser, Subcommand};
 
 pub use context::Context;
@@ -19,6 +21,8 @@ enum Commands {
     /// Server management commands
     #[command(subcommand)]
     Admin(AdminCommands),
+    #[command(subcommand)]
+    App(AppCommands),
 }
 
 async fn try_main() -> anyhow::Result<()> {
@@ -28,6 +32,7 @@ async fn try_main() -> anyhow::Result<()> {
 
     match Cli::parse().commands {
         Commands::Admin(admin) => admin::handle_commands(&context, admin).await?,
+        Commands::App(app) => app::handle_commands(&context, app).await?,
     }
 
     Ok(())

@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "^1.0.96"
-axum = { version = "0.8.1", features = ["ws"] }
+axum = { version = "0.8.3", features = ["macros", "ws"] }
 async_zip = { version = "0.0.17", features = ["full"] }
 bitflags = { version = "2.9.0", features = ["serde"] }
 bytes = "1.10.1"
@@ -26,3 +26,4 @@ uuid = { version = "1.16.0", features = ["serde", "v4"] }
 wasmtime = { version = "30.0.2", features = ["async"] }
 wasmtime-wasi = "30.0.2"
 wasmtime-wasi-io = "30.0.2"
+chrono = { version = "0.4.40", features = ["serde"] }

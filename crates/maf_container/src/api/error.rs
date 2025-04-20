@@ -35,6 +35,7 @@ impl_error_status!(
     INTERNAL_SERVER_ERROR,
     "Internal Server Error"
 );
+impl_error_status!(conflict, CONFLICT, "Conflict");
 
 impl IntoResponse for ErrorResponse {
     fn into_response(self) -> Response {
@@ -60,7 +61,7 @@ where
 {
     fn from(value: E) -> Self {
         let error = value.into();
-        tracing::error!("Error response: {}", error);
+        tracing::error!("Error response: {:?}", error);
         Self::internal_server_error(None)
     }
 }
