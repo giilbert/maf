@@ -1,6 +1,7 @@
 mod admin;
 mod app;
 mod context;
+mod input;
 mod pretty;
 
 use admin::AdminCommands;

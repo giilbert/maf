@@ -21,3 +21,17 @@ pub async fn get_apps_by_org_id(
         .await?;
     Ok(apps)
 }
+
+pub async fn get_app_by_name_and_org_id(
+    conn: &impl ConnectionTrait,
+    name: &str,
+    org_id: Uuid,
+) -> Result<Option<app::Model>, DbErr> {
+    let app = app::Entity::find()
+        .filter(app::Column::Name.eq(name))
+        .filter(app::Column::OrgId.eq(org_id))
+        .one(conn)
+        .await?;
+
+    Ok(app)
+}

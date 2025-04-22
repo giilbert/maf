@@ -86,6 +86,29 @@ impl Context {
             return Err(handle_error_response(response).await?);
         }
     }
+
+    pub async fn delete<T: DeserializeOwned>(
+        &self,
+        url: impl AsRef<str>,
+        body: impl Serialize,
+    ) -> anyhow::Result<T> {
+        let response = self
+            .client
+            .delete(
+                self.server_url
+                    .join(url.as_ref())
+                    .context("failed to join url")?,
+            )
+            .json(&body)
+            .send()
+            .await?;
+
+        if response.status().is_success() {
+            return Ok(response.json().await?);
+        } else {
+            return Err(handle_error_response(response).await?);
+        }
+    }
 }
 
 async fn handle_error_response(response: reqwest::Response) -> anyhow::Result<anyhow::Error> {
