@@ -45,7 +45,7 @@ impl AppState {
             container_runtime,
             auto_created_rooms_by_org_slug: Arc::new(DashMap::new()),
             rooms: Arc::new(DashMap::new()),
-            bundle_storage: BundleStorage::new(),
+            bundle_storage: BundleStorage::new().await?,
             db,
         };
 

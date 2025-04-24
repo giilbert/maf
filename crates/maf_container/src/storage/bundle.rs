@@ -1,25 +1,115 @@
-use std::{path::Path, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
+use anyhow::Context;
 use async_zip::{error::ZipError, tokio::read::seek::ZipFileReader};
-use tokio::{fs::File, io::BufReader};
+use bytes::Bytes;
+use futures_util::{Stream, StreamExt, TryStreamExt};
+use tokio::{
+    fs::{self, File},
+    io::{AsyncBufRead, AsyncSeek, BufReader},
+    sync::mpsc,
+};
+use uuid::Uuid;
+
+use crate::api::ErrorResponse;
 
 #[derive(Debug, Clone)]
-pub struct BundleStorage {}
+pub struct BundleStorage {
+    pub storage_dir: PathBuf,
+}
 
 #[derive(Debug)]
 pub struct Bundle {
     pub wasm_module: Arc<[u8]>,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum BundleError {
+    #[error("File too large")]
+    FileTooLarge,
+    #[error("Invalid zip file")]
+    InvalidZip,
+    #[error("Entry reader error")]
+    EntryReader(#[from] async_zip::error::ZipError),
+    #[error("IO error: {0}")]
+    Io(#[from] tokio::io::Error),
+    #[error(transparent)]
+    Unknown(#[from] anyhow::Error),
+}
+
 impl BundleStorage {
-    pub fn new() -> Self {
-        Self {}
+    pub async fn new() -> anyhow::Result<Self> {
+        let storage_dir = dotenvy::var("BUNDLE_STORAGE_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from("var/bundles"));
+
+        if !tokio::fs::try_exists(&storage_dir).await? {
+            tokio::fs::create_dir_all(&storage_dir).await?;
+            tracing::info!(
+                "Created bundle storage directory: {}",
+                storage_dir.display()
+            );
+        }
+
+        Ok(Self { storage_dir })
     }
 
-    // TODO: load more than just the wasm module
-    async fn load_bundle_from_path(&self, path: impl AsRef<Path>) -> anyhow::Result<Bundle> {
-        let mut file = BufReader::new(File::open(path).await?);
-        let mut zip = ZipFileReader::with_tokio(&mut file).await?;
+    pub async fn upload_bundle(
+        &self,
+        app_id: Uuid,
+        stream: impl Stream<Item = Result<Bytes, axum::Error>>,
+    ) -> Result<(), BundleError> {
+        tokio::pin!(stream);
+
+        let path = self.storage_dir.join(app_id.to_string());
+        let mut file = fs::File::create(&path).await?;
+
+        const MAX_SIZE: usize = 20 * 1024 * 1024; // 20 MB
+        let mut size = 0;
+
+        let (abort_tx, mut abort_rx) = mpsc::channel::<()>(1);
+
+        let mut reader = tokio_util::io::StreamReader::new(
+            stream
+                .map(|item| item.map_err(|_| BundleError::InvalidZip))
+                .inspect_ok(|item| {
+                    size += item.len();
+                    if size > MAX_SIZE {
+                        abort_tx.try_send(()).ok();
+                    }
+                }),
+        );
+
+        tokio::select! {
+            result = tokio::io::copy(&mut reader, &mut file) => {
+                result?;
+            },
+            _ = abort_rx.recv() => {
+                return Err(BundleError::FileTooLarge);
+            }
+        }
+
+        // Reopen the file to read from the beginning
+        file = fs::File::open(path).await?;
+
+        match self
+            .load_bundle_from_reader(BufReader::new(file), true)
+            .await
+        {
+            Ok(_) => Ok(()),
+            Err(e) => Err(BundleError::InvalidZip).context(e)?,
+        }
+    }
+
+    async fn load_bundle_from_reader(
+        &self,
+        mut reader: impl AsyncBufRead + AsyncSeek + Unpin,
+        ignore_data: bool,
+    ) -> Result<Option<Bundle>, BundleError> {
+        let mut zip = ZipFileReader::with_tokio(&mut reader).await?;
 
         for entry_index in 0.. {
             let mut entry_reader = match zip.reader_with_entry(entry_index).await {
@@ -29,18 +119,40 @@ impl BundleStorage {
             };
 
             let entry = entry_reader.entry();
+
+            tracing::debug!(
+                "Found entry: {} (size: {})",
+                entry.filename().as_str()?,
+                entry.compressed_size()
+            );
+
             // look for a module.wasm
             if entry.filename().as_str()? == "module.wasm" {
-                let mut data = Vec::new();
-                entry_reader.read_to_end_checked(&mut data).await?;
+                if ignore_data {
+                    return Ok(None);
+                }
 
-                return Ok(Bundle {
+                let mut data = Vec::new();
+                entry_reader
+                    .read_to_end_checked(&mut data)
+                    .await
+                    .map_err(BundleError::EntryReader)?;
+
+                return Ok(Some(Bundle {
                     wasm_module: Arc::from(data),
-                });
+                }));
             }
         }
 
-        anyhow::bail!("no module.wasm found in zip");
+        return Err(BundleError::InvalidZip);
+    }
+
+    // TODO: load more than just the wasm module
+    async fn load_bundle_from_path(&self, path: impl AsRef<Path>) -> Result<Bundle, BundleError> {
+        let mut file = BufReader::new(File::open(path).await?);
+        self.load_bundle_from_reader(&mut file, false)
+            .await
+            .map(|bundle| bundle.expect("data should be present"))
     }
 
     pub async fn load_test_app(&self) -> anyhow::Result<Bundle> {
@@ -48,5 +160,21 @@ impl BundleStorage {
         Ok(Bundle {
             wasm_module: Arc::from(tokio::fs::read(PATH).await?),
         })
+    }
+}
+
+impl Into<std::io::Error> for BundleError {
+    fn into(self) -> std::io::Error {
+        std::io::Error::new(std::io::ErrorKind::Other, self)
+    }
+}
+
+impl BundleError {
+    pub fn error_response(self) -> ErrorResponse {
+        match self {
+            BundleError::FileTooLarge => ErrorResponse::bad_request(Some("File too large")),
+            BundleError::InvalidZip => ErrorResponse::bad_request(Some("Invalid zip file")),
+            other => ErrorResponse::from(other),
+        }
     }
 }

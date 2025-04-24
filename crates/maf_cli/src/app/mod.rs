@@ -1,8 +1,19 @@
 mod models;
 
+use std::{iter::zip, time::Duration};
+
 use anyhow::Context as _;
+use async_zip::{tokio::write::ZipFileWriter, Compression, ZipEntryBuilder, ZipFileBuilder};
 use clap::Subcommand;
 use colored::Colorize;
+use futures_util::{io::Cursor, StreamExt, TryStreamExt};
+use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
+use reqwest::Body;
+use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
+use tokio_util::{
+    codec::{BytesCodec, FramedRead},
+    compat::{FuturesAsyncReadCompatExt, FuturesAsyncWriteCompatExt, TokioAsyncWriteCompatExt},
+};
 use uuid::Uuid;
 
 use crate::{input::input, pretty, Context};
@@ -12,6 +23,7 @@ pub enum AppCommands {
     List,
     Create,
     Delete { name: String },
+    Deploy { name: String, path: String },
 }
 
 pub async fn handle_commands(context: &Context, command: AppCommands) -> anyhow::Result<()> {
@@ -19,6 +31,7 @@ pub async fn handle_commands(context: &Context, command: AppCommands) -> anyhow:
         AppCommands::List => list_apps(context).await,
         AppCommands::Create => create_app(context).await,
         AppCommands::Delete { name } => delete_app(context, name).await,
+        AppCommands::Deploy { name, path } => deploy_bundle(context, name, path).await,
     }
 }
 
@@ -126,6 +139,105 @@ async fn delete_app(context: &Context, name: String) -> anyhow::Result<()> {
     context
         .delete::<models::App>(format!("/api/apps/{name}"), ())
         .await?;
+
+    Ok(())
+}
+
+async fn deploy_bundle(context: &Context, name: String, path: String) -> anyhow::Result<()> {
+    const MAX_SIZE: usize = 20 * 1024 * 1024; // 20 MB
+
+    let mut file = tokio::fs::File::open(&path)
+        .await
+        .with_context(|| format!("failed to open file `{path}`"))?;
+
+    let metadata = file
+        .metadata()
+        .await
+        .with_context(|| format!("failed to get metadata for file `{path}`"))?;
+
+    context.assert_token();
+
+    println!("Fetching app `{name}`...\n");
+
+    let app = context
+        .get::<models::App>(format!("/api/apps/{name}"))
+        .await
+        .context("failed to get app")?;
+
+    println!(
+        "{} {}",
+        app.name.bold(),
+        format!("(id: {})", app.id).dimmed()
+    );
+
+    println!("");
+
+    let zip_bundle_bar = ProgressBar::new_spinner();
+    zip_bundle_bar.enable_steady_tick(Duration::from_millis(100));
+    zip_bundle_bar.set_style(
+        ProgressStyle::default_spinner()
+            .template("{spinner:.magenta} {wide_msg} [{elapsed_precise}]")?,
+    );
+    zip_bundle_bar.set_message("Creating zip bundle...");
+
+    const ZIP_BUFFER_SIZE: usize = 8 * 1024 * 1024; // 8 MB
+
+    let zip_buffer = tokio::io::BufWriter::with_capacity(ZIP_BUFFER_SIZE, Vec::new());
+    let mut zip = ZipFileWriter::new(zip_buffer.compat_write());
+
+    let mut file_data = Vec::with_capacity(metadata.len() as usize);
+    file.read_to_end(&mut file_data).await?;
+    zip.write_entry_whole(
+        ZipEntryBuilder::new("module.wasm".into(), Compression::Deflate),
+        &file_data,
+    )
+    .await?;
+
+    let mut zip_writer = zip.close().await?.into_inner();
+    zip_writer.flush().await?;
+    zip_writer.shutdown().await?;
+
+    zip_bundle_bar
+        .set_style(ProgressStyle::default_bar().template("{wide_msg} [{elapsed_precise}]")?);
+    zip_bundle_bar.finish_with_message(format!(
+        "Created zip bundle ({} bytes)",
+        HumanBytes(metadata.len())
+    ));
+
+    let compressed_data = zip_writer.into_inner();
+    let bar = ProgressBar::new(compressed_data.len() as u64);
+    let bar_clone = bar.clone();
+
+    let stream = FramedRead::new(Cursor::new(compressed_data).compat(), BytesCodec::new())
+        .inspect_ok(move |chunk| {
+            bar_clone.update(|state| state.set_pos(state.pos() + chunk.len() as u64));
+        });
+
+    bar.enable_steady_tick(Duration::from_millis(100));
+    bar.set_message(format!("Uploading `{}`\n", path));
+    bar.set_style(ProgressStyle::default_bar().template(
+        "{spinner:.magenta} {msg} {wide_bar} {bytes}/{total_bytes} [eta: {eta}] [{elapsed_precise}]",
+    )?);
+
+    let response = context
+        .client
+        .post(context.url(format!("/api/apps/{name}/deployments"))?)
+        .body(Body::wrap_stream(stream))
+        .send()
+        .await?;
+
+    if !response.status().is_success() {
+        anyhow::bail!(crate::context::handle_error_response(response).await?);
+    }
+
+    bar.set_style(ProgressStyle::default_bar().template("{wide_msg} [{elapsed_precise}]")?);
+    bar.finish_with_message(format!(
+        "Uploaded `{}` ({} bytes)",
+        path,
+        HumanBytes(metadata.len())
+    ));
+
+    println!("");
 
     Ok(())
 }

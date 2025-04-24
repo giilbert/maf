@@ -7,6 +7,8 @@ mod room;
 mod state;
 mod user_app;
 
+pub use error::ErrorResponse;
+
 use auth::authenticate_request;
 use axum::{middleware, routing::get, Router};
 use state::AppState;

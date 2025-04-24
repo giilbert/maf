@@ -5,7 +5,6 @@ use axum::{
     Json, Router,
 };
 use chrono::Utc;
-use futures_util::StreamExt;
 use sea_orm::{ActiveValue::Set, ModelTrait};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -105,12 +104,24 @@ async fn get_user_apps(
 async fn upload_app_bundle(
     State(state): State<AppState>,
     user: AuthedUser,
+    Path(app_name): Path<String>,
     body: Body,
 ) -> Result<(), ErrorResponse> {
-    let mut body = body.into_data_stream();
-    while let Some(chunk) = body.next().await {
-        tracing::info!("Received chunk: {:?}", chunk);
-    }
+    let org = org_repo::get_default_org_of_user(&state.db, user.id())
+        .await?
+        .ok_or_else(|| ErrorResponse::not_found(Some("No default org found.")))?;
+
+    let app = match app_repo::get_app_by_name_and_org_id(&state.db, &app_name, org.id).await? {
+        Some(app) => app,
+        None => return Err(ErrorResponse::not_found(Some("App not found."))),
+    };
+
+    let body = body.into_data_stream();
+    state
+        .bundle_storage
+        .upload_bundle(app.id, body)
+        .await
+        .map_err(|e| e.error_response())?;
 
     Ok(())
 }

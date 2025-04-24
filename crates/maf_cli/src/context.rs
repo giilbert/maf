@@ -46,14 +46,16 @@ impl Context {
         }
     }
 
+    pub fn url(&self, url: impl AsRef<str>) -> anyhow::Result<Url> {
+        self.server_url
+            .join(url.as_ref())
+            .context("failed to join url")
+    }
+
     pub async fn get<T: DeserializeOwned>(&self, url: impl AsRef<str>) -> anyhow::Result<T> {
         let response = self
             .client
-            .get(
-                self.server_url
-                    .join(url.as_ref())
-                    .context("failed to join url")?,
-            )
+            .get(self.url(url).context("failed to join url")?)
             .send()
             .await?;
 
@@ -71,11 +73,7 @@ impl Context {
     ) -> anyhow::Result<T> {
         let response = self
             .client
-            .post(
-                self.server_url
-                    .join(url.as_ref())
-                    .context("failed to join url")?,
-            )
+            .post(self.url(url).context("failed to join url")?)
             .json(&body)
             .send()
             .await?;
@@ -94,11 +92,7 @@ impl Context {
     ) -> anyhow::Result<T> {
         let response = self
             .client
-            .delete(
-                self.server_url
-                    .join(url.as_ref())
-                    .context("failed to join url")?,
-            )
+            .delete(self.url(url).context("failed to join url")?)
             .json(&body)
             .send()
             .await?;
@@ -111,7 +105,7 @@ impl Context {
     }
 }
 
-async fn handle_error_response(response: reqwest::Response) -> anyhow::Result<anyhow::Error> {
+pub async fn handle_error_response(response: reqwest::Response) -> anyhow::Result<anyhow::Error> {
     let status = response.status();
     let response = response.json::<ErrorResponse>().await?;
 
@@ -124,7 +118,6 @@ async fn handle_error_response(response: reqwest::Response) -> anyhow::Result<an
         status,
         response.data.message
     ))
-    .context("failed to handle error response")
 }
 
 #[derive(Deserialize)]
