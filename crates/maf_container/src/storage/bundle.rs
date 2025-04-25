@@ -6,7 +6,7 @@ use std::{
 use anyhow::Context;
 use async_zip::{error::ZipError, tokio::read::seek::ZipFileReader};
 use bytes::Bytes;
-use futures_util::{Stream, StreamExt, TryStreamExt};
+use futures_util::{AsyncReadExt, Stream, StreamExt, TryStreamExt};
 use tokio::{
     fs::{self, File},
     io::{AsyncBufRead, AsyncSeek, BufReader},
@@ -128,15 +128,22 @@ impl BundleStorage {
 
             // look for a module.wasm
             if entry.filename().as_str()? == "module.wasm" {
+                const WASM_MODULE_MAX_SIZE: usize = 20 * 1024 * 1024; // 20 MB
+
+                let size = entry.uncompressed_size() as usize;
+                if size > WASM_MODULE_MAX_SIZE {
+                    return Err(BundleError::FileTooLarge);
+                }
+
                 if ignore_data {
                     return Ok(None);
                 }
 
-                let mut data = Vec::new();
+                let mut data = Vec::with_capacity(size);
                 entry_reader
-                    .read_to_end_checked(&mut data)
+                    .read_exact(&mut data)
                     .await
-                    .map_err(BundleError::EntryReader)?;
+                    .map_err(|e| BundleError::Io(e))?;
 
                 return Ok(Some(Bundle {
                     wasm_module: Arc::from(data),
