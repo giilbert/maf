@@ -3,10 +3,10 @@ mod io;
 
 use std::{
     sync::{
-        atomic::{AtomicU64, AtomicUsize, Ordering},
+        atomic::{AtomicU64, Ordering},
         Arc,
     },
-    time::{Duration, SystemTime},
+    time::Duration,
 };
 
 use io::ContainerStdoutFactory;
@@ -14,10 +14,11 @@ use tokio::{
     sync::{mpsc, oneshot},
     time,
 };
+use tokio_util::sync::CancellationToken;
 use wasmtime as wt;
 use wasmtime_wasi::IoView;
 
-use crate::{api::connection::ConnectionHandle, runtime::wasi::Bindings};
+use crate::{api::connection::ConnectionHandle, runtime::wasi::Bindings, utils};
 
 pub struct Container {
     pub(super) instance: Bindings,
@@ -71,7 +72,7 @@ impl Container {
                 wasi_ctx,
                 connection_tx,
                 connection_rx: Some(connection_rx),
-                last_activity: Arc::new(AtomicU64::new(now_as_secs())),
+                last_activity: Arc::new(AtomicU64::new(utils::now_as_secs())),
             },
         );
 
@@ -87,10 +88,11 @@ impl Container {
     }
 
     pub async fn run(&mut self) -> anyhow::Result<()> {
-        let (stop_tx, stop_rx) = oneshot::channel::<()>();
+        let token = CancellationToken::new();
 
         // Spawn a task to monitor inactivity and stop the container
         let last_activity = self.store.data().last_activity.clone();
+        let token_clone = token.clone();
         tokio::spawn(async move {
             loop {
                 const CHECK_INTERVAL: u64 = 5; // seconds
@@ -99,9 +101,9 @@ impl Container {
                 time::sleep(Duration::from_secs(CHECK_INTERVAL)).await;
 
                 // Check if the container has been inactive for more than TIMEOUT seconds
-                if now_as_secs() - last_activity.load(Ordering::Relaxed) > TIMEOUT {
+                if utils::now_as_secs() - last_activity.load(Ordering::Relaxed) > TIMEOUT {
                     tracing::info!("container is inactive for too long, stopping...");
-                    let _ = stop_tx.send(());
+                    token_clone.cancel();
                     break;
                 }
             }
@@ -112,7 +114,7 @@ impl Container {
                 let inner_result = result?;
                 return inner_result.map_err(|e| anyhow::anyhow!("container error: {e:?}"));
             }
-            _ = stop_rx => {
+            _ = token.cancelled() => {
                 tracing::info!("container stopped due to inactivity");
             }
         }
@@ -127,7 +129,8 @@ impl Container {
 
 impl ContainerData {
     pub fn update_last_activity(&self) {
-        self.last_activity.store(now_as_secs(), Ordering::Relaxed);
+        self.last_activity
+            .store(utils::now_as_secs(), Ordering::Relaxed);
     }
 }
 
@@ -141,11 +144,4 @@ impl IoView for ContainerData {
     fn table(&mut self) -> &mut wasmtime_wasi::ResourceTable {
         &mut self.resources
     }
-}
-
-fn now_as_secs() -> u64 {
-    SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .expect("time went backwards")
-        .as_secs()
 }

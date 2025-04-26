@@ -193,6 +193,24 @@ impl BundleStorage {
             wasm_module: Arc::from(tokio::fs::read(PATH).await?),
         })
     }
+
+    pub async fn delete_app_bundle(&self, app_id: Uuid) -> Result<(), BundleError> {
+        let path = self.storage_dir.join(app_id.to_string());
+
+        fs::rename(&path, path.with_extension("deleted")).await?;
+
+        fs::remove_file(path.with_extension("deleted"))
+            .await
+            .map_err(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    BundleError::FileNotFound
+                } else {
+                    BundleError::Io(e)
+                }
+            })?;
+
+        Ok(())
+    }
 }
 
 impl Into<std::io::Error> for BundleError {

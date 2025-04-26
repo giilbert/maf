@@ -1,10 +1,11 @@
-use std::sync::Arc;
+use std::sync::{atomic::AtomicU64, Arc};
 
 use anyhow::Context;
 use dashmap::DashMap;
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, TransactionTrait,
 };
+use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use crate::{
@@ -18,6 +19,7 @@ use crate::{
         },
         repos::user_repo,
     },
+    utils,
 };
 
 use super::room::Room;
@@ -29,6 +31,8 @@ pub struct AppState {
     pub rooms: Arc<DashMap<Uuid, Room>>,
     pub bundle_storage: BundleStorage,
     pub db: sea_orm::DatabaseConnection,
+    pub last_activity: &'static AtomicU64,
+    pub cancel_server: CancellationToken,
 }
 
 impl AppState {
@@ -47,9 +51,22 @@ impl AppState {
             rooms: Arc::new(DashMap::new()),
             bundle_storage: BundleStorage::new().await?,
             db,
+            last_activity: Box::leak(Box::new(AtomicU64::new(utils::now_as_secs()))),
+            cancel_server: CancellationToken::new(),
         };
 
         state.init_database().await?;
+
+        if let Ok(timeout) = dotenvy::var("AUTO_SHUTDOWN_TIMEOUT")
+            .and_then(|s| Ok(s.parse::<u64>().map_err(anyhow::Error::new)))?
+        {
+            tracing::info!(
+                "Auto shutdown inactive server is enabled. Timeout: {} seconds",
+                timeout
+            );
+
+            tokio::spawn(state.clone().inactive_shutdown_task(timeout));
+        }
 
         Ok(state)
     }
@@ -114,5 +131,40 @@ impl AppState {
         }
 
         Ok(())
+    }
+
+    async fn inactive_shutdown_task(self, timeout: u64) {
+        const CHECK_INTERVAL: u64 = 5; // seconds
+
+        // FIXME: investigate race conditions
+        // with the current implementation, there is a race condition where the server is shut down
+        // while a request is being processed.
+        // FIXME: use fly's api to "cordon" the machine, which will prevent new requests from
+        // being sent to it, but will allow the current requests to finish.
+        // https://fly.io/docs/machines/api/machines-resource/#route-requests-away-from-or-back-to-a-machine
+
+        loop {
+            let last_activity = self
+                .last_activity
+                .load(std::sync::atomic::Ordering::Relaxed);
+
+            let now = utils::now_as_secs();
+
+            if now - last_activity > timeout {
+                break;
+            }
+
+            tokio::time::sleep(std::time::Duration::from_secs(CHECK_INTERVAL)).await;
+        }
+
+        tracing::info!("Shutting down server due to inactivity");
+        self.cancel_server.cancel();
+    }
+
+    pub fn update_last_activity(&self) {
+        println!("Updating last activity");
+
+        self.last_activity
+            .store(utils::now_as_secs(), std::sync::atomic::Ordering::Relaxed);
     }
 }

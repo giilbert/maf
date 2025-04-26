@@ -157,6 +157,7 @@ async fn delete_app(
     };
 
     app.clone().delete(&state.db).await?;
+    state.bundle_storage.delete_app_bundle(app.id).await?;
 
     Ok(Json(app))
 }
