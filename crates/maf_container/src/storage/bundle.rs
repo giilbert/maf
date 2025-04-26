@@ -28,6 +28,8 @@ pub struct Bundle {
 
 #[derive(Debug, thiserror::Error)]
 pub enum BundleError {
+    #[error("Bundle file not found")]
+    FileNotFound,
     #[error("File too large")]
     FileTooLarge,
     #[error("Invalid zip file")]
@@ -139,7 +141,8 @@ impl BundleStorage {
                     return Ok(None);
                 }
 
-                let mut data = Vec::with_capacity(size);
+                let mut data = vec![0; size];
+
                 entry_reader
                     .read_exact(&mut data)
                     .await
@@ -154,9 +157,31 @@ impl BundleStorage {
         return Err(BundleError::InvalidZip);
     }
 
+    pub async fn load_app_bundle(&self, app_id: Uuid) -> Result<Option<Bundle>, BundleError> {
+        Ok(
+            match self
+                .load_bundle_from_path(self.storage_dir.join(app_id.to_string()))
+                .await
+            {
+                Ok(bundle) => Some(bundle),
+                Err(BundleError::FileNotFound) => None,
+                Err(e) => {
+                    return Err(e);
+                }
+            },
+        )
+    }
+
     // TODO: load more than just the wasm module
     async fn load_bundle_from_path(&self, path: impl AsRef<Path>) -> Result<Bundle, BundleError> {
-        let mut file = BufReader::new(File::open(path).await?);
+        let mut file = BufReader::new(File::open(path).await.map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                BundleError::FileNotFound
+            } else {
+                BundleError::Io(e)
+            }
+        })?);
+
         self.load_bundle_from_reader(&mut file, false)
             .await
             .map(|bundle| bundle.expect("data should be present"))

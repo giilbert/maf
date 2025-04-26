@@ -6,9 +6,11 @@ use axum::{
 };
 use serde::Deserialize;
 
+use crate::{api::ErrorResponse, storage::repos::app_repo};
+
 use super::{
     connection::Connection,
-    room::Room,
+    room::{self, Room},
     state::AppState,
     user_app::{RoomCreationStrategy, UserApp},
 };
@@ -23,14 +25,20 @@ pub struct ConnectQueryParams {}
 
 async fn connect_route(
     State(state): State<AppState>,
-    Path((org_slug, app_slug)): Path<(String, String)>,
+    Path((org_slug, app_name)): Path<(String, String)>,
     Query(query_params): Query<ConnectQueryParams>,
     ws: WebSocketUpgrade,
-) -> Result<Response, axum::http::StatusCode> {
+) -> Result<Response, ErrorResponse> {
     // TODO: replace logic with actual user app query from the database
-    let app = get_user_app();
 
-    let room = match app.room_creation_strategy {
+    let app = app_repo::get_app_by_name_and_org_slug(&state.db, &app_name, &org_slug)
+        .await
+        .map_err(|e| anyhow::anyhow!(e))?
+        .ok_or_else(|| ErrorResponse::not_found(Some("app not found")))?;
+
+    let room_creation_strategy = RoomCreationStrategy::AutoCreate; // TODO: get from app
+
+    let room = match room_creation_strategy {
         RoomCreationStrategy::AutoCreate => {
             let room_id = match state
                 .auto_created_rooms_by_org_slug
@@ -39,10 +47,7 @@ async fn connect_route(
             {
                 Some(room_id) => room_id,
                 None => {
-                    let room = Room::new(&state).await.map_err(|e| {
-                        tracing::warn!("failed to create room: {e:?}");
-                        axum::http::StatusCode::INTERNAL_SERVER_ERROR
-                    })?;
+                    let room = Room::new(&state, app.id).await?;
 
                     let room_id = room.id;
                     state
@@ -82,11 +87,4 @@ async fn connect_route(
             Err(error) => tracing::warn!("websocket connection error: {error:?}"),
         }
     }))
-}
-
-// TODO:
-fn get_user_app() -> UserApp {
-    UserApp {
-        room_creation_strategy: RoomCreationStrategy::AutoCreate,
-    }
 }

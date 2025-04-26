@@ -13,14 +13,28 @@ pub struct Room {
 }
 
 impl Room {
-    pub async fn new(state: &AppState) -> anyhow::Result<Self> {
+    pub async fn new(state: &AppState, app_id: Uuid) -> anyhow::Result<Self> {
         tracing::info!("creating new room...");
 
-        let mut container = Container::load_from_binary(
-            &state.container_runtime,
-            state.bundle_storage.load_test_app().await?.wasm_module,
-        )
-        .await?;
+        let bundle = match state.bundle_storage.load_app_bundle(app_id).await? {
+            Some(bundle) => bundle,
+            None => {
+                if dotenvy::var("ENVIRONMENT").unwrap_or_default() == "development" {
+                    tracing::info!("app bundle not found. loading test app...");
+                    state.bundle_storage.load_test_app().await?
+                } else {
+                    return Err(anyhow::anyhow!("app bundle not found"));
+                }
+            }
+        };
+
+        tracing::info!(
+            "first ten bytes of wasm module: {:?}",
+            &bundle.wasm_module[..10]
+        );
+
+        let mut container =
+            Container::load_from_binary(&state.container_runtime, bundle.wasm_module).await?;
 
         let mut output = container.take_output().expect("failed to take output");
         let connection_tx = container.store.data().connection_tx.clone();

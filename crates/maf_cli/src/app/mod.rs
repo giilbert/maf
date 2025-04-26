@@ -1,18 +1,18 @@
 mod models;
 
-use std::{iter::zip, time::Duration};
+use std::time::Duration;
 
 use anyhow::Context as _;
-use async_zip::{tokio::write::ZipFileWriter, Compression, ZipEntryBuilder, ZipFileBuilder};
+use async_zip::{tokio::write::ZipFileWriter, Compression, ZipEntryBuilder};
 use clap::Subcommand;
 use colored::Colorize;
-use futures_util::{io::Cursor, StreamExt, TryStreamExt};
+use futures_util::{io::Cursor, TryStreamExt};
 use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
 use reqwest::Body;
-use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio_util::{
     codec::{BytesCodec, FramedRead},
-    compat::{FuturesAsyncReadCompatExt, FuturesAsyncWriteCompatExt, TokioAsyncWriteCompatExt},
+    compat::{FuturesAsyncReadCompatExt, TokioAsyncWriteCompatExt},
 };
 use uuid::Uuid;
 
@@ -48,6 +48,26 @@ async fn list_apps(context: &Context) -> anyhow::Result<()> {
             println!("- {}", app.name);
         }
     }
+
+    Ok(())
+}
+
+async fn show_app_info(context: &Context, name: &str) -> anyhow::Result<()> {
+    context.assert_token();
+
+    println!("Fetching app `{name}`...\n");
+
+    let app = context
+        .get::<models::App>(format!("/api/apps/{name}"))
+        .await
+        .context("failed to get app")?;
+
+    println!(
+        "{} {}",
+        app.name.bold(),
+        format!("(id: {})", app.id).dimmed()
+    );
+    println!("");
 
     Ok(())
 }
@@ -103,20 +123,7 @@ async fn create_app(context: &Context) -> anyhow::Result<()> {
 async fn delete_app(context: &Context, name: String) -> anyhow::Result<()> {
     context.assert_token();
 
-    println!("Fetching app `{name}`...\n");
-
-    let app = context
-        .get::<models::App>(format!("/api/apps/{name}"))
-        .await
-        .context("failed to get app")?;
-
-    println!(
-        "{} {}",
-        app.name.bold(),
-        format!("(id: {})", app.id).dimmed()
-    );
-
-    println!("");
+    show_app_info(context, &name).await?;
 
     println!(
         "{}",
@@ -144,67 +151,15 @@ async fn delete_app(context: &Context, name: String) -> anyhow::Result<()> {
 }
 
 async fn deploy_bundle(context: &Context, name: String, path: String) -> anyhow::Result<()> {
-    const MAX_SIZE: usize = 20 * 1024 * 1024; // 20 MB
+    context.assert_token();
+
+    show_app_info(context, &name).await?;
 
     let mut file = tokio::fs::File::open(&path)
         .await
         .with_context(|| format!("failed to open file `{path}`"))?;
 
-    let metadata = file
-        .metadata()
-        .await
-        .with_context(|| format!("failed to get metadata for file `{path}`"))?;
-
-    context.assert_token();
-
-    println!("Fetching app `{name}`...\n");
-
-    let app = context
-        .get::<models::App>(format!("/api/apps/{name}"))
-        .await
-        .context("failed to get app")?;
-
-    println!(
-        "{} {}",
-        app.name.bold(),
-        format!("(id: {})", app.id).dimmed()
-    );
-
-    println!("");
-
-    let zip_bundle_bar = ProgressBar::new_spinner();
-    zip_bundle_bar.enable_steady_tick(Duration::from_millis(100));
-    zip_bundle_bar.set_style(
-        ProgressStyle::default_spinner()
-            .template("{spinner:.magenta} {wide_msg} [{elapsed_precise}]")?,
-    );
-    zip_bundle_bar.set_message("Creating zip bundle...");
-
-    const ZIP_BUFFER_SIZE: usize = 8 * 1024 * 1024; // 8 MB
-
-    let zip_buffer = tokio::io::BufWriter::with_capacity(ZIP_BUFFER_SIZE, Vec::new());
-    let mut zip = ZipFileWriter::new(zip_buffer.compat_write());
-
-    let mut file_data = Vec::with_capacity(metadata.len() as usize);
-    file.read_to_end(&mut file_data).await?;
-    zip.write_entry_whole(
-        ZipEntryBuilder::new("module.wasm".into(), Compression::Deflate),
-        &file_data,
-    )
-    .await?;
-
-    let mut zip_writer = zip.close().await?.into_inner();
-    zip_writer.flush().await?;
-    zip_writer.shutdown().await?;
-
-    zip_bundle_bar
-        .set_style(ProgressStyle::default_bar().template("{wide_msg} [{elapsed_precise}]")?);
-    zip_bundle_bar.finish_with_message(format!(
-        "Created zip bundle ({} bytes)",
-        HumanBytes(metadata.len())
-    ));
-
-    let compressed_data = zip_writer.into_inner();
+    let (compressed_data, metadata) = create_zip_bundle(&mut file).await?;
     let bar = ProgressBar::new(compressed_data.len() as u64);
     let bar_clone = bar.clone();
 
@@ -240,4 +195,47 @@ async fn deploy_bundle(context: &Context, name: String, path: String) -> anyhow:
     println!("");
 
     Ok(())
+}
+
+async fn create_zip_bundle(
+    file: &mut tokio::fs::File,
+) -> anyhow::Result<(Vec<u8>, std::fs::Metadata)> {
+    let zip_bundle_bar = ProgressBar::new_spinner();
+    zip_bundle_bar.enable_steady_tick(Duration::from_millis(100));
+    zip_bundle_bar.set_style(
+        ProgressStyle::default_spinner()
+            .template("{spinner:.magenta} {wide_msg} [{elapsed_precise}]")?,
+    );
+    zip_bundle_bar.set_message("Creating zip bundle...");
+
+    const ZIP_BUFFER_SIZE: usize = 20 * 1024 * 1024; // 20 MB
+
+    let zip_buffer = tokio::io::BufWriter::with_capacity(ZIP_BUFFER_SIZE, Vec::new());
+    let mut zip = ZipFileWriter::new(zip_buffer.compat_write());
+
+    let metadata = file
+        .metadata()
+        .await
+        .context("failed to get metadata for file")?;
+
+    let mut file_data = Vec::with_capacity(metadata.len() as usize);
+    file.read_to_end(&mut file_data).await?;
+    zip.write_entry_whole(
+        ZipEntryBuilder::new("module.wasm".into(), Compression::Deflate),
+        &file_data,
+    )
+    .await?;
+
+    let mut zip_writer = zip.close().await?.into_inner();
+    zip_writer.flush().await?;
+    zip_writer.shutdown().await?;
+
+    zip_bundle_bar
+        .set_style(ProgressStyle::default_bar().template("{wide_msg} [{elapsed_precise}]")?);
+    zip_bundle_bar.finish_with_message(format!(
+        "Created zip bundle ({} bytes)",
+        HumanBytes(metadata.len())
+    ));
+
+    Ok((zip_writer.into_inner(), metadata))
 }
