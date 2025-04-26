@@ -47,13 +47,29 @@ async fn connect_route(
             {
                 Some(room_id) => room_id,
                 None => {
-                    let room = Room::new(&state, app.id).await?;
+                    let (room, mut container) = Room::new(&state, app.id).await?;
 
                     let room_id = room.id;
                     state
                         .auto_created_rooms_by_org_slug
                         .insert(org_slug.clone(), room.id);
+
                     state.rooms.insert(room_id, room);
+
+                    let state = state.clone();
+                    tokio::spawn(async move {
+                        if let Err(e) = container.run().await {
+                            tracing::error!("container error: {e:?}");
+                        }
+                        tracing::info!("container stopped");
+
+                        state
+                            .auto_created_rooms_by_org_slug
+                            .remove(&org_slug)
+                            .unwrap_or_default();
+                        state.rooms.remove(&room_id);
+                    });
+
                     room_id
                 }
             };
