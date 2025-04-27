@@ -41,6 +41,7 @@ COPY --from=builder /app/target/release/maf_container /app/maf_container
 
 EXPOSE 3000
 USER maf_container
+VOLUME /app/bundle
 
 CMD [ "/app/maf_container" ]
 
