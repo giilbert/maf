@@ -54,6 +54,11 @@ impl BundleStorage {
                 "Created bundle storage directory: {}",
                 storage_dir.display()
             );
+        } else {
+            tracing::info!(
+                "Bundle storage directory already exists: {}",
+                storage_dir.display()
+            );
         }
 
         Ok(Self { storage_dir })

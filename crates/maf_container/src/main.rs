@@ -14,7 +14,10 @@ async fn main() -> anyhow::Result<()> {
         .with(fmt::layer())
         .with(EnvFilter::from_default_env())
         .init();
-    dotenvy::dotenv()?;
+    match dotenvy::dotenv() {
+        Ok(_) => tracing::info!("Loaded environment variables from .env file"),
+        Err(e) => tracing::warn!("Failed to load .env file: {}", e),
+    }
 
     if let Err(e) = try_main().await {
         eprintln!("{:?}", e);

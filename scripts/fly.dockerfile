@@ -25,15 +25,22 @@ FROM debian:latest AS app
 
 WORKDIR /app
 
+RUN useradd -m -u 1000 maf_container
+
+# Make bundle directory
+RUN mkdir -p /app/bundle && \
+    chown -R maf_container:maf_container /app/bundle
+ENV BUNDLE_STORAGE_DIR=/app/bundle
+
 # Install dependencies
 RUN apt-get update && \
+    apt-get install libssl3 && \
     rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/target/release/maf_container maf_container
+COPY --from=builder /app/target/release/maf_container /app/maf_container
 
 EXPOSE 3000
+USER maf_container
 
-ENV RUST_LOG=info
-
-ENTRYPOINT [ "/app/maf_container" ]
+CMD [ "/app/maf_container" ]
 
