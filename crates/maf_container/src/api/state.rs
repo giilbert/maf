@@ -24,8 +24,15 @@ use crate::{
 
 use super::room::Room;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Environment {
+    Development,
+    Production,
+}
+
 #[derive(Debug, Clone)]
 pub struct AppState {
+    pub environment: Environment,
     pub container_runtime: ContainerRuntime,
     pub auto_created_rooms_by_org_slug: Arc<DashMap<String, Uuid>>,
     pub rooms: Arc<DashMap<Uuid, Room>>,
@@ -46,6 +53,15 @@ impl AppState {
         tracing::info!("Connected to database `{}`", database_url);
 
         let state = Self {
+            environment: dotenvy::var("ENVIRONMENT")
+                .map_err(anyhow::Error::from)
+                .and_then(|s| match s.to_lowercase().as_str() {
+                    "development" => Ok(Environment::Development),
+                    "production" => Ok(Environment::Production),
+                    actual => anyhow::bail!(
+                        "expected `development` or `production` in ENVIRONMENT. got `{actual}`."
+                    ),
+                })?,
             container_runtime,
             auto_created_rooms_by_org_slug: Arc::new(DashMap::new()),
             rooms: Arc::new(DashMap::new()),
@@ -57,8 +73,9 @@ impl AppState {
 
         state.init_database().await?;
 
-        if let Ok(timeout) = dotenvy::var("AUTO_SHUTDOWN_TIMEOUT")
-            .and_then(|s| Ok(s.parse::<u64>().map_err(anyhow::Error::new)))?
+        if let Some(timeout) = dotenvy::var("AUTO_SHUTDOWN_TIMEOUT")
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
         {
             tracing::info!(
                 "Auto shutdown inactive server is enabled. Timeout: {} seconds",

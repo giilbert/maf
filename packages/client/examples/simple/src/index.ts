@@ -2,7 +2,7 @@ import { MafClient } from "@maf/client";
 
 const client = new MafClient({
   url: "http://localhost:3000",
-  app: "gilbert/test",
+  app: "gilbert/test-2",
 });
 
 async function run() {

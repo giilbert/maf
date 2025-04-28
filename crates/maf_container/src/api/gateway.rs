@@ -11,7 +11,7 @@ use crate::{api::ErrorResponse, storage::repos::app_repo};
 use super::{
     connection::Connection,
     room::{self, Room},
-    state::AppState,
+    state::{AppState, Environment},
     user_app::{RoomCreationStrategy, UserApp},
 };
 
@@ -34,7 +34,7 @@ async fn connect_route(
     let app = app_repo::get_app_by_name_and_org_slug(&state.db, &app_name, &org_slug)
         .await
         .map_err(|e| anyhow::anyhow!(e))?
-        .ok_or_else(|| ErrorResponse::not_found(Some("app not found")))?;
+        .ok_or_else(|| ErrorResponse::not_found(Some("app not found")));
 
     let room_creation_strategy = RoomCreationStrategy::AutoCreate; // TODO: get from app
 
@@ -47,7 +47,16 @@ async fn connect_route(
             {
                 Some(room_id) => room_id,
                 None => {
-                    let (room, mut container) = Room::new(&state, app.id).await?;
+                    let (room, mut container) = match app {
+                        Ok(app) => Room::new(&state, app.id).await?,
+                        Err(_) if state.environment == Environment::Development => {
+                            tracing::info!(
+                                "App not found. Defaulting to test app (development only)"
+                            );
+                            Room::new_test(&state).await?
+                        }
+                        Err(e) => return Err(e),
+                    };
 
                     let room_id = room.id;
                     state

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc};
 use uuid::Uuid;
 
-use crate::container::Container;
+use crate::{container::Container, storage::bundle::Bundle};
 
 use super::{connection::ConnectionHandle, state::AppState};
 
@@ -15,19 +15,29 @@ pub struct Room {
 
 impl Room {
     pub async fn new(state: &AppState, app_id: Uuid) -> anyhow::Result<(Self, Container)> {
-        tracing::info!("creating new room...");
-
         let bundle = match state.bundle_storage.load_app_bundle(app_id).await? {
             Some(bundle) => bundle,
-            None => {
-                if dotenvy::var("ENVIRONMENT").unwrap_or_default() == "development" {
-                    tracing::info!("app bundle not found. loading test app...");
-                    state.bundle_storage.load_test_app().await?
-                } else {
-                    return Err(anyhow::anyhow!("app bundle not found"));
-                }
-            }
+            None => anyhow::bail!("app bundle not found"),
         };
+
+        Self::new_from_bundle(state, bundle).await
+    }
+
+    pub async fn new_test(state: &AppState) -> anyhow::Result<(Self, Container)> {
+        Self::new_from_bundle(state, state.bundle_storage.load_test_app().await?).await
+    }
+
+    pub async fn add_connection(&self, connection: ConnectionHandle) -> anyhow::Result<()> {
+        tracing::info!("adding connection to room {}", self.id);
+        self.connection_tx.send(connection).await?;
+        Ok(())
+    }
+
+    async fn new_from_bundle(
+        state: &AppState,
+        bundle: Bundle,
+    ) -> anyhow::Result<(Self, Container)> {
+        tracing::info!("creating new room...");
 
         let mut container =
             Container::load_from_binary(&state.container_runtime, bundle.wasm_module).await?;
@@ -51,11 +61,5 @@ impl Room {
             },
             container,
         ))
-    }
-
-    pub async fn add_connection(&self, connection: ConnectionHandle) -> anyhow::Result<()> {
-        tracing::info!("adding connection to room {}", self.id);
-        self.connection_tx.send(connection).await?;
-        Ok(())
     }
 }
