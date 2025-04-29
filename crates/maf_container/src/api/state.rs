@@ -179,8 +179,6 @@ impl AppState {
     }
 
     pub fn update_last_activity(&self) {
-        println!("Updating last activity");
-
         self.last_activity
             .store(utils::now_as_secs(), std::sync::atomic::Ordering::Relaxed);
     }

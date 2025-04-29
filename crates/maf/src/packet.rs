@@ -1,10 +1,13 @@
 use serde::{Deserialize, Serialize};
 
+use crate::rpc::models::{TypedRpcRequestPacket, TypedRpcResponsePacket};
+
 /// Messages sent from the client to the server
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", content = "data")]
 pub enum RxPacket {
     ChannelSend(ChannelSendRx),
+    TypedRpcCall(TypedRpcRequestPacket),
 }
 
 /// Messages sent from the server to the client
@@ -12,6 +15,7 @@ pub enum RxPacket {
 #[serde(tag = "type", content = "data")]
 pub enum TxPacket<'a, T> {
     ChannelSend { channel: &'a str, data: &'a T },
+    TypedRpcResponse(TypedRpcResponsePacket),
 }
 
 #[derive(Debug, Deserialize, Clone)]

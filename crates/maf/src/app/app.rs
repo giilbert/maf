@@ -1,12 +1,16 @@
 use std::{collections::HashMap, sync::Arc};
 
 use async_lock::RwLock;
+use serde::Serialize;
 use uuid::Uuid;
 
 use crate::{
     channel::UntypedChannelBroadcast,
-    packet::{ChannelSendRx, RxPacket},
-    rpc::{IntoRpcFunction, RpcStore},
+    packet::{ChannelSendRx, RxPacket, TxPacket},
+    rpc::{
+        models::{TypedRpcRequestPacket, TypedRpcResponsePacket},
+        IntoRpcFunction, RpcStore,
+    },
     tasks::{self, Runtime},
     user::UserMessage,
     Channel, User, UserListener,
@@ -106,11 +110,23 @@ impl App {
         Ok(())
     }
 
+    async fn handle_rpc(&self, user: &User, rpc_data: TypedRpcRequestPacket) -> anyhow::Result<()> {
+        let res = self
+            .inner
+            .rpc_functions
+            .handle_typed_rpc_request(rpc_data)?;
+
+        user.send(TxPacket::<()>::TypedRpcResponse(res))?;
+
+        Ok(())
+    }
+
     pub(crate) async fn handle_message<'a>(&self, message: UserMessage<'a>) -> anyhow::Result<()> {
         match message.packet {
             RxPacket::ChannelSend(channel_data) => {
                 self.handle_channel_send(&message.user, channel_data).await
             }
+            RxPacket::TypedRpcCall(rpc_data) => self.handle_rpc(&message.user, rpc_data).await,
         }
     }
 

@@ -134,15 +134,22 @@ impl User {
                     {
                         break;
                     } else {
-                        return Err(e);
+                        println!("warn: failed to listen for message: {e}");
+                        continue;
                     }
                 }
             };
 
-            app.handle_message(message).await?;
+            match app.handle_message(message).await {
+                Ok(_) => {}
+                Err(err) => {
+                    println!("warn: failed to handle message: {err}");
+                    continue;
+                }
+            }
         }
 
-        Ok::<_, anyhow::Error>(())
+        Ok(())
     }
 
     // TODO: proper error handling

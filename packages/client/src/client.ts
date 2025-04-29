@@ -22,6 +22,9 @@ export class MafClient extends Emittery<MafClientEvents> {
 
   private _channels: Record<string, Channel<any>> = {};
 
+  private _rpcId = 0;
+  private _rpcCalls: Record<number, (data: unknown) => void> = {};
+
   public get ws() {
     if (!this._ws) throw new Error("WebSocket is not connected");
     return this._ws;
@@ -102,6 +105,10 @@ export class MafClient extends Emittery<MafClientEvents> {
     if (packet.type === "ChannelSend") {
       const { channel, data } = packet.data;
       this._channels[channel]?.emit("message", data);
+    } else if (packet.type === "TypedRpcResponse") {
+      const { id, result } = packet.data;
+      this._rpcCalls[id]?.(result);
+      delete this._rpcCalls[id];
     }
   }
 
@@ -113,5 +120,29 @@ export class MafClient extends Emittery<MafClientEvents> {
 
   public send(message: TxPacket) {
     this.ws.send(JSON.stringify(message));
+  }
+
+  public rpc<T>(method: string, ...params: unknown[]) {
+    const id = this._rpcId++;
+
+    this.send({
+      type: "TypedRpcCall",
+      data: {
+        method,
+        id,
+        params: params.length === 1 ? params[0] : params,
+      },
+    });
+
+    return new Promise<T>((resolve, reject) => {
+      // TODO: handle timeout
+      this._rpcCalls[id] = (data) => {
+        if (data instanceof Error) {
+          reject(data);
+        } else {
+          resolve(data as T);
+        }
+      };
+    });
   }
 }

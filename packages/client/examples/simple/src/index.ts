@@ -8,22 +8,14 @@ const client = new MafClient({
 async function run() {
   await client.connect();
 
-  const channel = client.channel<string>("hello");
-
-  channel.on("message", (message) => {
-    console.log("received message:", message);
-  });
+  console.log("client connected!");
 
   while (true) {
-    channel.send("hello");
-    await new Promise((resolve) => {
-      setTimeout(resolve, 1000);
-    });
+    const result = await client.rpc<number>("test", 2);
+    console.log("client rpc result", result);
+    // console.log("client rpc test");
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 }
-
-client.on("ready", (session) => {
-  console.log("client is ready!", session);
-});
 
 run();

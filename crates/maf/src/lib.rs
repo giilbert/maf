@@ -9,7 +9,7 @@ pub(crate) mod utils;
 
 pub use app::App;
 pub use channel::{Channel, RecvError};
-pub use rpc::{Body, FromRequest, IntoRpcFunction, RpcFunction, RpcRequest, RpcResponse};
+pub use rpc::{FromRequest, IntoRpcFunction, Params, RpcFunction, RpcRequest};
 pub use user::{SendError, User, UserListener};
 
 pub use serde_json;
