@@ -1,6 +1,7 @@
 use runtime::ContainerRuntime;
 
-use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+use tracing::level_filters::LevelFilter;
+use tracing_subscriber::{filter::Directive, fmt, prelude::*, EnvFilter};
 
 mod api;
 mod container;
@@ -10,10 +11,15 @@ mod utils;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    const DEFAULT_LOG_SETTINGS: &str = "maf_container=info";
     tracing_subscriber::registry()
         .with(fmt::layer())
-        .with(EnvFilter::from_default_env())
+        .with(
+            EnvFilter::builder()
+                .parse(std::env::var("RUST_LOG").unwrap_or(DEFAULT_LOG_SETTINGS.to_string()))?,
+        )
         .init();
+
     match dotenvy::dotenv() {
         Ok(_) => tracing::info!("Loaded environment variables from .env file"),
         Err(e) => tracing::warn!("Failed to load .env file: {}", e),
