@@ -1,0 +1,10 @@
+# Use this to start a local PostgreSQL database
+# URL: postgres://postgres:ferris@localhost:5432
+
+services:
+  db:
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: ferris
+    ports:
+      - "5432:5432"
