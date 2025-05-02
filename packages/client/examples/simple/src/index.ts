@@ -11,8 +11,8 @@ async function run() {
   console.log("client connected!");
 
   while (true) {
-    const result = await client.rpc<number>("test", 2);
-    console.log("client rpc result", result);
+    const result = await client.rpc<number>("increment_counter", 2);
+    console.log("incremented counter! new value: ", result);
     // console.log("client rpc test");
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }

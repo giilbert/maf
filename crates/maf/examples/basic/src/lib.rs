@@ -1,24 +1,33 @@
-use std::time::Duration;
-
 use maf::*;
 
-fn test_rpc(body: Params<i32>) -> i32 {
-    println!("test_rpc: {:?}", body);
-    42
+struct CounterStore;
+
+impl StoreData for CounterStore {
+    type Data = i32;
+
+    fn init() -> Self::Data {
+        42
+    }
+}
+
+async fn increment_counter(Params(counter): Params<i32>, test: Store<CounterStore>) -> i32 {
+    let mut test = test.write().await;
+
+    *test += counter;
+
+    println!("incremented counter by {counter}. new value: {}", test);
+
+    *test
 }
 
 async fn on_connect(user: User) {
-    println!("user connected!");
-
-    loop {
-        tasks::sleep(Duration::from_secs(1)).await;
-    }
+    println!("user connected! id: {}", user.meta.id());
 }
 
 fn build() -> App {
     App::builder()
         .on_connect(on_connect)
-        .rpc("test", test_rpc)
+        .rpc("increment_counter", increment_counter)
         .background(|app: App| async move {
             let mut chan = app.channel::<String>("hello");
             loop {

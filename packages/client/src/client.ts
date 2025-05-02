@@ -23,7 +23,7 @@ export class MafClient extends Emittery<MafClientEvents> {
   private _channels: Record<string, Channel<any>> = {};
 
   private _rpcId = 0;
-  private _rpcCalls: Record<number, (data: unknown) => void> = {};
+  private _rpcCalls: Map<number, (data: unknown) => void> = new Map();
 
   public get ws() {
     if (!this._ws) throw new Error("WebSocket is not connected");
@@ -107,8 +107,8 @@ export class MafClient extends Emittery<MafClientEvents> {
       this._channels[channel]?.emit("message", data);
     } else if (packet.type === "TypedRpcResponse") {
       const { id, result } = packet.data;
-      this._rpcCalls[id]?.(result);
-      delete this._rpcCalls[id];
+      this._rpcCalls.get(id)?.(result);
+      this._rpcCalls.delete(id);
     }
   }
 
@@ -135,14 +135,24 @@ export class MafClient extends Emittery<MafClientEvents> {
     });
 
     return new Promise<T>((resolve, reject) => {
+      // Arbitrary limit to prevent out-of-memory errors
+      const MAX_RPC_CALLS = 5_000;
+
+      if (this._rpcCalls.size > MAX_RPC_CALLS) {
+        reject(
+          new Error(`Maximum number of RPC calls exceeded (${MAX_RPC_CALLS})`)
+        );
+        return;
+      }
+
       // TODO: handle timeout
-      this._rpcCalls[id] = (data) => {
+      this._rpcCalls.set(id, (data) => {
         if (data instanceof Error) {
           reject(data);
         } else {
           resolve(data as T);
         }
-      };
+      });
     });
   }
 }
