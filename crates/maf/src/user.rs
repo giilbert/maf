@@ -159,11 +159,6 @@ impl User {
         Ok(())
     }
 
-    pub(crate) fn send_binary(&self, bytes: Vec<u8>) -> Result<(), SendError> {
-        self.inner.send(&bindgen::Message::Binary(bytes))?;
-        Ok(())
-    }
-
     pub fn channel<T>(&self, name: impl ToString) -> BoundChannel<T> {
         let name = name.to_string();
         BoundChannel::new(Channel::new(self.state.clone(), name), &self)

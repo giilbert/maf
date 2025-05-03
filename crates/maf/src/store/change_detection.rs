@@ -1,13 +1,13 @@
 use std::{
     ops::{Deref, DerefMut},
-    sync::atomic::{self, AtomicBool},
+    sync::atomic,
 };
 
 use tokio::sync::RwLockMappedWriteGuard;
 
 use crate::App;
 
-use super::{AnyStore, StoreKey};
+use super::AnyStore;
 
 pub struct StoreMut<'a, T> {
     app: &'a App,

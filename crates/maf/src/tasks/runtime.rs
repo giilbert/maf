@@ -190,6 +190,7 @@ impl Runtime {
         GLOBAL_RUNTIME.set(Rc::new(self));
     }
 
+    #[allow(dead_code)]
     pub(crate) fn debug_pollables(&self) {
         let inner = self.inner();
 

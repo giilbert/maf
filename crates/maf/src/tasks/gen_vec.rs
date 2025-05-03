@@ -85,6 +85,7 @@ impl<T> GenVec<T> {
     }
 
     /// Mutably borrows the item at the given index, or `None` if the index is invalid.
+    #[allow(dead_code)]
     pub fn get_mut(&mut self, idx: GenIdx) -> Option<&mut T> {
         let entry = self.storage.get_mut(idx.index as usize)?;
         if entry.generation == idx.generation {
@@ -106,6 +107,7 @@ impl<T> GenVec<T> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn iter(&self) -> Iter<T> {
         Iter {
             storage: &self.storage,
@@ -113,6 +115,7 @@ impl<T> GenVec<T> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn iter_mut(&mut self) -> IterMut<T> {
         let len = self.storage.len();
         // SAFETY: self.storage is guaranteed to be non-null and valid.

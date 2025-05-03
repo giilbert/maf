@@ -35,6 +35,7 @@ pub struct TaskHandle {
 /// A weak handle to a [`Task`]. This will not keep the task alive, and will return `None` if the
 /// task has been dropped.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct WeakTaskHandle {
     inner: Weak<RefCell<Task>>,
 }
@@ -60,6 +61,7 @@ impl TaskHandle {
         self.inner.borrow_mut()
     }
 
+    #[allow(dead_code)]
     pub fn downgrade(&self) -> WeakTaskHandle {
         WeakTaskHandle {
             inner: Rc::downgrade(&self.inner),
@@ -68,6 +70,7 @@ impl TaskHandle {
 }
 
 impl WeakTaskHandle {
+    #[allow(dead_code)]
     pub fn upgrade(&self) -> Option<TaskHandle> {
         self.inner.upgrade().map(|inner| TaskHandle { inner })
     }

@@ -8,7 +8,6 @@ use std::{
     future::Future,
     marker::PhantomData,
     pin::Pin,
-    sync::Arc,
 };
 
 pub use from_request::FromRequest;
@@ -17,20 +16,22 @@ pub use params::Params;
 use anyhow::Context;
 use models::{TypedRpcRequestPacket, TypedRpcResponsePacket};
 
-use crate::{app::AppState, App};
+use crate::App;
+
+type GenericRpcHandler = Box<
+    dyn Fn(
+            App,
+            RpcRequest,
+        )
+            -> anyhow::Result<Pin<Box<dyn Future<Output = anyhow::Result<TypedRpcResponsePacket>>>>>
+        + Send
+        + Sync,
+>;
 
 pub struct RpcFunction {
     pub(crate) method: String,
     pub(crate) type_id: TypeId,
-    pub(crate) handler: Box<
-        dyn Fn(
-                App,
-                RpcRequest,
-            ) -> anyhow::Result<
-                Pin<Box<dyn Future<Output = anyhow::Result<TypedRpcResponsePacket>>>>,
-            > + Send
-            + Sync,
-    >,
+    pub(crate) handler: GenericRpcHandler,
 }
 
 impl std::fmt::Debug for RpcFunction {
@@ -45,7 +46,6 @@ impl std::fmt::Debug for RpcFunction {
 #[derive(Debug)]
 pub struct RpcRequest {
     id: u32,
-    method: String,
     data: Option<RpcRequestData>,
 }
 
@@ -78,7 +78,6 @@ impl RpcStore {
 
         let request = RpcRequest {
             id: packet.id,
-            method,
             data: Some(RpcRequestData::Typed(packet.params)),
         };
 

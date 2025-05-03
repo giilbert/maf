@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use tokio::sync::{
     mpsc::{self, error::TryRecvError},
-    RwLock, RwLockReadGuard, RwLockWriteGuard,
+    RwLock, RwLockReadGuard,
 };
 use uuid::Uuid;
 
