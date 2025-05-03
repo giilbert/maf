@@ -74,9 +74,18 @@ impl App {
             let app = self.clone();
             tasks::spawn(async move {
                 user_clone
-                    .handle_messages(app)
+                    .handle_messages(app.clone())
                     .await
                     .expect("failed to handle user messages");
+
+                println!("user disconnected: {}", user_clone.meta.id());
+
+                app.inner
+                    .state
+                    .users
+                    .write()
+                    .await
+                    .remove(&user_clone.meta.id);
             });
 
             let app = self.clone();
@@ -118,7 +127,12 @@ impl App {
             .handle_typed_rpc_request(self.clone(), rpc_data)
             .await?;
 
-        user.send(TxPacket::<()>::TypedRpcResponse(res))?;
+        match user.send(TxPacket::<()>::TypedRpcResponse(res)) {
+            Ok(_) => {}
+            Err(err) => {
+                println!("failed to send rpc response: {err}");
+            }
+        }
 
         self.flush_all_store_changes().await?;
 
@@ -139,7 +153,6 @@ impl App {
     async fn flush_all_store_changes(&self) -> anyhow::Result<()> {
         let mut store_dirty_rx = self.inner.store_dirty_rx.write().await;
 
-        // while let Some(store_key) = store_dirty_rx.recv().await {
         loop {
             let store_key = match store_dirty_rx.try_recv() {
                 Ok(store_key) => store_key,
@@ -169,11 +182,13 @@ impl App {
         let serialized =
             serializer(&*data).map_err(|_| anyhow::anyhow!("failed to serialize store"))?;
 
-        for (_user_id, user) in self.inner.state.users.read().await.iter() {
-            user.send(TxPacket::StoreUpdate {
+        for (user_id, user) in self.inner.state.users.read().await.iter() {
+            if let Err(e) = user.send(TxPacket::StoreUpdate {
                 store: store_key.as_ref(),
                 data: &serialized,
-            })?;
+            }) {
+                println!("failed to send store update to user {user_id}: {e}");
+            }
         }
 
         Ok(())

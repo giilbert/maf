@@ -27,6 +27,11 @@ impl<T> GenVec<T> {
         }
     }
 
+    /// Returns the number of items in the vector, excluding free indices.
+    pub fn items(&self) -> usize {
+        self.storage.len() - self.free_list.len()
+    }
+
     /// Replaces the item at the given raw index with a new item, returning the new [`GenIdx`] or
     /// `None` if the index is invalid.
     ///
