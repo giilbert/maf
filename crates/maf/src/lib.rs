@@ -14,5 +14,6 @@ pub use rpc::{FromRequest, IntoRpcFunction, Params, RpcFunction, RpcRequest};
 pub use store::{Store, StoreData};
 pub use user::{SendError, User, UserListener};
 
+pub use serde;
 pub use serde_json;
 pub use wasi;
