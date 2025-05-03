@@ -1,0 +1,154 @@
+use std::{
+    any::Any,
+    sync::{
+        atomic::{self, AtomicBool},
+        Arc,
+    },
+};
+
+use serde::{de::DeserializeOwned, Serialize};
+use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+
+use crate::{App, FromRequest, RpcRequest};
+
+use super::change_detection::StoreMut;
+
+#[derive(Clone)]
+pub struct AnyStore {
+    pub(crate) key: StoreKey,
+    pub(crate) dirty: Arc<AtomicBool>,
+    pub(crate) data: Arc<RwLock<dyn Any + Send + Sync>>,
+    pub(crate) serializer:
+        Arc<dyn Fn(&dyn Any) -> anyhow::Result<serde_json::Value> + Send + Sync + 'static>,
+}
+
+impl std::fmt::Debug for AnyStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AnyStore")
+            .field("key", &self.key)
+            .field("dirty", &self.dirty)
+            .field("data", &self.data)
+            .finish_non_exhaustive()
+    }
+}
+
+pub struct Store<T: StoreData> {
+    app: App,
+    inner: AnyStore,
+    _phantom: std::marker::PhantomData<T>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct StoreKey(Arc<str>);
+
+pub trait StoreData: 'static {
+    type Data: Serialize + DeserializeOwned + Send + Sync;
+
+    fn name() -> impl AsRef<str> + Send {
+        std::any::type_name::<Self>()
+    }
+
+    fn key() -> impl Into<StoreKey> {
+        StoreKey::from(Self::name().as_ref())
+    }
+
+    fn select(data: Self::Data) -> impl Serialize {
+        data
+    }
+
+    fn init() -> Self::Data;
+}
+
+impl AnyStore {
+    pub fn new<T: StoreData>() -> Self {
+        println!("init: {}", std::any::type_name::<T>());
+        println!("serialize: {}", std::any::type_name::<T::Data>());
+
+        Self {
+            key: T::key().into(),
+            dirty: Arc::new(AtomicBool::new(false)),
+            data: Arc::new(RwLock::new(T::init())),
+            serializer: Arc::new(|data| {
+                let data = data
+                    .downcast_ref::<T::Data>()
+                    .expect("failed to downcast store (is the store of the right type?)");
+
+                serde_json::to_value(data).map_err(Into::into)
+            }),
+        }
+    }
+}
+
+impl From<&str> for StoreKey {
+    fn from(key: &str) -> Self {
+        Self(Arc::from(key))
+    }
+}
+
+impl AsRef<str> for StoreKey {
+    fn as_ref(&self) -> &str {
+        self.0.as_ref()
+    }
+}
+
+impl<T: StoreData> Store<T> {
+    pub async fn read(&self) -> RwLockReadGuard<T::Data> {
+        RwLockReadGuard::map(self.inner.data.read().await, |inner| {
+            inner
+                .downcast_ref::<T::Data>()
+                .expect("failed to downcast store (is the store of the right type?)")
+        })
+    }
+
+    pub async fn write(&self) -> StoreMut<T::Data> {
+        StoreMut::new(
+            &self.app,
+            &self.inner,
+            RwLockWriteGuard::map(self.inner.data.write().await, |inner| {
+                inner
+                    .downcast_mut::<T::Data>()
+                    .expect("failed to downcast store (is the store of the right type?)")
+            }),
+        )
+    }
+
+    pub async fn flush(&self) {
+        if self.inner.dirty.load(atomic::Ordering::Relaxed) {
+            self.inner.dirty.store(false, atomic::Ordering::Relaxed);
+        }
+    }
+}
+
+impl<T: StoreData> FromRequest for Store<T> {
+    async fn from_request(app: &App, _request: &mut RpcRequest) -> anyhow::Result<Self> {
+        let key = T::key().into();
+
+        let existing_store = app.inner.state.stores.read().await.get(&key).cloned();
+
+        let store = match existing_store {
+            Some(store) => store,
+            None => {
+                // Code is structured this way to avoid deadlocks when acquiring the read lock
+                // and then trying to acquire the write lock.
+                drop(existing_store);
+
+                let store = AnyStore::new::<T>();
+
+                app.inner
+                    .state
+                    .stores
+                    .write()
+                    .await
+                    .insert(key, store.clone());
+
+                store
+            }
+        };
+
+        Ok(Store {
+            app: app.clone(),
+            inner: store,
+            _phantom: std::marker::PhantomData,
+        })
+    }
+}

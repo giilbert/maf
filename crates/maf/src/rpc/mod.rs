@@ -17,14 +17,14 @@ pub use params::Params;
 use anyhow::Context;
 use models::{TypedRpcRequestPacket, TypedRpcResponsePacket};
 
-use crate::app::AppState;
+use crate::{app::AppState, App};
 
 pub struct RpcFunction {
     pub(crate) method: String,
     pub(crate) type_id: TypeId,
     pub(crate) handler: Box<
         dyn Fn(
-                Arc<AppState>,
+                App,
                 RpcRequest,
             ) -> anyhow::Result<
                 Pin<Box<dyn Future<Output = anyhow::Result<TypedRpcResponsePacket>>>>,
@@ -67,7 +67,7 @@ impl RpcStore {
 
     pub async fn handle_typed_rpc_request(
         &self,
-        state: Arc<AppState>,
+        app: App,
         packet: TypedRpcRequestPacket,
     ) -> anyhow::Result<TypedRpcResponsePacket> {
         let method = packet.method;
@@ -82,7 +82,7 @@ impl RpcStore {
             data: Some(RpcRequestData::Typed(packet.params)),
         };
 
-        let res = (rpc_function.handler)(state, request)?;
+        let res = (rpc_function.handler)(app, request)?;
         tokio::pin!(res);
         res.await
     }
@@ -153,10 +153,10 @@ macro_rules! impl_rpc_fn {
                 RpcFunction {
                     method,
                     type_id: self.type_id(),
-                    handler: Box::new(move |state, mut request| {
+                    handler: Box::new(move |app, mut request| {
                         Ok(Box::pin(async move {
                             let ($($members),+) = (
-                                $($members::from_request(&state, &mut request).await?),+
+                                $($members::from_request(&app, &mut request).await?),+
                             );
 
                             let result = serde_json::to_value(self($($members),+))?;
@@ -187,11 +187,11 @@ macro_rules! impl_rpc_fn {
                 RpcFunction {
                     method,
                     type_id: self.type_id(),
-                    handler: Box::new(move |state, mut request| {
+                    handler: Box::new(move |app, mut request| {
                         Ok(Box::pin(async move {
                             #[allow(unused_parens)]
                             let ($($members),+) = (
-                                $($members::from_request(&state, &mut request).await?),+
+                                $($members::from_request(&app, &mut request).await?),+
                             );
                             let result = serde_json::to_value(self($($members),+).await)?;
 

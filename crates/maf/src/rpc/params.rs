@@ -1,7 +1,7 @@
 use anyhow::Context;
 use serde::de::DeserializeOwned;
 
-use crate::app::AppState;
+use crate::App;
 
 use super::{FromRequest, RpcRequest, RpcRequestData};
 
@@ -9,7 +9,7 @@ use super::{FromRequest, RpcRequest, RpcRequestData};
 pub struct Params<T: DeserializeOwned>(pub T);
 
 impl<T: DeserializeOwned> FromRequest for Params<T> {
-    async fn from_request(_state: &AppState, request: &mut RpcRequest) -> anyhow::Result<Self> {
+    async fn from_request(_app: &App, request: &mut RpcRequest) -> anyhow::Result<Self> {
         let data = match request
             .data
             .take()

@@ -15,6 +15,7 @@ pub enum RxPacket {
 #[serde(tag = "type", content = "data")]
 pub enum TxPacket<'a, T> {
     ChannelSend { channel: &'a str, data: &'a T },
+    StoreUpdate { store: &'a str, data: &'a T },
     TypedRpcResponse(TypedRpcResponsePacket),
 }
 

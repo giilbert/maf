@@ -11,13 +11,13 @@ impl StoreData for CounterStore {
 }
 
 async fn increment_counter(Params(counter): Params<i32>, test: Store<CounterStore>) -> i32 {
-    let mut test = test.write().await;
+    let mut data = test.write().await;
 
-    *test += counter;
+    *data += counter;
 
-    println!("incremented counter by {counter}. new value: {}", test);
+    println!("incremented counter by {counter}. new value: {}", &*data);
 
-    *test
+    *data
 }
 
 async fn on_connect(user: User) {

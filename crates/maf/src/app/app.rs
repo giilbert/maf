@@ -1,13 +1,16 @@
-use std::{cell::RefCell, collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
-use async_lock::RwLock;
+use tokio::sync::{
+    mpsc::{self, error::TryRecvError},
+    RwLock, RwLockReadGuard, RwLockWriteGuard,
+};
 use uuid::Uuid;
 
 use crate::{
     channel::UntypedChannelBroadcast,
     packet::{ChannelSendRx, RxPacket, TxPacket},
     rpc::{models::TypedRpcRequestPacket, IntoRpcFunction, RpcStore},
-    store::AnyStore,
+    store::{AnyStore, StoreKey},
     tasks::{self, Runtime},
     user::UserMessage,
     Channel, User, UserListener,
@@ -27,15 +30,16 @@ pub struct App {
 pub struct AppInner {
     pub(crate) state: Arc<AppState>,
     pub(crate) rpc_functions: RpcStore,
+    pub(crate) store_dirty_rx: RwLock<mpsc::Receiver<StoreKey>>,
     pub(crate) on_connect: Option<Arc<OnConnectFn>>,
     pub(crate) background: Option<Arc<BackgroundFn>>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct AppState {
     pub(crate) users: RwLock<HashMap<Uuid, User>>,
-    pub(crate) stores: RwLock<HashMap<String, AnyStore>>,
-
+    pub(crate) stores: RwLock<HashMap<StoreKey, AnyStore>>,
+    pub(crate) store_dirty: mpsc::Sender<StoreKey>,
     pub(crate) channels: RwLock<HashMap<String, UntypedChannelBroadcast>>,
     pub(crate) user_rx_channels: RwLock<HashMap<(Uuid, String), UntypedChannelBroadcast>>,
 }
@@ -112,10 +116,12 @@ impl App {
         let res = self
             .inner
             .rpc_functions
-            .handle_typed_rpc_request(self.inner.state.clone(), rpc_data)
+            .handle_typed_rpc_request(self.clone(), rpc_data)
             .await?;
 
         user.send(TxPacket::<()>::TypedRpcResponse(res))?;
+
+        self.flush_all_store_changes().await?;
 
         Ok(())
     }
@@ -127,6 +133,49 @@ impl App {
             }
             RxPacket::TypedRpcCall(rpc_data) => self.handle_rpc(&message.user, rpc_data).await,
         }
+    }
+
+    async fn flush_all_store_changes(&self) -> anyhow::Result<()> {
+        let mut store_dirty_rx = self.inner.store_dirty_rx.write().await;
+
+        // while let Some(store_key) = store_dirty_rx.recv().await {
+        loop {
+            let store_key = match store_dirty_rx.try_recv() {
+                Ok(store_key) => store_key,
+                Err(TryRecvError::Empty) => break,
+                Err(TryRecvError::Disconnected) => {
+                    println!("store dirty channel disconnected");
+                    return Ok(());
+                }
+            };
+
+            self.flush_store_change(store_key).await?;
+        }
+
+        Ok(())
+    }
+
+    async fn flush_store_change(&self, store_key: StoreKey) -> anyhow::Result<()> {
+        let store = RwLockReadGuard::try_map(self.inner.state.stores.read().await, |stores| {
+            stores.get(&store_key)
+        })
+        .map_err(|_| anyhow::anyhow!("failed to get store"))?
+        .clone();
+
+        let serializer = store.serializer.clone();
+        let data = store.data.read_owned().await;
+
+        let serialized =
+            serializer(&*data).map_err(|_| anyhow::anyhow!("failed to serialize store"))?;
+
+        for (_user_id, user) in self.inner.state.users.read().await.iter() {
+            user.send(TxPacket::StoreUpdate {
+                store: store_key.as_ref(),
+                data: &serialized,
+            })?;
+        }
+
+        Ok(())
     }
 
     async fn run_async(self) {
@@ -177,10 +226,21 @@ impl AppBuilder {
     }
 
     pub fn build(self) -> App {
-        let state = Arc::new(AppState::default());
+        const STORE_UPDATE_LIMIT: usize = 10_000;
+
+        let (store_dirty, store_dirty_rx) = mpsc::channel(STORE_UPDATE_LIMIT);
+
+        let state = Arc::new(AppState {
+            store_dirty,
+            channels: Default::default(),
+            stores: Default::default(),
+            user_rx_channels: Default::default(),
+            users: Default::default(),
+        });
 
         let inner = AppInner {
             state,
+            store_dirty_rx: RwLock::new(store_dirty_rx),
             rpc_functions: self.rpc_functions,
             on_connect: self.on_connect,
             background: self.background,

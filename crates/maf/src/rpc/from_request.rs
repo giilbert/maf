@@ -1,4 +1,4 @@
-use crate::app::AppState;
+use crate::App;
 
 use super::RpcRequest;
 
@@ -7,7 +7,7 @@ where
     Self: Sized,
 {
     fn from_request(
-        state: &AppState,
+        app: &App,
         request: &mut RpcRequest,
     ) -> impl std::future::Future<Output = anyhow::Result<Self>> + Send;
 }
