@@ -1,28 +1,24 @@
-mod exports;
 mod io;
 
 use std::{
     sync::{
-        atomic::{AtomicU64, Ordering},
         Arc,
+        atomic::{AtomicU64, Ordering},
     },
     time::Duration,
 };
 
 use io::ContainerStdoutFactory;
-use tokio::{
-    sync::{mpsc, oneshot},
-    time,
-};
+use tokio::{sync::mpsc, time};
 use tokio_util::sync::CancellationToken;
 use wasmtime as wt;
 use wasmtime_wasi::IoView;
 
-use crate::{api::connection::ConnectionHandle, runtime::wasi::Bindings, utils};
+use crate::{interface::ConnectionHandle, runtime::wasi::Bindings, utils};
 
 pub struct Container {
-    pub(super) instance: Bindings,
-    pub(super) store: wt::Store<ContainerData>,
+    pub instance: Bindings,
+    pub store: wt::Store<ContainerData>,
     pub output: Option<mpsc::Receiver<String>>,
 }
 

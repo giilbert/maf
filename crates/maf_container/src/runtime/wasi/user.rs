@@ -1,16 +1,15 @@
 use anyhow::anyhow;
-use axum::extract::ws::Message;
 use tokio::sync::mpsc;
 use wasmtime::component::Resource;
 use wasmtime_wasi::async_trait;
 use wasmtime_wasi_io::poll;
 
-use crate::{api::connection::ConnectionHandle, container::ContainerData};
+use crate::{container::ContainerData, interface::ConnectionHandle};
 
 use super::{bindings, errors::ListenError};
 
 pub struct User {
-    pub handle: ConnectionHandle,
+    pub connection: ConnectionHandle,
 }
 
 pub struct FutureUser {
@@ -45,7 +44,7 @@ impl bindings::HostFutureUser for ContainerData {
         match future_user.next_user.take() {
             Some(handle) => {
                 self.update_last_activity();
-                Ok(self.resources.push(User { handle })?)
+                Ok(self.resources.push(User { connection: handle })?)
             }
             None => Err(bindings::ListenError::NotReady.into()),
         }
@@ -113,10 +112,6 @@ impl bindings::HostFutureMessage for ContainerData {
 }
 
 impl bindings::HostUser for ContainerData {
-    async fn new(&mut self, id: (u64, u64)) -> anyhow::Result<Resource<bindings::User>> {
-        todo!();
-    }
-
     async fn drop(&mut self, user: Resource<User>) -> anyhow::Result<()> {
         tracing::info!("drop(user {})", user.rep());
         Ok(())
@@ -125,7 +120,7 @@ impl bindings::HostUser for ContainerData {
     async fn meta(&mut self, user: Resource<User>) -> wasmtime::Result<bindings::UserMeta> {
         let user = self.resources.get_mut(&user)?;
         Ok(bindings::UserMeta {
-            id: user.handle.id.as_u64_pair(),
+            id: user.connection.id().as_u64_pair(),
         })
     }
 
@@ -133,7 +128,13 @@ impl bindings::HostUser for ContainerData {
         &mut self,
         user: Resource<User>,
     ) -> anyhow::Result<Resource<bindings::FutureMessage>, ListenError> {
-        let message_rx = self.resources.get(&user)?.handle.take_message_rx().await?;
+        let message_rx = self
+            .resources
+            .get(&user)?
+            .connection
+            .get_message_channel()
+            .await?;
+
         Ok(self.resources.push(FutureMessage {
             channel: message_rx,
             next_message: None,
@@ -146,20 +147,6 @@ impl bindings::HostUser for ContainerData {
         message: bindings::Message,
     ) -> anyhow::Result<Result<(), bindings::SendError>> {
         let user = self.resources.get_mut(&user)?;
-        let message = match message {
-            bindings::Message::Text(text) => Message::Text(text.into()),
-            bindings::Message::Binary(bytes) => Message::Binary(bytes.into()),
-        };
-
-        if let Err(e) = user.handle.send(message) {
-            let wasm_error = match e {
-                mpsc::error::TrySendError::Closed(_) => bindings::SendError::Closed,
-                mpsc::error::TrySendError::Full(_) => bindings::SendError::BufferFull,
-            };
-
-            return Ok(Err(wasm_error));
-        }
-
-        Ok(Ok(()))
+        Ok(user.connection.send(message))
     }
 }

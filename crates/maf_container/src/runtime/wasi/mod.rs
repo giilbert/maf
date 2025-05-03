@@ -1,5 +1,4 @@
 mod errors;
-mod request;
 mod user;
 
 pub use user::{FutureMessage, FutureUser, User};
@@ -25,17 +24,13 @@ mod generated {
     });
 }
 
-pub use generated::maf::bindings::bindings;
 pub use generated::Imports as Bindings;
+pub use generated::maf::bindings::bindings;
 
 impl bindings::Host for ContainerData {
     async fn listen_user(&mut self) -> Result<Resource<FutureUser>, ListenError> {
         let res = FutureUser::new(self)?;
         Ok(self.resources.push(res)?)
-    }
-
-    async fn listen_request(&mut self) -> Result<Resource<bindings::FutureRequest>, ListenError> {
-        todo!();
     }
 
     fn convert_listen_error(&mut self, err: ListenError) -> anyhow::Result<bindings::ListenError> {

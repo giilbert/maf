@@ -1,12 +1,9 @@
-use std::sync::atomic::AtomicI32;
+use crate::container::ContainerData;
+use wasmtime as wt;
 
-use crate::container::{Container, ContainerData};
-use wasmtime::{self as wt};
-use wasmtime_wasi::{IoImpl, IoView, WasiImpl, WasiView};
+use super::{ContainerRuntime, wasi};
 
-use super::{wasi, ContainerRuntime};
-
-static NUMBER: AtomicI32 = AtomicI32::new(0);
+// static NUMBER: AtomicI32 = AtomicI32::new(0);
 
 impl ContainerRuntime {
     pub(super) fn create_component_linker(

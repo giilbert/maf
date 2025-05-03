@@ -1,17 +1,17 @@
 use std::{sync::Arc, time::Duration};
 
+use async_trait::async_trait;
 use axum::extract::ws::{Message, WebSocket};
 use futures_util::{
     stream::{SplitSink, SplitStream},
     SinkExt, StreamExt,
 };
+use maf_container::wasi::bindings;
 use tokio::{
     sync::{mpsc, Mutex},
     time::timeout,
 };
 use uuid::Uuid;
-
-use crate::runtime::wasi::bindings;
 
 use super::gateway::ConnectQueryParams;
 
@@ -39,7 +39,7 @@ struct TakeableConnection {
 
 pub enum ConnectionCommand {
     Close,
-    Send(Message),
+    Send(bindings::Message),
 }
 
 impl Connection {
@@ -153,7 +153,8 @@ impl Connection {
                     match command {
                         Some(ConnectionCommand::Close) | None => break,
                         Some(ConnectionCommand::Send(message)) => {
-                            if let Err(error) = takeable.ws_tx.send(message).await {
+                            if let Err(error) = takeable.ws_tx.send(
+                                convert_to_axum_message(message)).await {
                                 tracing::warn!("an error occurred sending WebSocket message: {error:?}");
                             }
                         }
@@ -166,23 +167,33 @@ impl Connection {
     }
 }
 
-impl ConnectionHandle {
-    pub fn send(
-        &self,
-        message: Message,
-    ) -> Result<(), mpsc::error::TrySendError<ConnectionCommand>> {
-        self.command_tx.try_send(ConnectionCommand::Send(message))
+#[async_trait]
+impl maf_container::Connection for ConnectionHandle {
+    fn id(&self) -> Uuid {
+        self.id
     }
 
-    pub async fn close(&self) -> Result<(), mpsc::error::SendError<ConnectionCommand>> {
-        self.command_tx.send(ConnectionCommand::Close).await
+    fn send(&mut self, message: bindings::Message) -> Result<(), bindings::SendError> {
+        self.command_tx
+            .try_send(ConnectionCommand::Send(message))
+            .map_err(|e| match e {
+                mpsc::error::TrySendError::Closed(_) => bindings::SendError::Closed,
+                mpsc::error::TrySendError::Full(_) => bindings::SendError::BufferFull,
+            })
     }
 
-    pub async fn take_message_rx(&self) -> anyhow::Result<mpsc::Receiver<bindings::Message>> {
+    async fn get_message_channel(&self) -> anyhow::Result<mpsc::Receiver<bindings::Message>> {
         self.message_rx
             .lock()
             .await
             .take()
             .ok_or_else(|| anyhow::anyhow!("message receiver has already been taken"))
+    }
+}
+
+fn convert_to_axum_message(message: bindings::Message) -> Message {
+    match message {
+        bindings::Message::Text(text) => Message::Text(text.into()),
+        bindings::Message::Binary(data) => Message::Binary(data.into()),
     }
 }

@@ -1,0 +1,31 @@
+[package]
+name = "maf_container_host"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+maf_container = { path = "../maf_container" }
+
+anyhow = "^1.0.96"
+async-trait = "0.1.88"
+axum = { version = "0.8.3", features = ["macros", "ws"] }
+async_zip = { version = "0.0.17", features = ["full"] }
+bitflags = { version = "2.9.0", features = ["serde"] }
+bytes = "1.10.1"
+dashmap = "6.1.0"
+dotenvy = "0.15.7"
+futures-util = "0.3.31"
+sea-orm = { version = "1.1.10", features = [
+    "sqlx-postgres",
+    "runtime-tokio-native-tls",
+] }
+serde = { version = "^1", features = ["derive"] }
+serde_json = "1.0.140"
+thiserror = "2"
+tokio = { version = "1.43.0", features = ["full"] }
+tokio-tungstenite = "0.26.2"
+tokio-util = { version = "0.7.15", features = ["io"] }
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+uuid = { version = "1.16.0", features = ["serde", "v4"] }
+chrono = { version = "0.4.40", features = ["serde"] }

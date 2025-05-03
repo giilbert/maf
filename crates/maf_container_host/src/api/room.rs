@@ -1,16 +1,15 @@
-use std::sync::Arc;
-
-use tokio::sync::{broadcast, mpsc};
+use maf_container::{Connection, Container};
+use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use crate::{container::Container, storage::bundle::Bundle};
+use crate::storage::bundle::Bundle;
 
 use super::{connection::ConnectionHandle, state::AppState};
 
 #[derive(Debug, Clone)]
 pub struct Room {
     pub id: Uuid,
-    pub connection_tx: mpsc::Sender<ConnectionHandle>,
+    connection_tx: mpsc::Sender<Box<dyn Connection>>,
 }
 
 impl Room {
@@ -28,8 +27,11 @@ impl Room {
     }
 
     pub async fn add_connection(&self, connection: ConnectionHandle) -> anyhow::Result<()> {
-        tracing::info!("adding connection to room {}", self.id);
-        self.connection_tx.send(connection).await?;
+        match self.connection_tx.send(Box::new(connection)).await {
+            Ok(_) => tracing::info!("connection added to room {}", self.id),
+            Err(_) => anyhow::bail!("failed to add connection to room {}", self.id),
+        }
+
         Ok(())
     }
 
@@ -43,7 +45,6 @@ impl Room {
             Container::load_from_binary(&state.container_runtime, bundle.wasm_module).await?;
 
         let mut output = container.take_output().expect("failed to take output");
-        let connection_tx = container.store.data().connection_tx.clone();
 
         tokio::spawn(async move {
             while let Some(line) = output.recv().await {
@@ -57,7 +58,7 @@ impl Room {
         Ok((
             Self {
                 id: Uuid::new_v4(),
-                connection_tx,
+                connection_tx: container.store.data().connection_tx.clone(),
             },
             container,
         ))

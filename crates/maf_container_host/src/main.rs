@@ -1,17 +1,12 @@
-use runtime::ContainerRuntime;
-
-use tracing::level_filters::LevelFilter;
-use tracing_subscriber::{filter::Directive, fmt, prelude::*, EnvFilter};
+use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 mod api;
-mod container;
-mod runtime;
 pub mod storage;
 mod utils;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    const DEFAULT_LOG_SETTINGS: &str = "maf_container=info";
+    const DEFAULT_LOG_SETTINGS: &str = "maf_container=info,maf_container_host=info";
     tracing_subscriber::registry()
         .with(fmt::layer())
         .with(

@@ -5,7 +5,7 @@ memory = "1GB"
 cpus = 2
 
 [env]
-RUST_LOG = "maf_container=info"
+RUST_LOG = "maf_container_host=info"
 AUTO_SHUTDOWN_TIMEOUT = "60"
 
 [build]

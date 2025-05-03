@@ -180,9 +180,9 @@ dependencies = [
 
 [[package]]
 name = "async-trait"
-version = "0.1.86"
+version = "0.1.88"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "644dd749086bf3771a2fbc5f256fdb982d53f011c7d5d560304eafeecebce79d"
+checksum = "e539d3fca749fcee5236ab05e93a52867dd549cc157c8cb7f99595f3cedffdb5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2091,6 +2091,23 @@ name = "maf_container"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
+ "bytes",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "uuid",
+ "wasmtime",
+ "wasmtime-wasi",
+ "wasmtime-wasi-io",
+]
+
+[[package]]
+name = "maf_container_host"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
  "async_zip",
  "axum",
  "bitflags",
@@ -2099,6 +2116,7 @@ dependencies = [
  "dashmap",
  "dotenvy",
  "futures-util",
+ "maf_container",
  "sea-orm",
  "serde",
  "serde_json",
@@ -2109,9 +2127,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
- "wasmtime",
- "wasmtime-wasi",
- "wasmtime-wasi-io",
 ]
 
 [[package]]

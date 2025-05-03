@@ -62,15 +62,4 @@ impl AuthedUser {
     pub fn permissions(&self) -> &user::Permissions {
         &self.inner.permissions
     }
-
-    /// Check if the user has admin permissions, return an error if not.
-    pub fn assert_admin(&self) -> Result<(), ErrorResponse> {
-        if !self.permissions().is_admin() {
-            return Err(ErrorResponse::unauthorized(Some(
-                "User does not have admin permissions",
-            )));
-        }
-
-        Ok(())
-    }
 }

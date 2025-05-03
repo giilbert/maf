@@ -10,12 +10,12 @@ use crate::{api::ErrorResponse, storage::repos::app_repo};
 
 use super::{
     connection::Connection,
-    room::{self, Room},
+    room::Room,
     state::{AppState, Environment},
-    user_app::{RoomCreationStrategy, UserApp},
+    user_app::RoomCreationStrategy,
 };
 
-pub fn create_gateway_router(state: AppState) -> Router<AppState> {
+pub fn create_gateway_router(_state: AppState) -> Router<AppState> {
     let inner = Router::new().route("/connect", get(connect_route));
     Router::new().nest("/@/{org_slug}/{app_slug}", inner)
 }
@@ -42,6 +42,8 @@ async fn connect_route(
         RoomCreationStrategy::AutoCreate => {
             let room_id = match state
                 .auto_created_rooms_by_org_slug
+                .read()
+                .await
                 .get(&org_slug)
                 .map(|room_id| room_id.clone())
             {
@@ -61,9 +63,11 @@ async fn connect_route(
                     let room_id = room.id;
                     state
                         .auto_created_rooms_by_org_slug
+                        .write()
+                        .await
                         .insert(org_slug.clone(), room.id);
 
-                    state.rooms.insert(room_id, room);
+                    state.rooms.write().await.insert(room_id, room);
 
                     let state = state.clone();
                     tokio::spawn(async move {
@@ -74,16 +78,24 @@ async fn connect_route(
 
                         state
                             .auto_created_rooms_by_org_slug
+                            .write()
+                            .await
                             .remove(&org_slug)
                             .unwrap_or_default();
-                        state.rooms.remove(&room_id);
+                        state.rooms.write().await.remove(&room_id);
                     });
 
                     room_id
                 }
             };
 
-            state.rooms.get(&room_id).expect("room not found").clone()
+            state
+                .rooms
+                .read()
+                .await
+                .get(&room_id)
+                .expect("room not found")
+                .clone()
         }
     };
 

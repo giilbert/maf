@@ -1,10 +1,9 @@
 mod bridge;
 pub mod wasi;
 
-use std::{fmt::Debug, sync::Arc};
+use std::fmt::Debug;
 
-use crate::container::{Container, ContainerData};
-use tokio::sync::{mpsc, oneshot};
+use crate::container::ContainerData;
 use wasmtime as wt;
 
 #[derive(Clone)]

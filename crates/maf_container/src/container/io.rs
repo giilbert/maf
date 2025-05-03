@@ -1,10 +1,7 @@
-use std::{future::Future, pin::Pin};
-
+use async_trait::async_trait;
 use bytes::Bytes;
 use tokio::sync::mpsc;
-use wasmtime_wasi::{
-    async_trait, bindings::io::streams::HostOutputStream, OutputStream, StdoutStream, StreamResult,
-};
+use wasmtime_wasi::{OutputStream, StdoutStream, StreamResult};
 
 #[derive(Debug, Clone)]
 pub struct ContainerStdoutFactory {

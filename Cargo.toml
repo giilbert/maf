@@ -1,3 +1,7 @@
 [workspace]
 resolver = "2"
-members = ["crates/*", "crates/*/examples/*", "crates/maf_container/migrations"]
+members = [
+    "crates/*",
+    "crates/*/examples/*",
+    "crates/maf_container_host/migrations",
+]

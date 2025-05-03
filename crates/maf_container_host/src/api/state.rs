@@ -1,15 +1,18 @@
-use std::sync::{atomic::AtomicU64, Arc};
+use std::{
+    collections::HashMap,
+    sync::{atomic::AtomicU64, Arc},
+};
 
 use anyhow::Context;
-use dashmap::DashMap;
+use maf_container::ContainerRuntime;
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, TransactionTrait,
 };
+use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use crate::{
-    runtime::ContainerRuntime,
     storage::{
         bundle::BundleStorage,
         db::{
@@ -34,8 +37,8 @@ pub enum Environment {
 pub struct AppState {
     pub environment: Environment,
     pub container_runtime: ContainerRuntime,
-    pub auto_created_rooms_by_org_slug: Arc<DashMap<String, Uuid>>,
-    pub rooms: Arc<DashMap<Uuid, Room>>,
+    pub auto_created_rooms_by_org_slug: Arc<RwLock<HashMap<String, Uuid>>>,
+    pub rooms: Arc<RwLock<HashMap<Uuid, Room>>>,
     pub bundle_storage: BundleStorage,
     pub db: sea_orm::DatabaseConnection,
     pub last_activity: &'static AtomicU64,
@@ -63,8 +66,8 @@ impl AppState {
                     ),
                 })?,
             container_runtime,
-            auto_created_rooms_by_org_slug: Arc::new(DashMap::new()),
-            rooms: Arc::new(DashMap::new()),
+            auto_created_rooms_by_org_slug: Default::default(),
+            rooms: Default::default(),
             bundle_storage: BundleStorage::new().await?,
             db,
             last_activity: Box::leak(Box::new(AtomicU64::new(utils::now_as_secs()))),

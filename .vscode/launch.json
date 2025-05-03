@@ -26,41 +26,22 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'maf_container'",
+            "name": "Debug executable 'maf_container_host'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=maf_container",
-                    "--package=maf_container"
+                    "--bin=maf_container_host",
+                    "--package=maf_container_host"
                 ],
                 "filter": {
-                    "name": "maf_container",
+                    "name": "maf_container_host",
                     "kind": "bin"
                 }
             },
             "args": [],
             "env": {
-                "RUST_LOG": "maf_container=info"
+                "RUST_LOG": "maf_container_host=trace"
             },
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in executable 'maf_container'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--bin=maf_container",
-                    "--package=maf_container"
-                ],
-                "filter": {
-                    "name": "maf_container",
-                    "kind": "bin"
-                }
-            },
-            "args": [],
             "cwd": "${workspaceFolder}"
         }
     ]
