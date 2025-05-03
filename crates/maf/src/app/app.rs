@@ -7,9 +7,10 @@ use tokio::sync::{
 use uuid::Uuid;
 
 use crate::{
+    bindings::bindgen,
     channel::UntypedChannelBroadcast,
     packet::{ChannelSendRx, RxPacket, TxPacket},
-    rpc::{models::TypedRpcRequestPacket, IntoRpcFunction, RpcStore},
+    rpc::{models::TypedRpcRequestPacket, IntoRpcFunction, RpcError, RpcStore},
     store::{AnyStore, StoreKey},
     tasks::{self, Runtime},
     user::UserMessage,
@@ -56,7 +57,7 @@ impl App {
         AppBuilder::default()
     }
 
-    async fn handle_connections(self: Arc<Self>) -> anyhow::Result<()> {
+    async fn handle_connections(self: Arc<Self>) -> Result<(), bindgen::ListenError> {
         let users = UserListener::new(self.inner.state.clone())?;
 
         loop {
@@ -86,11 +87,7 @@ impl App {
         }
     }
 
-    async fn handle_channel_send(
-        &self,
-        user: &User,
-        channel_data: ChannelSendRx,
-    ) -> anyhow::Result<()> {
+    async fn handle_channel_send(&self, user: &User, channel_data: ChannelSendRx) {
         // Send to general channels
         self.inner
             .state
@@ -108,11 +105,13 @@ impl App {
             .await
             .get(&(user.meta.id, channel_data.channel.clone()))
             .map(|c| c.tx.send(channel_data.clone()));
-
-        Ok(())
     }
 
-    async fn handle_rpc(&self, user: &User, rpc_data: TypedRpcRequestPacket) -> anyhow::Result<()> {
+    async fn handle_rpc(
+        &self,
+        user: &User,
+        rpc_data: TypedRpcRequestPacket,
+    ) -> Result<(), RpcError> {
         let res = self
             .inner
             .rpc_functions
@@ -129,10 +128,12 @@ impl App {
     pub(crate) async fn handle_message<'a>(&self, message: UserMessage<'a>) -> anyhow::Result<()> {
         match message.packet {
             RxPacket::ChannelSend(channel_data) => {
-                self.handle_channel_send(&message.user, channel_data).await
+                self.handle_channel_send(&message.user, channel_data).await;
             }
-            RxPacket::TypedRpcCall(rpc_data) => self.handle_rpc(&message.user, rpc_data).await,
+            RxPacket::TypedRpcCall(rpc_data) => self.handle_rpc(&message.user, rpc_data).await?,
         }
+
+        Ok(())
     }
 
     async fn flush_all_store_changes(&self) -> anyhow::Result<()> {

@@ -13,17 +13,15 @@ use std::{
 pub use from_request::FromRequest;
 pub use params::Params;
 
-use anyhow::Context;
 use models::{TypedRpcRequestPacket, TypedRpcResponsePacket};
 
-use crate::App;
+use crate::{App, SendError};
 
 type GenericRpcHandler = Box<
     dyn Fn(
             App,
             RpcRequest,
-        )
-            -> anyhow::Result<Pin<Box<dyn Future<Output = anyhow::Result<TypedRpcResponsePacket>>>>>
+        ) -> Pin<Box<dyn Future<Output = Result<TypedRpcResponsePacket, RpcError>>>>
         + Send
         + Sync,
 >;
@@ -59,6 +57,25 @@ pub struct RpcStore {
     rpc_functions: HashMap<String, RpcFunction>,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum RpcError {
+    #[error("rpc method `{0}` not found")]
+    MethodNotFound(String),
+    #[error("rpc function error: {0}")]
+    FunctionError(anyhow::Error),
+
+    #[error("rpc response serialization error: {0}")]
+    ResponseSerializationError(#[from] serde_json::Error),
+    #[error("rpc response error: {0}")]
+    ResponseError(#[from] SendError),
+
+    #[error("rpc params error: {0}")]
+    ParamsError(#[from] Box<dyn std::error::Error + Send + Sync>),
+
+    #[error("other error: {0}")]
+    Other(#[from] anyhow::Error),
+}
+
 impl RpcStore {
     pub fn add_rpc_function(&mut self, rpc_function: RpcFunction) {
         self.rpc_functions
@@ -69,20 +86,21 @@ impl RpcStore {
         &self,
         app: App,
         packet: TypedRpcRequestPacket,
-    ) -> anyhow::Result<TypedRpcResponsePacket> {
+    ) -> Result<TypedRpcResponsePacket, RpcError> {
         let method = packet.method;
         let rpc_function = self
             .rpc_functions
             .get(&method)
-            .context("rpc function not found")?;
+            .ok_or_else(|| RpcError::MethodNotFound(method))?;
 
         let request = RpcRequest {
             id: packet.id,
             data: Some(RpcRequestData::Typed(packet.params)),
         };
 
-        let res = (rpc_function.handler)(app, request)?;
+        let res = (rpc_function.handler)(app, request);
         tokio::pin!(res);
+
         res.await
     }
 }
@@ -101,12 +119,13 @@ where
             method,
             type_id: self.type_id(),
             handler: Box::new(move |_state, request| {
-                Ok(Box::pin(async move {
+                Box::pin(async move {
                     Ok(TypedRpcResponsePacket {
                         id: request.id,
-                        result: serde_json::to_value(self())?,
+                        result: serde_json::to_value(self())
+                            .map_err(|e| RpcError::FunctionError(anyhow::anyhow!(e)))?,
                     })
-                }))
+                })
             }),
         }
     }
@@ -123,13 +142,14 @@ where
             method,
             type_id: self.type_id(),
             handler: Box::new(move |_state, request| {
-                Ok(Box::pin(async move {
+                Box::pin(async move {
                     let result = self().await;
                     Ok(TypedRpcResponsePacket {
                         id: request.id,
-                        result: serde_json::to_value(result)?,
+                        result: serde_json::to_value(result)
+                            .map_err(RpcError::ResponseSerializationError)?,
                     })
-                }))
+                })
             }),
         }
     }
@@ -153,9 +173,12 @@ macro_rules! impl_rpc_fn {
                     method,
                     type_id: self.type_id(),
                     handler: Box::new(move |app, mut request| {
-                        Ok(Box::pin(async move {
+                        Box::pin(async move {
                             let ($($members),+) = (
-                                $($members::from_request(&app, &mut request).await?),+
+                                $($members::from_request(&app, &mut request)
+                                    .await
+                                    .map_err(|e| RpcError::ParamsError(Box::new(e)))?
+                                ),+
                             );
 
                             let result = serde_json::to_value(self($($members),+))?;
@@ -164,7 +187,7 @@ macro_rules! impl_rpc_fn {
                                 id: request.id,
                                 result,
                             })
-                        }))
+                        })
                     }),
                 }
             }
@@ -187,18 +210,22 @@ macro_rules! impl_rpc_fn {
                     method,
                     type_id: self.type_id(),
                     handler: Box::new(move |app, mut request| {
-                        Ok(Box::pin(async move {
+                        Box::pin(async move {
                             #[allow(unused_parens)]
                             let ($($members),+) = (
-                                $($members::from_request(&app, &mut request).await?),+
+                                $($members::from_request(&app, &mut request)
+                                    .await
+                                    .map_err(|e| RpcError::ParamsError(Box::new(e)))?
+                                ),+
                             );
+
                             let result = serde_json::to_value(self($($members),+).await)?;
 
                             Ok(TypedRpcResponsePacket {
                                 id: request.id,
                                 result,
                             })
-                        }))
+                        })
                     }),
                 }
             }

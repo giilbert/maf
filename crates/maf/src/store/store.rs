@@ -18,8 +18,9 @@ pub struct AnyStore {
     pub(crate) key: StoreKey,
     pub(crate) dirty: Arc<AtomicBool>,
     pub(crate) data: Arc<RwLock<dyn Any + Send + Sync>>,
-    pub(crate) serializer:
-        Arc<dyn Fn(&dyn Any) -> anyhow::Result<serde_json::Value> + Send + Sync + 'static>,
+    pub(crate) serializer: Arc<
+        dyn Fn(&dyn Any) -> Result<serde_json::Value, StoreSerializeError> + Send + Sync + 'static,
+    >,
 }
 
 impl std::fmt::Debug for AnyStore {
@@ -30,6 +31,12 @@ impl std::fmt::Debug for AnyStore {
             .field("data", &self.data)
             .finish_non_exhaustive()
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum StoreSerializeError {
+    #[error("failed to serialize store data: {0}")]
+    Serialize(#[from] serde_json::Error),
 }
 
 pub struct Store<T: StoreData> {
@@ -61,17 +68,15 @@ pub trait StoreData: 'static {
 
 impl AnyStore {
     pub fn new<T: StoreData>() -> Self {
-        println!("init: {}", std::any::type_name::<T>());
-        println!("serialize: {}", std::any::type_name::<T::Data>());
-
         Self {
             key: T::key().into(),
             dirty: Arc::new(AtomicBool::new(false)),
             data: Arc::new(RwLock::new(T::init())),
             serializer: Arc::new(|data| {
-                let data = data
-                    .downcast_ref::<T::Data>()
-                    .expect("failed to downcast store (is the store of the right type?)");
+                let data = data.downcast_ref::<T::Data>().expect(&std::format!(
+                    "store data is not of expected type {}",
+                    std::any::type_name::<T::Data>()
+                ));
 
                 serde_json::to_value(data).map_err(Into::into)
             }),
@@ -120,7 +125,9 @@ impl<T: StoreData> Store<T> {
 }
 
 impl<T: StoreData> FromRequest for Store<T> {
-    async fn from_request(app: &App, _request: &mut RpcRequest) -> anyhow::Result<Self> {
+    type Error = std::convert::Infallible;
+
+    async fn from_request(app: &App, _request: &mut RpcRequest) -> Result<Self, Self::Error> {
         let key = T::key().into();
 
         let existing_store = app.inner.state.stores.read().await.get(&key).cloned();
