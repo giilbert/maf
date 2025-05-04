@@ -1,6 +1,7 @@
 mod admin;
 mod app;
 mod context;
+mod dev;
 mod input;
 mod pretty;
 
@@ -9,6 +10,7 @@ use app::AppCommands;
 use clap::{Parser, Subcommand};
 
 pub use context::Context;
+use dev::DevCommands;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -24,6 +26,10 @@ enum Commands {
     Admin(AdminCommands),
     #[command(subcommand)]
     App(AppCommands),
+    Dev {
+        #[command(subcommand)]
+        subcommand: Option<DevCommands>,
+    },
 }
 
 async fn try_main() -> anyhow::Result<()> {
@@ -34,6 +40,7 @@ async fn try_main() -> anyhow::Result<()> {
     match Cli::parse().commands {
         Commands::Admin(admin) => admin::handle_commands(&context, admin).await?,
         Commands::App(app) => app::handle_commands(&context, app).await?,
+        Commands::Dev { subcommand } => dev::handle_commands(&context, subcommand).await?,
     }
 
     Ok(())

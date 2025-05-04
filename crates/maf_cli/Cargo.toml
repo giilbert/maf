@@ -4,7 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+maf_container = { path = "../maf_container" }
+
 anyhow = "^1.0.96"
+async-trait = "0.1.88"
+axum = { version = "0.8.3", features = ["macros", "ws"] }
 async_zip = { version = "0.0.17", features = ["full"] }
 clap = { version = "4.5.36", features = ["derive"] }
 colored = "3.0.0"

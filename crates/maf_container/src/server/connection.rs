@@ -1,7 +1,13 @@
 use std::{sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use axum::extract::ws::{Message, WebSocket};
+use axum::{
+    extract::{
+        WebSocketUpgrade,
+        ws::{Message, WebSocket},
+    },
+    response::Response,
+};
 use futures_util::{
     SinkExt, StreamExt,
     stream::{SplitSink, SplitStream},
@@ -12,7 +18,7 @@ use tokio::{
 };
 use uuid::Uuid;
 
-use crate::wasi::bindings;
+use crate::{server::Room, wasi::bindings};
 
 pub struct Connection {
     takeable: Option<TakeableConnection>,
@@ -192,4 +198,28 @@ fn convert_to_axum_message(message: bindings::Message) -> Message {
         bindings::Message::Text(text) => Message::Text(text.into()),
         bindings::Message::Binary(data) => Message::Binary(data.into()),
     }
+}
+
+pub async fn handle_ws_upgrade(ws: WebSocketUpgrade, room: Room) -> Response {
+    ws.on_upgrade(|ws| async move {
+        async fn try_init(ws: WebSocket, room: Room) -> anyhow::Result<Connection> {
+            let connection = Connection::init(ws).await?;
+            let handle = connection.handle();
+            room.add_connection(handle).await?;
+            Ok(connection)
+        }
+
+        let connection = match try_init(ws, room).await {
+            Ok(connection) => connection,
+            Err(error) => {
+                tracing::warn!("failed to initialize connection: {error:?}");
+                return;
+            }
+        };
+
+        match connection.run().await {
+            Ok(_) => tracing::info!("websocket connection closed"),
+            Err(error) => tracing::warn!("websocket connection error: {error:?}"),
+        }
+    })
 }

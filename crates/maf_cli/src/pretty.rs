@@ -2,7 +2,7 @@ macro_rules! info {
     ($($arg:tt)*) => {
         #[allow(unused_imports)]
         use colored::Colorize as _;
-        println!("{}: {}", "INFO".green().bold(), format!($($arg)*).green());
+        println!("{}: {}", "INFO".green().bold(), format!($($arg)*));
     };
 }
 

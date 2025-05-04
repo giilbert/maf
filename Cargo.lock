@@ -2071,12 +2071,15 @@ name = "maf_cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "async_zip",
+ "axum",
  "clap",
  "colored",
  "dotenvy",
  "futures-util",
  "indicatif",
+ "maf_container",
  "reqwest",
  "serde",
  "serde_json",

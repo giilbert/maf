@@ -4,7 +4,7 @@ use axum::{
     routing::get,
     Router,
 };
-use maf_container::server::Room;
+use maf_container::server::{handle_ws_upgrade, Room};
 use serde::Deserialize;
 
 use crate::{api::ErrorResponse, storage::repos::app_repo};
@@ -117,29 +117,5 @@ async fn connect_route(
         }
     };
 
-    Ok(ws.on_upgrade(|ws| async move {
-        async fn try_init(
-            ws: WebSocket,
-            query_params: ConnectQueryParams,
-            room: Room,
-        ) -> anyhow::Result<maf_container::server::Connection> {
-            let connection = maf_container::server::Connection::init(ws).await?;
-            let handle = connection.handle();
-            room.add_connection(handle).await?;
-            Ok(connection)
-        }
-
-        let connection = match try_init(ws, query_params, room).await {
-            Ok(connection) => connection,
-            Err(error) => {
-                tracing::warn!("failed to initialize connection: {error:?}");
-                return;
-            }
-        };
-
-        match connection.run().await {
-            Ok(_) => tracing::info!("websocket connection closed"),
-            Err(error) => tracing::warn!("websocket connection error: {error:?}"),
-        }
-    }))
+    Ok(handle_ws_upgrade(ws, room).await)
 }
