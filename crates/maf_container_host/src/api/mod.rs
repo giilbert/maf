@@ -1,9 +1,7 @@
 mod admin;
 mod auth;
-pub mod connection;
 mod error;
 mod gateway;
-mod room;
 mod state;
 mod user_app;
 

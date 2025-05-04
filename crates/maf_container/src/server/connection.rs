@@ -3,17 +3,16 @@ use std::{sync::Arc, time::Duration};
 use async_trait::async_trait;
 use axum::extract::ws::{Message, WebSocket};
 use futures_util::{
-    stream::{SplitSink, SplitStream},
     SinkExt, StreamExt,
+    stream::{SplitSink, SplitStream},
 };
-use maf_container::wasi::bindings;
 use tokio::{
-    sync::{mpsc, Mutex},
+    sync::{Mutex, mpsc},
     time::timeout,
 };
 use uuid::Uuid;
 
-use super::gateway::ConnectQueryParams;
+use crate::wasi::bindings;
 
 pub struct Connection {
     takeable: Option<TakeableConnection>,
@@ -43,10 +42,7 @@ pub enum ConnectionCommand {
 }
 
 impl Connection {
-    pub async fn init(
-        ws: WebSocket,
-        connect_query_params: ConnectQueryParams,
-    ) -> anyhow::Result<Self> {
+    pub async fn init(ws: WebSocket) -> anyhow::Result<Self> {
         let (mut ws_tx, mut ws_rx) = ws.split();
         let (message_tx, message_rx) = mpsc::channel::<bindings::Message>(100);
         let (command_tx, command_rx) = mpsc::channel::<ConnectionCommand>(100);
@@ -168,7 +164,7 @@ impl Connection {
 }
 
 #[async_trait]
-impl maf_container::Connection for ConnectionHandle {
+impl crate::Connection for ConnectionHandle {
     fn id(&self) -> Uuid {
         self.id
     }

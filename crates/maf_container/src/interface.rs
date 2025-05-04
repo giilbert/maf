@@ -11,4 +11,4 @@ pub trait Connection: Send + Sync + 'static {
     async fn get_message_channel(&self) -> anyhow::Result<mpsc::Receiver<bindings::Message>>;
 }
 
-pub type ConnectionHandle = Box<dyn Connection>;
+pub type BoxedConnection = Box<dyn Connection>;

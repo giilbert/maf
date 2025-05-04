@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::Context;
-use maf_container::ContainerRuntime;
+use maf_container::{server::Room, utils, ContainerRuntime};
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, TransactionTrait,
 };
@@ -12,20 +12,15 @@ use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-use crate::{
-    storage::{
-        bundle::BundleStorage,
-        db::{
-            self,
-            user::{self, Permissions},
-            TxnError,
-        },
-        repos::user_repo,
+use crate::storage::{
+    bundle::BundleStorage,
+    db::{
+        self,
+        user::{self, Permissions},
+        TxnError,
     },
-    utils,
+    repos::user_repo,
 };
-
-use super::room::Room;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Environment {

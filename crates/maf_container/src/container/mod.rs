@@ -14,7 +14,7 @@ use tokio_util::sync::CancellationToken;
 use wasmtime as wt;
 use wasmtime_wasi::IoView;
 
-use crate::{interface::ConnectionHandle, runtime::wasi::Bindings, utils};
+use crate::{interface::BoxedConnection, runtime::wasi::Bindings, utils};
 
 pub struct Container {
     pub instance: Bindings,
@@ -34,8 +34,8 @@ impl std::fmt::Debug for Container {
 pub struct ContainerData {
     pub resources: wasmtime_wasi::ResourceTable,
     pub wasi_ctx: wasmtime_wasi::WasiCtx,
-    pub connection_tx: mpsc::Sender<ConnectionHandle>,
-    pub connection_rx: Option<mpsc::Receiver<ConnectionHandle>>,
+    pub connection_tx: mpsc::Sender<BoxedConnection>,
+    pub connection_rx: Option<mpsc::Receiver<BoxedConnection>>,
     pub(crate) last_activity: Arc<AtomicU64>,
 }
 

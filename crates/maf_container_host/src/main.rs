@@ -2,7 +2,6 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 mod api;
 pub mod storage;
-mod utils;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

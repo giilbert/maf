@@ -1,8 +1,10 @@
 mod container;
 mod interface;
 mod runtime;
-mod utils;
+
+pub mod server;
+pub mod utils;
 
 pub use container::{Container, ContainerData};
-pub use interface::{Connection, ConnectionHandle};
+pub use interface::{BoxedConnection, Connection};
 pub use runtime::{ContainerRuntime, wasi};

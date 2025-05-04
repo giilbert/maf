@@ -4,13 +4,12 @@ use axum::{
     routing::get,
     Router,
 };
+use maf_container::server::Room;
 use serde::Deserialize;
 
 use crate::{api::ErrorResponse, storage::repos::app_repo};
 
 use super::{
-    connection::Connection,
-    room::Room,
     state::{AppState, Environment},
     user_app::RoomCreationStrategy,
 };
@@ -40,22 +39,40 @@ async fn connect_route(
 
     let room = match room_creation_strategy {
         RoomCreationStrategy::AutoCreate => {
-            let room_id = match state
+            // The code is structured this way to avoid deadlocks
+            let room_id = state
                 .auto_created_rooms_by_org_slug
                 .read()
                 .await
                 .get(&org_slug)
-                .map(|room_id| room_id.clone())
-            {
+                .map(|room_id| room_id.clone());
+
+            let room_id = match room_id {
                 Some(room_id) => room_id,
                 None => {
                     let (room, mut container) = match app {
-                        Ok(app) => Room::new(&state, app.id).await?,
+                        Ok(app) => {
+                            Room::new(
+                                &state.container_runtime,
+                                state
+                                    .bundle_storage
+                                    .load_app_bundle(app.id)
+                                    .await?
+                                    .ok_or_else(|| {
+                                        ErrorResponse::not_found(Some("app bundle not found"))
+                                    })?,
+                            )
+                            .await?
+                        }
                         Err(_) if state.environment == Environment::Development => {
                             tracing::info!(
                                 "App not found. Defaulting to test app (development only)"
                             );
-                            Room::new_test(&state).await?
+                            Room::new(
+                                &state.container_runtime,
+                                state.bundle_storage.load_test_app().await?,
+                            )
+                            .await?
                         }
                         Err(e) => return Err(e),
                     };
@@ -82,6 +99,7 @@ async fn connect_route(
                             .await
                             .remove(&org_slug)
                             .unwrap_or_default();
+
                         state.rooms.write().await.remove(&room_id);
                     });
 
@@ -104,8 +122,8 @@ async fn connect_route(
             ws: WebSocket,
             query_params: ConnectQueryParams,
             room: Room,
-        ) -> anyhow::Result<Connection> {
-            let connection = Connection::init(ws, query_params).await?;
+        ) -> anyhow::Result<maf_container::server::Connection> {
+            let connection = maf_container::server::Connection::init(ws).await?;
             let handle = connection.handle();
             room.add_connection(handle).await?;
             Ok(connection)

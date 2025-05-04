@@ -4,17 +4,17 @@ use wasmtime::component::Resource;
 use wasmtime_wasi::async_trait;
 use wasmtime_wasi_io::poll;
 
-use crate::{container::ContainerData, interface::ConnectionHandle};
+use crate::{container::ContainerData, interface::BoxedConnection};
 
 use super::{bindings, errors::ListenError};
 
 pub struct User {
-    pub connection: ConnectionHandle,
+    pub connection: BoxedConnection,
 }
 
 pub struct FutureUser {
-    next_user: Option<ConnectionHandle>,
-    channel: mpsc::Receiver<ConnectionHandle>,
+    next_user: Option<BoxedConnection>,
+    channel: mpsc::Receiver<BoxedConnection>,
 }
 
 impl FutureUser {

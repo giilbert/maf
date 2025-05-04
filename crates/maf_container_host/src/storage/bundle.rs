@@ -7,6 +7,7 @@ use anyhow::Context;
 use async_zip::{error::ZipError, tokio::read::seek::ZipFileReader};
 use bytes::Bytes;
 use futures_util::{AsyncReadExt, Stream, StreamExt, TryStreamExt};
+use maf_container::server::Bundle;
 use tokio::{
     fs::{self, File},
     io::{AsyncBufRead, AsyncSeek, BufReader},
@@ -19,11 +20,6 @@ use crate::api::ErrorResponse;
 #[derive(Debug, Clone)]
 pub struct BundleStorage {
     pub storage_dir: PathBuf,
-}
-
-#[derive(Debug)]
-pub struct Bundle {
-    pub wasm_module: Arc<[u8]>,
 }
 
 #[derive(Debug, thiserror::Error)]
