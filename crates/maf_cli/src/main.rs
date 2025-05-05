@@ -27,6 +27,9 @@ enum Commands {
     #[command(subcommand)]
     App(AppCommands),
     Dev {
+        #[arg(value_name = "FILE_PATH")]
+        file_path: Option<String>,
+
         #[command(subcommand)]
         subcommand: Option<DevCommands>,
     },
@@ -40,7 +43,10 @@ async fn try_main() -> anyhow::Result<()> {
     match Cli::parse().commands {
         Commands::Admin(admin) => admin::handle_commands(&context, admin).await?,
         Commands::App(app) => app::handle_commands(&context, app).await?,
-        Commands::Dev { subcommand } => dev::handle_commands(&context, subcommand).await?,
+        Commands::Dev {
+            file_path,
+            subcommand,
+        } => dev::handle_commands(&context, file_path, subcommand).await?,
     }
 
     Ok(())

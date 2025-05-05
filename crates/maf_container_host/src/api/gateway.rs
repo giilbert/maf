@@ -77,6 +77,17 @@ async fn connect_route(
                         Err(e) => return Err(e),
                     };
 
+                    let mut output = container.take_output().expect("failed to take output");
+
+                    tokio::spawn(async move {
+                        while let Some(line) = output.recv().await {
+                            tracing::info!(
+                                "container: {}",
+                                serde_json::to_string(&line).unwrap_or_else(|_| line.clone())
+                            );
+                        }
+                    });
+
                     let room_id = room.id;
                     state
                         .auto_created_rooms_by_org_slug

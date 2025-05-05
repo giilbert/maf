@@ -28,18 +28,7 @@ impl Room {
     ) -> anyhow::Result<(Self, Container)> {
         tracing::info!("creating new room...");
 
-        let mut container = Container::load_from_binary(&container, bundle.wasm_module).await?;
-
-        let mut output = container.take_output().expect("failed to take output");
-
-        tokio::spawn(async move {
-            while let Some(line) = output.recv().await {
-                tracing::info!(
-                    "container: {}",
-                    serde_json::to_string(&line).unwrap_or_else(|_| line.clone())
-                );
-            }
-        });
+        let container = Container::load_from_binary(&container, bundle.wasm_module).await?;
 
         Ok((
             Self {
