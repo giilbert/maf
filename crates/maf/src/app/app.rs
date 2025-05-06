@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
+use anyhow::Context;
 use tokio::sync::{
     mpsc::{self, error::TryRecvError},
     RwLock, RwLockReadGuard,
@@ -9,7 +10,7 @@ use uuid::Uuid;
 use crate::{
     bindings::bindgen,
     channel::UntypedChannelBroadcast,
-    packet::{ChannelSendRx, RxPacket, TxPacket},
+    packet::{ChannelSendRx, OneStoreUpdate, RxPacket, TxPacket},
     rpc::{models::TypedRpcRequestPacket, IntoRpcFunction, RpcError, RpcStore},
     store::{AnyStore, StoreKey},
     tasks::{self, Runtime},
@@ -60,6 +61,7 @@ impl App {
     async fn handle_connections(self: Arc<Self>) -> Result<(), bindgen::ListenError> {
         let users = UserListener::new(self.inner.state.clone())?;
 
+        // TODO: handle errors
         loop {
             let user = users.next().await?;
             self.inner
@@ -68,6 +70,8 @@ impl App {
                 .write()
                 .await
                 .insert(user.meta.id, user.clone());
+
+            self.refresh_all_stores(&user).await.ok();
 
             // Listen for messages from the user and handle them
             let user_clone = user.clone();
@@ -124,7 +128,7 @@ impl App {
         let res = self
             .inner
             .rpc_functions
-            .handle_typed_rpc_request(self.clone(), rpc_data)
+            .handle_typed_rpc_request(self.clone(), user, rpc_data)
             .await?;
 
         match user.send(TxPacket::<()>::TypedRpcResponse(res)) {
@@ -183,13 +187,38 @@ impl App {
             serializer(&*data).map_err(|_| anyhow::anyhow!("failed to serialize store"))?;
 
         for (user_id, user) in self.inner.state.users.read().await.iter() {
-            if let Err(e) = user.send(TxPacket::StoreUpdate {
+            if let Err(e) = user.send(TxPacket::StoreUpdate(OneStoreUpdate {
                 store: store_key.as_ref(),
                 data: &serialized,
-            }) {
+            })) {
                 println!("failed to send store update to user {user_id}: {e}");
             }
         }
+
+        Ok(())
+    }
+
+    async fn refresh_all_stores(&self, user: &User) -> anyhow::Result<()> {
+        let stores = self.inner.state.stores.read().await;
+
+        let mut data: Vec<(&StoreKey, serde_json::Value)> = Vec::with_capacity(stores.len());
+
+        for (store_key, store) in stores.iter() {
+            let serialized = (store.serializer)(&*store.data.read().await)
+                .context("failed to serialize store")?;
+
+            data.push((store_key, serialized));
+        }
+
+        user.send(TxPacket::ManyStoreUpdate::<serde_json::Value>(
+            data.iter()
+                .map(|(k, v)| OneStoreUpdate {
+                    store: k.as_ref(),
+                    data: v,
+                })
+                .collect(),
+        ))
+        .context("failed to send store update")?;
 
         Ok(())
     }

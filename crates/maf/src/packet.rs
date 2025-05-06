@@ -15,8 +15,15 @@ pub enum RxPacket {
 #[serde(tag = "type", content = "data")]
 pub enum TxPacket<'a, T> {
     ChannelSend { channel: &'a str, data: &'a T },
-    StoreUpdate { store: &'a str, data: &'a T },
+    StoreUpdate(OneStoreUpdate<'a, T>),
+    ManyStoreUpdate(Vec<OneStoreUpdate<'a, serde_json::Value>>),
     TypedRpcResponse(TypedRpcResponsePacket),
+}
+
+#[derive(Debug, Serialize)]
+pub struct OneStoreUpdate<'a, T> {
+    pub store: &'a str,
+    pub data: &'a T,
 }
 
 #[derive(Debug, Deserialize, Clone)]

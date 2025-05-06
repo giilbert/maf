@@ -36,7 +36,7 @@ enum Commands {
 }
 
 async fn try_main() -> anyhow::Result<()> {
-    dotenvy::dotenv()?;
+    dotenvy::dotenv().ok();
 
     let context = Context::new()?;
 

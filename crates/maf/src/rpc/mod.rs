@@ -1,3 +1,4 @@
+mod caller;
 mod from_request;
 pub mod models;
 mod params;
@@ -15,7 +16,7 @@ pub use params::Params;
 
 use models::{TypedRpcRequestPacket, TypedRpcResponsePacket};
 
-use crate::{App, SendError};
+use crate::{App, SendError, User};
 
 type GenericRpcHandler = Box<
     dyn Fn(
@@ -44,6 +45,7 @@ impl std::fmt::Debug for RpcFunction {
 #[derive(Debug)]
 pub struct RpcRequest {
     id: u32,
+    user: User,
     data: Option<RpcRequestData>,
 }
 
@@ -85,6 +87,7 @@ impl RpcStore {
     pub async fn handle_typed_rpc_request(
         &self,
         app: App,
+        user: &User,
         packet: TypedRpcRequestPacket,
     ) -> Result<TypedRpcResponsePacket, RpcError> {
         let method = packet.method;
@@ -95,6 +98,7 @@ impl RpcStore {
 
         let request = RpcRequest {
             id: packet.id,
+            user: user.clone(),
             data: Some(RpcRequestData::Typed(packet.params)),
         };
 
