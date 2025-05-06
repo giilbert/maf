@@ -287,6 +287,7 @@ macro_rules! register {
             }
         }
 
+        #[allow(unsafe_op_in_unsafe_fn)]
         export!(GuestImpl);
     };
 }
