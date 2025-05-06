@@ -7,7 +7,7 @@ use crate::pretty;
 
 pub struct Context {
     pub client: reqwest::Client,
-    server_url: Url,
+    server_url: Option<Url>,
 }
 
 impl Context {
@@ -23,10 +23,10 @@ impl Context {
             .context("failed to parse header")?,
         );
 
-        let server_url = Url::parse(&dotenvy::var("MAF_CLI_SERVER_URL").context(
-            "failed to get server base url (MAF_CLI_SERVER_URL environment variable not set)",
-        )?)
-        .context("failed to parse server base url")?;
+        let server_url = match dotenvy::var("MAF_CLI_SERVER_URL") {
+            Ok(url) => Some(Url::parse(&url).context("failed to parse server url")?),
+            Err(_) => None,
+        };
 
         let client = reqwest::Client::builder()
             .default_headers(headers)
@@ -48,6 +48,8 @@ impl Context {
 
     pub fn url(&self, url: impl AsRef<str>) -> anyhow::Result<Url> {
         self.server_url
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("MAF_CLI_SERVER_URL environment variable is not set"))?
             .join(url.as_ref())
             .context("failed to join url")
     }
