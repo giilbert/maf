@@ -20,6 +20,7 @@ pub struct Container {
     pub instance: Bindings,
     pub store: wt::Store<ContainerData>,
     pub output: Option<mpsc::Receiver<String>>,
+    pub cancel_token: CancellationToken,
 }
 
 impl std::fmt::Debug for Container {
@@ -80,15 +81,14 @@ impl Container {
             instance,
             store,
             output: Some(output_rx),
+            cancel_token: CancellationToken::new(),
         })
     }
 
     pub async fn run(&mut self) -> anyhow::Result<()> {
-        let token = CancellationToken::new();
-
         // Spawn a task to monitor inactivity and stop the container
         let last_activity = self.store.data().last_activity.clone();
-        let token_clone = token.clone();
+        let token_clone = self.cancel_token.clone();
         tokio::spawn(async move {
             loop {
                 const CHECK_INTERVAL: u64 = 5; // seconds
@@ -110,7 +110,7 @@ impl Container {
                 let inner_result = result?;
                 return inner_result.map_err(|e| anyhow::anyhow!("container error: {e:?}"));
             }
-            _ = token.cancelled() => {
+            _ = self.cancel_token.cancelled() => {
                 tracing::info!("container stopped due to inactivity");
             }
         }

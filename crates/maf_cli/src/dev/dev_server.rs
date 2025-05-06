@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use axum::{
     extract::{Path, State, WebSocketUpgrade},
@@ -6,11 +6,14 @@ use axum::{
     routing::get,
 };
 use colored::Colorize;
+use futures_util::FutureExt;
 use maf_container::{
     server::{handle_ws_upgrade, Bundle, Room},
     ContainerRuntime,
 };
-use tokio::sync::RwLock;
+use notify::{RecommendedWatcher, Watcher};
+use notify_debouncer_full::{new_debouncer, Debouncer, NoCache};
+use tokio::sync::{mpsc, watch, RwLock};
 
 use crate::pretty;
 
@@ -36,7 +39,12 @@ pub async fn start_dev_server(config: DevServerConfig) -> anyhow::Result<()> {
     pretty::info!("starting maf dev server...");
 
     let runtime = ContainerRuntime::init()?;
-    let room = load_room(&runtime, &config.wasm_module_path).await?;
+
+    let (reload_notify, watcher) = create_file_watcher(&std::fs::canonicalize(
+        std::path::Path::new(&config.wasm_module_path),
+    )?)?;
+
+    let room = load_room(reload_notify.clone(), &runtime, &config.wasm_module_path).await?;
 
     let state = DevServerState {
         inner: Arc::new(StateInner {
@@ -44,6 +52,34 @@ pub async fn start_dev_server(config: DevServerConfig) -> anyhow::Result<()> {
             container_runtime: runtime,
         }),
     };
+
+    // This is so jank
+    let state_clone = state.clone();
+    let reload_room = async move {
+        loop {
+            reload_notify.notified().await;
+            pretty::info!("reloading room...");
+
+            let room = load_room(
+                reload_notify.clone(),
+                &state_clone.inner.container_runtime,
+                &config.wasm_module_path,
+            )
+            .await;
+
+            match room {
+                Ok(new_room) => {
+                    let mut inner = state_clone.inner.room.write().await;
+                    *inner = new_room;
+                }
+                Err(e) => {
+                    pretty::error!("failed to reload room: {}", e);
+                }
+            }
+        }
+    };
+
+    tokio::spawn(reload_room);
 
     let app = axum::Router::new()
         .route("/@/{org_slug}/{app_slug}/connect", get(connect_route))
@@ -57,37 +93,63 @@ pub async fn start_dev_server(config: DevServerConfig) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn load_room(runtime: &ContainerRuntime, path: &str) -> anyhow::Result<Room> {
-    let bytes = tokio::fs::read(path).await?;
-
-    let bundle = Bundle {
-        wasm_module: bytes.into(),
-    };
-
+async fn load_room(
+    reload_notify: Arc<tokio::sync::Notify>,
+    runtime: &ContainerRuntime,
+    path: &str,
+) -> anyhow::Result<Room> {
+    let bundle = Bundle::load_wasm_module_from_file(path)?;
     let (room, mut container) = Room::new(&runtime, bundle).await?;
 
     let mut output = container.take_output().expect("failed to take output");
-    tokio::spawn(async move {
+    let forward_output = async move {
         while let Some(line) = output.recv().await {
-            println!(
-                "{} {}",
-                ">".black().on_blue(),
-                serde_json::to_string(&line).unwrap_or_else(|_| line.clone())
-            );
+            let line = line.trim_end_matches(|s| s == '\n' || s == '\r' as char);
+            println!("{} {}", ">".blue(), &line);
         }
-    });
+    };
 
-    tokio::spawn(async move {
+    let cancel_token = container.cancel_token.clone();
+    let cancel_on_signal = async move {
+        reload_notify.notified().await;
+        cancel_token.cancel();
+    };
+
+    let run_container = async move {
         if let Err(e) = container.run().await {
             pretty::error!("failed to run container: {}", e);
-        } else {
-            pretty::info!("container exited");
+            return;
         }
-    });
+
+        pretty::info!("container exited");
+    };
+
+    tokio::spawn(forward_output);
+    tokio::spawn(cancel_on_signal);
+    tokio::spawn(run_container);
 
     pretty::info!("loaded room from {}", path);
 
     Ok(room)
+}
+
+fn create_file_watcher(
+    path: &std::path::Path,
+) -> anyhow::Result<(
+    Arc<tokio::sync::Notify>,
+    Debouncer<RecommendedWatcher, NoCache>,
+)> {
+    let notify = Arc::new(tokio::sync::Notify::new());
+
+    let tx = notify.clone();
+    let mut debouncer = new_debouncer(Duration::from_secs(1), None, move |_res| {
+        tx.notify_waiters();
+    })?;
+
+    pretty::info!("watching for changes in {}", path.display());
+    debouncer.watch(path, notify::RecursiveMode::NonRecursive)?;
+
+    Ok((notify, debouncer))
 }
 
 async fn connect_route(
