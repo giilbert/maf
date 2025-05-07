@@ -13,6 +13,7 @@ pub use channel::{Channel, RecvError};
 pub use rpc::{FromRequest, IntoRpcFunction, Params, RpcFunction, RpcRequest};
 pub use store::{Store, StoreData};
 pub use user::{SendError, User, UserListener};
+pub use uuid::Uuid;
 
 pub use serde;
 pub use serde_json;

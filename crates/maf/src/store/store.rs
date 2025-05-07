@@ -49,7 +49,7 @@ pub struct Store<T: StoreData> {
 pub struct StoreKey(Arc<str>);
 
 pub trait StoreData: 'static {
-    type Data: Serialize + DeserializeOwned + Send + Sync;
+    type Data: Send + Sync + 'static;
 
     fn name() -> impl AsRef<str> + Send {
         std::any::type_name::<Self>()
@@ -59,8 +59,8 @@ pub trait StoreData: 'static {
         StoreKey::from(Self::name().as_ref())
     }
 
-    fn select(data: Self::Data) -> impl Serialize {
-        data
+    fn select(data: &Self::Data) -> impl serde::Serialize {
+        ()
     }
 
     fn init() -> Self::Data;
@@ -78,7 +78,7 @@ impl AnyStore {
                     std::any::type_name::<T::Data>()
                 ));
 
-                serde_json::to_value(data).map_err(Into::into)
+                serde_json::to_value(T::select(&data)).map_err(Into::into)
             }),
         }
     }
