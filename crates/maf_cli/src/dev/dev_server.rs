@@ -11,7 +11,7 @@ use maf_container::{
 };
 use notify::RecommendedWatcher;
 use notify_debouncer_full::{
-    new_debouncer, new_debouncer_opt, DebounceEventResult, Debouncer, NoCache, RecommendedCache,
+    new_debouncer_opt, DebounceEventResult, Debouncer, NoCache, RecommendedCache,
 };
 use tokio::sync::RwLock;
 
@@ -21,6 +21,7 @@ use crate::pretty;
 pub struct DevServerConfig {
     pub port: u16,
     pub wasm_module_path: String,
+    pub watch: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -40,9 +41,16 @@ pub async fn start_dev_server(config: DevServerConfig) -> anyhow::Result<()> {
 
     let runtime = ContainerRuntime::init()?;
 
-    let (reload_notify, watcher) = create_file_watcher(&std::fs::canonicalize(
-        std::path::Path::new(&config.wasm_module_path),
-    )?)?;
+    // This is so jank
+    let reload_notify = if config.watch {
+        let (reload_notify, _watcher) = create_file_watcher(&std::fs::canonicalize(
+            std::path::Path::new(&config.wasm_module_path),
+        )?)?;
+
+        reload_notify
+    } else {
+        Arc::new(tokio::sync::Notify::new())
+    };
 
     let room = load_room(reload_notify.clone(), &runtime, &config.wasm_module_path).await?;
 
@@ -53,7 +61,6 @@ pub async fn start_dev_server(config: DevServerConfig) -> anyhow::Result<()> {
         }),
     };
 
-    // This is so jank
     let state_clone = state.clone();
     let reload_room = async move {
         loop {
@@ -79,7 +86,9 @@ pub async fn start_dev_server(config: DevServerConfig) -> anyhow::Result<()> {
         }
     };
 
-    tokio::spawn(reload_room);
+    if config.watch {
+        tokio::spawn(reload_room);
+    }
 
     let app = axum::Router::new()
         .route("/@/{org_slug}/{app_slug}/connect", get(connect_route))

@@ -247,6 +247,10 @@ impl App {
         Runtime::current().blocking_poll();
     }
 
+    pub async fn user(&self, user_id: Uuid) -> Option<User> {
+        self.inner.state.users.read().await.get(&user_id).cloned()
+    }
+
     pub fn channel<T>(&self, name: impl ToString) -> Channel<T> {
         Channel::new(self.inner.state.clone(), name.to_string())
     }

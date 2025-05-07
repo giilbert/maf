@@ -7,7 +7,7 @@ use crate::Context;
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum DevCommands {
-    Start,
+    Run { file_path: String },
 }
 
 pub async fn handle_commands(
@@ -16,8 +16,13 @@ pub async fn handle_commands(
     command: Option<DevCommands>,
 ) -> anyhow::Result<()> {
     match command {
-        Some(DevCommands::Start) => {
-            todo!();
+        Some(DevCommands::Run { file_path }) => {
+            dev_server::start_dev_server(DevServerConfig {
+                port: 3000,
+                wasm_module_path: file_path,
+                watch: false,
+            })
+            .await
         }
         None => {
             let file_path = file_path.expect("FILE_PATH argument is required");
@@ -25,6 +30,7 @@ pub async fn handle_commands(
             dev_server::start_dev_server(DevServerConfig {
                 port: 3000,
                 wasm_module_path: file_path,
+                watch: true,
             })
             .await
         }
