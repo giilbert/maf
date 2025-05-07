@@ -63,16 +63,16 @@ pub struct RpcStore {
 pub enum RpcError {
     #[error("rpc method `{0}` not found")]
     MethodNotFound(String),
-    #[error("rpc function error: {0}")]
-    FunctionError(anyhow::Error),
+    #[error("rpc function in `{0}` error: {1}")]
+    FunctionError(String, anyhow::Error),
 
     #[error("rpc response serialization error: {0}")]
     ResponseSerializationError(#[from] serde_json::Error),
     #[error("rpc response error: {0}")]
     ResponseError(#[from] SendError),
 
-    #[error("rpc params error: {0}")]
-    ParamsError(#[from] Box<dyn std::error::Error + Send + Sync>),
+    #[error("rpc params in `{0}` error: {1}")]
+    ParamsError(String, Box<dyn std::error::Error + Send + Sync>),
 
     #[error("other error: {0}")]
     Other(#[from] anyhow::Error),
@@ -120,14 +120,15 @@ where
 {
     fn into_rpc_function(self, method: String) -> RpcFunction {
         RpcFunction {
-            method,
+            method: method.clone(),
             type_id: self.type_id(),
             handler: Box::new(move |_state, request| {
+                let method = method.clone();
                 Box::pin(async move {
                     Ok(TypedRpcResponsePacket {
                         id: request.id,
                         result: serde_json::to_value(self())
-                            .map_err(|e| RpcError::FunctionError(anyhow::anyhow!(e)))?,
+                            .map_err(|e| RpcError::FunctionError(method, anyhow::anyhow!(e)))?,
                     })
                 })
             }),
@@ -174,14 +175,15 @@ macro_rules! impl_rpc_fn {
             #[allow(non_snake_case)]
             fn into_rpc_function(self, method: String) -> RpcFunction {
                 RpcFunction {
-                    method,
+                    method: method.clone(),
                     type_id: self.type_id(),
                     handler: Box::new(move |app, mut request| {
+                        let method = method.clone();
                         Box::pin(async move {
                             let ($($members),+) = (
                                 $($members::from_request(&app, &mut request)
                                     .await
-                                    .map_err(|e| RpcError::ParamsError(Box::new(e)))?
+                                    .map_err(|e| RpcError::ParamsError(method.clone(), Box::new(e)))?
                                 ),+
                             );
 
@@ -211,15 +213,16 @@ macro_rules! impl_rpc_fn {
             #[allow(non_snake_case)]
             fn into_rpc_function(self, method: String) -> RpcFunction {
                 RpcFunction {
-                    method,
+                    method: method.clone(),
                     type_id: self.type_id(),
                     handler: Box::new(move |app, mut request| {
+                        let method = method.clone();
                         Box::pin(async move {
                             #[allow(unused_parens)]
                             let ($($members),+) = (
                                 $($members::from_request(&app, &mut request)
                                     .await
-                                    .map_err(|e| RpcError::ParamsError(Box::new(e)))?
+                                    .map_err(|e| RpcError::ParamsError(method.clone(), Box::new(e)))?
                                 ),+
                             );
 
