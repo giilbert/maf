@@ -5,15 +5,15 @@ use axum::{
     response::{ErrorResponse, Response},
     routing::get,
 };
-use colored::Colorize;
-use futures_util::FutureExt;
 use maf_container::{
     server::{handle_ws_upgrade, Bundle, Room},
     ContainerRuntime,
 };
-use notify::{RecommendedWatcher, Watcher};
-use notify_debouncer_full::{new_debouncer, Debouncer, NoCache};
-use tokio::sync::{mpsc, watch, RwLock};
+use notify::RecommendedWatcher;
+use notify_debouncer_full::{
+    new_debouncer, new_debouncer_opt, DebounceEventResult, Debouncer, NoCache, RecommendedCache,
+};
+use tokio::sync::RwLock;
 
 use crate::pretty;
 
@@ -142,9 +142,15 @@ fn create_file_watcher(
     let notify = Arc::new(tokio::sync::Notify::new());
 
     let tx = notify.clone();
-    let mut debouncer = new_debouncer(Duration::from_secs(1), None, move |_res| {
-        tx.notify_waiters();
-    })?;
+    let mut debouncer = new_debouncer_opt(
+        Duration::from_secs(1),
+        None,
+        move |_res: DebounceEventResult| {
+            tx.notify_waiters();
+        },
+        RecommendedCache::new(),
+        notify::Config::default().with_compare_contents(true),
+    )?;
 
     pretty::info!("watching for changes in {}", path.display());
     debouncer.watch(path, notify::RecursiveMode::NonRecursive)?;
