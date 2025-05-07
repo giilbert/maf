@@ -85,7 +85,7 @@ impl Container {
         })
     }
 
-    pub async fn run(&mut self) -> anyhow::Result<()> {
+    pub fn start_inactive_shutdown_task(&mut self) {
         // Spawn a task to monitor inactivity and stop the container
         let last_activity = self.store.data().last_activity.clone();
         let token_clone = self.cancel_token.clone();
@@ -104,7 +104,9 @@ impl Container {
                 }
             }
         });
+    }
 
+    pub async fn run(&mut self) -> anyhow::Result<()> {
         tokio::select! {
             result = self.instance.call_run(&mut self.store) => {
                 let inner_result = result?;

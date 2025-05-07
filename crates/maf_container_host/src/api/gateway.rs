@@ -99,6 +99,8 @@ async fn connect_route(
 
                     let state = state.clone();
                     tokio::spawn(async move {
+                        container.start_inactive_shutdown_task();
+
                         if let Err(e) = container.run().await {
                             tracing::error!("container error: {e:?}");
                         }
