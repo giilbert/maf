@@ -8,7 +8,7 @@ pub mod tasks;
 mod user;
 pub(crate) mod utils;
 
-pub use app::App;
+pub use app::{App, AppBuilder};
 pub use channel::{Channel, RecvError};
 pub use rpc::{FromRequest, IntoRpcFunction, Params, RpcFunction, RpcRequest};
 pub use store::{Store, StoreData};

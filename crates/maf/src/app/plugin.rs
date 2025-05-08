@@ -1,10 +1,10 @@
-use super::App;
+use super::app::AppBuilder;
 
 pub trait Plugin {
-    fn build(&self, app: App) -> App;
+    fn build(&self, app: AppBuilder) -> AppBuilder;
 }
 
-impl App {
+impl AppBuilder {
     pub fn plugin(self, plugin: impl Plugin) -> Self {
         plugin.build(self)
     }
