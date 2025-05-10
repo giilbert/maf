@@ -7,7 +7,7 @@ const buttonVariants = cva("cursor-pointer transition-colors", {
       lg: "px-6 py-3 text-lg",
     },
     variant: {
-      primary: "bg-neutral-950 text-neutral-50 hover:bg-neutral-700 font-bold",
+      primary: "bg-primary text-background hover:bg-primary-500 font-bold",
       secondary: "bg-neutral-100 hover:bg-neutral-200",
     },
   },

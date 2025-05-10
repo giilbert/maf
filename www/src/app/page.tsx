@@ -17,8 +17,8 @@ export default function Home() {
 
       <div className="space-y-8 xl:space-y-0 lg:grid grid-cols-4 xl:grid-cols-5 gap-2 md:gap-8 h-full flex flex-col">
         <div className="col-span-2 space-y-12 flex flex-col">
-          <div className="space-y-6 bg-neutral-200 px-8 pt-6 pb-8 relative h-full -ml-8 -mr-6 md:mr-0 flex flex-col justify-center">
-            <div className="hidden md:block w-full h-full absolute bg-neutral-300 -z-10 top-4 left-4"></div>
+          <div className="space-y-6 bg-background-300 px-8 pt-6 pb-8 relative h-full -ml-8 -mr-6 md:mr-0 flex flex-col justify-center">
+            <div className="hidden md:block w-full h-full absolute bg-background-500 -z-10 top-4 left-4"></div>
 
             <div className="space-y-2">
               <p className="font-mono">{"//"} mutation authority framework</p>
@@ -82,7 +82,7 @@ const FeatureCard: React.FC<{
   description: string;
 }> = ({ title, description, icon: IconComponent }) => {
   return (
-    <div className="flex flex-col gap-1 px-3 py-2 border-neutral-300 border bg-white cursor-pointer group hover:bg-neutral-100 transition-colors">
+    <div className="flex flex-col gap-1 px-3 py-2 border bg-background cursor-pointer group hover:bg-background-300 transition-colors">
       <div className="flex items-center gap-3">
         <IconComponent size={24} />
         <h3 className="font-semibold group-hover:underline">{title}</h3>
@@ -92,7 +92,7 @@ const FeatureCard: React.FC<{
           className="ml-auto group-hover:opacity-100 opacity-0 transition-opacity"
         />
       </div>
-      <p className="text-neutral-600 text-sm">{description}</p>
+      <p className="text-muted-foreground text-sm">{description}</p>
     </div>
   );
 };
