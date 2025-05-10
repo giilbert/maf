@@ -1,27 +1,24 @@
+import { notFound } from "next/navigation";
+import { getAllSlugs, getDocMeta } from "../helpers/content";
+
 export default async function Page({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const { default: Post } = await import(
-    `@/content/${slug.replace("%2F", "/")}.mdx`
-  );
+
+  const doc = await getDocMeta(slug);
+  if (!doc) return notFound();
+
+  const { default: Post } = await import(`@/content/${doc.slug}.mdx`);
 
   return <Post />;
 }
 
-const CONTENT_PATH = process.cwd() + "/src/content";
-
 export async function generateStaticParams() {
-  const { glob } = await import("glob");
-
-  const files = await glob("**/*.{md,mdx}", { cwd: CONTENT_PATH });
-  const slugs = files.map((file) => file.replace(/\.mdx?$/, ""));
-
-  return slugs.map((slug) => ({
-    slug: slug.replace(/\\/g, "/"),
-  }));
+  const slugs = await getAllSlugs();
+  return slugs.map((slug) => ({ slug }));
 }
 
 export const dynamicParams = false;

@@ -1,5 +1,10 @@
 {
-	"dependencies": {
-		"lucide-react": "^0.509.0"
-	}
+  "name": "maf",
+  "version": "0.1.0",
+  "private": true,
+  "pnpm": {
+    "overrides": {
+      "estree-walker": "2.0.2"
+    }
+  }
 }
