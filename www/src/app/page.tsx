@@ -4,7 +4,6 @@ import Balancer from "react-wrap-balancer";
 import {
   BlocksIcon,
   CloudIcon,
-  Icon,
   LockIcon,
   LucideArrowUpRightFromSquare,
   LucideIcon,
@@ -17,8 +16,8 @@ export default function Home() {
       <Navbar />
 
       <div className="space-y-8 xl:space-y-0 lg:grid grid-cols-4 xl:grid-cols-5 gap-2 md:gap-8 h-full flex flex-col">
-        <div className="lg:h-full col-span-2 space-y-8">
-          <div className="space-y-6 bg-neutral-200 px-8 pt-6 pb-8 relative h-min -ml-8 -mr-6 md:mr-0">
+        <div className="col-span-2 space-y-12 flex flex-col">
+          <div className="space-y-6 bg-neutral-200 px-8 pt-6 pb-8 relative h-full -ml-8 -mr-6 md:mr-0 flex flex-col justify-center">
             <div className="hidden md:block w-full h-full absolute bg-neutral-300 -z-10 top-4 left-4"></div>
 
             <div className="space-y-2">
@@ -63,11 +62,8 @@ export default function Home() {
           </div>
 
           <div className="flex gap-2 items-center flex-col sm:flex-row">
-            <Button size="lg" className="min-w-full sm:min-w-fit">
+            <Button size="lg" className="w-full">
               Get Started
-            </Button>
-            <Button size="lg" className="w-full" variant="secondary">
-              More Info
             </Button>
           </div>
         </div>
