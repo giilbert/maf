@@ -1,14 +1,16 @@
-import Link from "next/link";
 import { getDocsCategory } from "./helpers/content";
+import { SideNav } from "./_components/side-nav";
 
-export default function DocsLayout(props: { children: React.ReactNode }) {
+export default async function DocsLayout(props: { children: React.ReactNode }) {
+  const categories = await getDocsCategory();
+
   return (
     <div className="flex justify-center">
-      <div className="p-6 lg:py-8 lg:px-12 space-y-4 w-full max-w-7xl">
+      <div className="p-6 lg:py-4 lg:px-12 space-y-8 w-full max-w-7xl">
         <h1 className="text-xl font-bold">MAF Documentation</h1>
 
         <div className="gap-8 grid grid-cols-5">
-          <SideNav />
+          <SideNav categories={categories} />
 
           <div className="col-span-3">{props.children}</div>
           <aside>
@@ -19,29 +21,3 @@ export default function DocsLayout(props: { children: React.ReactNode }) {
     </div>
   );
 }
-
-const SideNav: React.FC = async () => {
-  const categories = await getDocsCategory();
-
-  return (
-    <nav className="flex flex-col gap-2">
-      {categories.map((category) => (
-        <div key={category.name} className="space-y-1">
-          <h2 className="text font-semibold">{category.name}</h2>
-          <ul className="flex flex-col gap-1 ml-3">
-            {category.docs.map((doc) => (
-              <li key={doc.slug}>
-                <Link
-                  href={`/docs/${doc.slug}`}
-                  className="text-sm text-muted-foreground hover:text-primary"
-                >
-                  {doc.title}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
-    </nav>
-  );
-};

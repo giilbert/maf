@@ -26,7 +26,7 @@ export const getDocMeta = async (slug: string) => {
   const path = await findDocPath(slug);
   if (!path) return null;
 
-  const { matter: attributesRaw } = parseFrontmatter(
+  const { data: attributesRaw } = parseFrontmatter(
     await fs.readFile(path, "utf-8")
   );
 
@@ -95,4 +95,13 @@ export const getDocsCategory = async () => {
       ),
     }))
   );
+};
+
+export const loadDocSource = async (slug: string) => {
+  const path = await findDocPath(slug);
+  if (!path) return null;
+
+  const { content } = parseFrontmatter(await fs.readFile(path, "utf-8"));
+
+  return content;
 };
