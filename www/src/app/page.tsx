@@ -9,6 +9,7 @@ import {
   LucideIcon,
   RocketIcon,
 } from "lucide-react";
+import { Logo } from "@/components/logo";
 
 export default function Home() {
   return (
@@ -100,7 +101,7 @@ const FeatureCard: React.FC<{
 const Navbar: React.FC = () => {
   return (
     <nav className="flex items-center gap-4">
-      <p className="text-2xl font-bold">maf</p>
+      <Logo hasText />
 
       <Link href="/docs" className="underline-offset-4 hover:underline ml-4">
         Docs
