@@ -1,10 +1,9 @@
 import { notFound } from "next/navigation";
 import { getAllSlugs, getDocMeta, loadDocSource } from "../helpers/content";
-import React, { Suspense } from "react";
-import { evaluate } from "next-mdx-remote-client/rsc";
-import { mdxComponents } from "../_components/mdx-components";
-import { customHeadingId, extractToc, Heading } from "../_lib/toc";
+import React from "react";
+import { Heading } from "../_lib/toc";
 import Link from "next/link";
+import { MdxContentWrapper, renderMdx } from "../_components/mdx-renderer";
 
 export default async function Page({
   params,
@@ -17,30 +16,16 @@ export default async function Page({
   const source = await loadDocSource(slug);
   if (!meta || !source) return notFound();
 
-  const { content, mod } = await evaluate({
-    source,
-    components: mdxComponents,
-    options: {
-      mdxOptions: {
-        remarkPlugins: [extractToc],
-        rehypePlugins: [customHeadingId],
-      },
-    },
-  });
-  const headings: Heading[] =
-    "headings" in mod ? JSON.parse(mod.headings as string) : [];
+  const { content, headings } = await renderMdx({ source });
+
   console.log("headings", headings.map((h) => h.title).join(", "));
 
   return (
     <>
-      <div className="space-y-2 col-span-3">
+      <div className="space-y-4 col-span-3">
         <p className="text-muted-foreground">{meta.category}</p>
 
-        <Suspense fallback={<div className="loading">Loading...</div>}>
-          <div className="flex flex-col gap-3" suppressHydrationWarning>
-            {content}
-          </div>
-        </Suspense>
+        <MdxContentWrapper>{content}</MdxContentWrapper>
       </div>
 
       <div className="col-span-1">

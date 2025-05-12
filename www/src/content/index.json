@@ -1,6 +1,12 @@
 [
   {
     "name": "Getting Started",
-    "docs": ["quickstart", "installation", "why-maf", "examples"]
+    "docs": [
+      "introduction",
+      "quickstart",
+      "installation",
+      "why-maf",
+      "examples"
+    ]
   }
 ]

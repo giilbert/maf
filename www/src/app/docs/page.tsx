@@ -1,3 +1,5 @@
-export default function DocsPage() {
-  return <p>Content</p>;
+import { redirect } from "next/navigation";
+
+export default async function DocsPage() {
+  redirect("/docs/introduction");
 }

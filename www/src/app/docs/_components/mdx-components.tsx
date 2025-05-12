@@ -2,6 +2,7 @@ import { type MDXComponents } from "next-mdx-remote-client";
 import { type BundledLanguage, codeToHtml } from "shiki";
 
 export const mdxComponents: MDXComponents = {
+  p: (props) => <p className="leading-relaxed" {...props}></p>,
   h1: (props) => <h1 className="text-4xl font-bold mb-2" {...props} />,
   h2: (props) => {
     return <h2 className="text-3xl font-bold" {...props} />;
