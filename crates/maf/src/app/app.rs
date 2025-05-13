@@ -82,7 +82,7 @@ impl App {
                     .await
                     .expect("failed to handle user messages");
 
-                println!("user disconnected: {}", user_clone.meta.id());
+                // println!("user disconnected: {}", user_clone.meta.id());
 
                 app.inner
                     .state
