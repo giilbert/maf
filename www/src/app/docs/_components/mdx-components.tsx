@@ -1,15 +1,16 @@
 import { type MDXComponents } from "next-mdx-remote-client";
+import Link from "next/link";
 import { type BundledLanguage, codeToHtml } from "shiki";
+import * as UiTabs from "@/components/ui/tabs";
 
 export const mdxComponents: MDXComponents = {
   p: (props) => <p className="leading-relaxed" {...props}></p>,
   h1: (props) => <h1 className="text-4xl font-bold mb-2" {...props} />,
   h2: (props) => {
-    return <h2 className="text-3xl font-bold" {...props} />;
+    return <h2 className="text-2xl font-bold" {...props} />;
   },
-  h3: (props) => <h3 className="text-2xl font-semibold" {...props} />,
-  h4: (props) => <h4 className="text-xl font-semibold" {...props} />,
-  h5: (props) => <h5 className="text-lg font-semibold" {...props} />,
+  h3: (props) => <h3 className="text-xl font-semibold" {...props} />,
+  h4: (props) => <h4 className="text-lg font-semibold" {...props} />,
   code: (props) => {
     const { className } = props;
     const lang = className?.replace("language-", "") as BundledLanguage;
@@ -18,6 +19,24 @@ export const mdxComponents: MDXComponents = {
   },
   pre: (props) => {
     return <pre className="border px-4 py-3">{props.children}</pre>;
+  },
+  ul: (props) => {
+    return <ul className="list-disc pl-5 space-y-1">{props.children}</ul>;
+  },
+  a: (props) => {
+    return (
+      <Link href={props.href} className="underline underline-offset-3">
+        {props.children}
+      </Link>
+    );
+  },
+  ...UiTabs,
+  TabsContent: (props) => {
+    return (
+      <UiTabs.TabsContent value={props.value} className="space-y-5">
+        {props.children}
+      </UiTabs.TabsContent>
+    );
   },
 };
 

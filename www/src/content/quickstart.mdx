@@ -5,12 +5,140 @@ category: Getting Started
 
 # Quickstart
 
-## 2-A `Hello`
+## Install MAF CLI
 
-### 3-A
+```bash
+$ curl -sSfL https://somethingsomething.something/install.sh | sh
+```
 
-#### 4-A
+## Write a MAF Server
 
-## 2-B
+<Tabs defaultValue="rust">
+  <TabsList>
+    <TabsTrigger value="rust">Rust</TabsTrigger>
+    <TabsTrigger value="javascript">JavaScript</TabsTrigger>
+    <TabsTrigger value="python">Python</TabsTrigger>
+  </TabsList>
 
-### 3-B
+<TabsContent value="rust">
+TODO: Rust server library
+
+```rust
+use maf::*;
+
+struct CounterStore;
+
+impl StoreData for CounterStore {
+    type Data = i32;
+
+    fn init() -> Self::Data {
+        42
+    }
+}
+
+async fn increment_counter(
+    Params(counter): Params<i32>,
+    test: Store<CounterStore>
+) -> i32 {
+    let mut data = test.write().await;
+
+    *data += counter;
+
+    println!("incremented counter by {counter}. new value: {}", &*data);
+
+    *data
+}
+
+async fn on_connect(user: User) {
+    println!("!!! user connected! id: {}", user.meta.id());
+    println!("HAIII");
+}
+
+fn build() -> App {
+    App::builder()
+        .on_connect(on_connect)
+        .rpc("increment_counter", increment_counter)
+        .background(|app: App| async move {
+            let mut chan = app.channel::<String>("hello");
+            loop {
+                match chan.recv().await {
+                    Ok(msg) => println!("got message! `{msg}`"),
+                    Err(e) => println!("failed to receive message: {e}"),
+                }
+            }
+        })
+        .build()
+}
+
+maf::register!(build);
+
+```
+
+</TabsContent>
+
+<TabsContent value="javascript">
+
+TODO: JavaScript server library
+
+</TabsContent>
+
+<TabsContent value="python">
+
+TODO: Python server library
+
+</TabsContent>
+
+</Tabs>
+
+## Connect With MAF Client
+
+<Tabs defaultValue="javascript">
+  <TabsList>
+    <TabsTrigger value="rust">Rust</TabsTrigger>
+    <TabsTrigger value="javascript">JavaScript</TabsTrigger>
+    <TabsTrigger value="python">Python</TabsTrigger>
+  </TabsList>
+
+<TabsContent value="rust">
+
+TODO: Rust client library
+
+</TabsContent>
+
+<TabsContent value="javascript">
+
+TODO: JavaScript client library
+
+```typescript
+import { MafClient } from "@maf/client";
+
+const client = new MafClient({
+  url: "http://localhost:3000",
+  app: "your/name",
+});
+
+async function run() {
+  await client.connect();
+
+  console.log("client connected!");
+
+  while (true) {
+    const result = await client.rpc<number>("increment_counter", 2);
+    console.log("incremented counter! new value: ", result);
+    // console.log("client rpc test");
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+}
+
+run();
+```
+
+</TabsContent>
+
+<TabsContent value="python">
+
+TODO: Python client library
+
+</TabsContent>
+
+</Tabs>
