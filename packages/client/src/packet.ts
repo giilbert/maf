@@ -29,4 +29,18 @@ type RxPacket =
         id: number;
         result: unknown;
       };
+    }
+  | {
+      type: "ManyStoreUpdate";
+      data: {
+        store: string;
+        data: unknown;
+      }[];
+    }
+  | {
+      type: "StoreUpdate";
+      data: {
+        store: string;
+        data: unknown;
+      };
     };

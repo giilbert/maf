@@ -15,7 +15,7 @@ use crate::{
     store::{AnyStore, StoreKey},
     tasks::{self, Runtime},
     user::UserMessage,
-    Channel, User, UserListener,
+    Channel, StoreData, User, UserListener,
 };
 
 use super::{
@@ -51,6 +51,7 @@ pub struct AppBuilder {
     on_connect: Option<Arc<OnConnectFn>>,
     background: Option<Arc<BackgroundFn>>,
     rpc_functions: RpcStore,
+    stores: HashMap<StoreKey, AnyStore>,
 }
 
 impl App {
@@ -274,6 +275,12 @@ impl AppBuilder {
         self
     }
 
+    /// Statically declare a store
+    pub fn store<T: StoreData>(mut self) -> Self {
+        self.stores.insert(T::key().into(), AnyStore::new::<T>());
+        self
+    }
+
     pub fn build(self) -> App {
         const STORE_UPDATE_LIMIT: usize = 10_000;
 
@@ -282,7 +289,7 @@ impl AppBuilder {
         let state = Arc::new(AppState {
             store_dirty,
             channels: Default::default(),
-            stores: Default::default(),
+            stores: RwLock::new(self.stores),
             user_rx_channels: Default::default(),
             users: Default::default(),
         });

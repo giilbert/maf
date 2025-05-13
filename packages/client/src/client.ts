@@ -1,5 +1,6 @@
 import Emittery from "emittery";
 import { Channel } from "./channel";
+import { Store, StoreOptions } from "./store";
 
 export interface MafClientOptions {
   url: URL | string;
@@ -20,7 +21,11 @@ export class MafClient extends Emittery<MafClientEvents> {
   private _sessionInfo?: SessionInfo;
   private _ws?: WebSocket;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _channels: Record<string, Channel<any>> = {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _stores: Record<string, Store<any>> = {};
+  private _storeData: Record<string, unknown> = {};
 
   private _rpcId = 0;
   private _rpcCalls: Map<number, (data: unknown) => void> = new Map();
@@ -109,6 +114,15 @@ export class MafClient extends Emittery<MafClientEvents> {
       const { id, result } = packet.data;
       this._rpcCalls.get(id)?.(result);
       this._rpcCalls.delete(id);
+    } else if (packet.type === "ManyStoreUpdate") {
+      for (const { store, data } of packet.data) {
+        this._storeData[store] = data;
+        this._stores[store]?.emit("change", data);
+      }
+    } else if (packet.type === "StoreUpdate") {
+      const { store, data } = packet.data;
+      this._storeData[store] = data;
+      this._stores[store]?.emit("change", data);
     }
   }
 
@@ -154,5 +168,15 @@ export class MafClient extends Emittery<MafClientEvents> {
         }
       });
     });
+  }
+
+  public store<T>(name: string, options?: StoreOptions<T>) {
+    const data = this._storeData[name];
+    if (!this._stores[name])
+      this._stores[name] = new Store(this, name, {
+        default: data,
+        ...options,
+      });
+    return this._stores[name] as Store<T>;
   }
 }
