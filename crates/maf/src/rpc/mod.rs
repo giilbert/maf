@@ -1,36 +1,22 @@
-mod caller;
-mod from_request;
 pub mod models;
 mod params;
 
-use std::{
-    any::{Any, TypeId},
-    collections::HashMap,
-    future::Future,
-    marker::PhantomData,
-    pin::Pin,
-};
+use std::{any::TypeId, collections::HashMap};
 
-pub use from_request::FromRequest;
 pub use params::Params;
 
 use models::{TypedRpcRequestPacket, TypedRpcResponsePacket};
+use params::ParamsError;
 
-use crate::{App, SendError, User};
-
-type GenericRpcHandler = Box<
-    dyn Fn(
-            App,
-            RpcRequest,
-        ) -> Pin<Box<dyn Future<Output = Result<TypedRpcResponsePacket, RpcError>>>>
-        + Send
-        + Sync,
->;
+use crate::{
+    callable::{AnyCallable, CallableParam},
+    App, SendError, User,
+};
 
 pub struct RpcFunction {
     pub(crate) method: String,
     pub(crate) type_id: TypeId,
-    pub(crate) handler: GenericRpcHandler,
+    pub(crate) handler: AnyCallable<RpcRequestContext, TypedRpcResponsePacket, RpcError>,
 }
 
 impl std::fmt::Debug for RpcFunction {
@@ -44,14 +30,19 @@ impl std::fmt::Debug for RpcFunction {
 
 #[derive(Debug)]
 pub struct RpcRequest {
-    id: u32,
-    user: User,
-    data: Option<RpcRequestData>,
+    pub id: u32,
+    pub user: User,
+    pub data: Option<RpcRequestData>,
 }
 
 #[derive(Debug)]
-enum RpcRequestData {
+pub enum RpcRequestData {
     Typed(serde_json::Value),
+}
+
+pub struct RpcRequestContext {
+    pub app: App,
+    pub request: RpcRequest,
 }
 
 #[derive(Debug, Default)]
@@ -72,10 +63,13 @@ pub enum RpcError {
     ResponseError(#[from] SendError),
 
     #[error("rpc params in `{0}` error: {1}")]
-    ParamsError(String, Box<dyn std::error::Error + Send + Sync>),
+    ParamsError(String, ParamsError),
 
     #[error("other error: {0}")]
     Other(#[from] anyhow::Error),
+
+    #[error("infalliable error: {0}")]
+    Infalliable(#[from] std::convert::Infallible),
 }
 
 impl RpcStore {
@@ -102,149 +96,35 @@ impl RpcStore {
             data: Some(RpcRequestData::Typed(packet.params)),
         };
 
-        let res = (rpc_function.handler)(app, request);
+        let res = (rpc_function.handler)(RpcRequestContext { app, request });
         tokio::pin!(res);
 
         res.await
     }
 }
 
-pub trait IntoRpcFunction<Params, Returns> {
-    fn into_rpc_function(self, method: String) -> RpcFunction;
-}
+pub const fn check_rpc_parameter<T: CallableParam<RpcRequestContext, String>>() {}
 
-impl<R, F> IntoRpcFunction<(), R> for F
-where
-    R: Send + serde::Serialize + 'static,
-    F: Fn() -> R + Send + Sync + Copy + 'static,
-{
-    fn into_rpc_function(self, method: String) -> RpcFunction {
-        RpcFunction {
-            method: method.clone(),
-            type_id: self.type_id(),
-            handler: Box::new(move |_state, request| {
-                let method = method.clone();
-                Box::pin(async move {
-                    Ok(TypedRpcResponsePacket {
-                        id: request.id,
-                        result: serde_json::to_value(self())
-                            .map_err(|e| RpcError::FunctionError(method, anyhow::anyhow!(e)))?,
-                    })
-                })
-            }),
-        }
-    }
-}
+#[cfg(test)]
+mod tests {
+    use crate::{Store, StoreData};
 
-impl<R, Fut, F> IntoRpcFunction<PhantomData<()>, R> for F
-where
-    R: Send + serde::Serialize + 'static,
-    F: Fn() -> Fut + Send + Sync + Copy + 'static,
-    Fut: Future<Output = R> + Send + 'static,
-{
-    fn into_rpc_function(self, method: String) -> RpcFunction {
-        RpcFunction {
-            method,
-            type_id: self.type_id(),
-            handler: Box::new(move |_state, request| {
-                Box::pin(async move {
-                    let result = self().await;
-                    Ok(TypedRpcResponsePacket {
-                        id: request.id,
-                        result: serde_json::to_value(result)
-                            .map_err(RpcError::ResponseSerializationError)?,
-                    })
-                })
-            }),
-        }
-    }
-}
+    use super::*;
 
-macro_rules! impl_rpc_fn {
-    ($($members:ident),+) => {
-        #[allow(unused_parens)]
-        impl<
-            R,
-            $($members),*,
-            F: Send + Sync + Fn($($members),+) -> R + Send + Sync + Copy + 'static,
-        > IntoRpcFunction<($($members),*), R> for F
-        where
-            R: Send + Sync + serde::Serialize + 'static,
-            $($members: Send + Sync + FromRequest + 'static),+
-        {
-            #[allow(non_snake_case)]
-            fn into_rpc_function(self, method: String) -> RpcFunction {
-                RpcFunction {
-                    method: method.clone(),
-                    type_id: self.type_id(),
-                    handler: Box::new(move |app, mut request| {
-                        let method = method.clone();
-                        Box::pin(async move {
-                            let ($($members),+) = (
-                                $($members::from_request(&app, &mut request)
-                                    .await
-                                    .map_err(|e| RpcError::ParamsError(method.clone(), Box::new(e)))?
-                                ),+
-                            );
+    fn type_checks() {
+        check_rpc_parameter::<Params<i32>>();
+        check_rpc_parameter::<Params<(i32, String)>>();
 
-                            let result = serde_json::to_value(self($($members),+))?;
+        struct T {}
 
-                            Ok(TypedRpcResponsePacket {
-                                id: request.id,
-                                result,
-                            })
-                        })
-                    }),
-                }
+        impl StoreData for T {
+            type Data = i32;
+
+            fn init() -> Self::Data {
+                42
             }
         }
 
-        impl<
-            R,
-            Fut,
-            $($members),*,
-            F: Fn($($members),+) -> Fut + Send + Sync + Copy + 'static
-        > IntoRpcFunction<PhantomData<($($members),*,)>, R> for F
-        where
-            R: Send + Sync + serde::Serialize + 'static,
-            $($members: Send + Sync + FromRequest + 'static),+,
-            Fut: Future<Output = R> + Send + 'static,
-        {
-            #[allow(non_snake_case)]
-            fn into_rpc_function(self, method: String) -> RpcFunction {
-                RpcFunction {
-                    method: method.clone(),
-                    type_id: self.type_id(),
-                    handler: Box::new(move |app, mut request| {
-                        let method = method.clone();
-                        Box::pin(async move {
-                            #[allow(unused_parens)]
-                            let ($($members),+) = (
-                                $($members::from_request(&app, &mut request)
-                                    .await
-                                    .map_err(|e| RpcError::ParamsError(method.clone(), Box::new(e)))?
-                                ),+
-                            );
-
-                            let result = serde_json::to_value(self($($members),+).await)?;
-
-                            Ok(TypedRpcResponsePacket {
-                                id: request.id,
-                                result,
-                            })
-                        })
-                    }),
-                }
-            }
-        }
+        check_rpc_parameter::<Store<T>>();
     }
 }
-
-impl_rpc_fn!(P1);
-impl_rpc_fn!(P1, P2);
-impl_rpc_fn!(P1, P2, P3);
-impl_rpc_fn!(P1, P2, P3, P4);
-impl_rpc_fn!(P1, P2, P3, P4, P5);
-impl_rpc_fn!(P1, P2, P3, P4, P5, P6);
-impl_rpc_fn!(P1, P2, P3, P4, P5, P6, P7);
-impl_rpc_fn!(P1, P2, P3, P4, P5, P6, P7, P8);

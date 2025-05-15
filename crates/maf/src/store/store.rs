@@ -6,10 +6,12 @@ use std::{
     },
 };
 
-use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-use crate::{App, FromRequest, RpcRequest};
+use crate::{
+    callable::{CallableParam, CtxWithApp},
+    App,
+};
 
 use super::change_detection::StoreMut;
 
@@ -124,10 +126,13 @@ impl<T: StoreData> Store<T> {
     }
 }
 
-impl<T: StoreData> FromRequest for Store<T> {
+impl<T: StoreData, Ctx: CtxWithApp + Send + Sync, Init: Send + Sync> CallableParam<Ctx, Init>
+    for Store<T>
+{
     type Error = std::convert::Infallible;
 
-    async fn from_request(app: &App, _request: &mut RpcRequest) -> Result<Self, Self::Error> {
+    async fn extract(ctx: &mut Ctx, _init: &Init) -> Result<Self, Self::Error> {
+        let app = ctx.app();
         let key = T::key().into();
 
         let existing_store = app.inner.state.stores.read().await.get(&key).cloned();

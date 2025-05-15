@@ -1,8 +1,8 @@
 use serde::de::DeserializeOwned;
 
-use crate::App;
+use crate::{callable::CallableParam, User};
 
-use super::{FromRequest, RpcRequest, RpcRequestData};
+use super::{RpcError, RpcRequestContext, RpcRequestData};
 
 #[derive(Debug)]
 pub struct Params<T: DeserializeOwned>(pub T);
@@ -15,18 +15,25 @@ pub enum ParamsError {
     DataAlreadyConsumed,
 }
 
-impl<T: DeserializeOwned> FromRequest for Params<T> {
-    type Error = ParamsError;
+impl<T: DeserializeOwned> CallableParam<RpcRequestContext, String> for Params<T> {
+    type Error = RpcError;
 
-    async fn from_request(_app: &App, request: &mut RpcRequest) -> Result<Self, Self::Error> {
-        let data = match request
-            .data
-            .take()
-            .ok_or(ParamsError::DataAlreadyConsumed)?
-        {
-            RpcRequestData::Typed(data) => serde_json::from_value(data)?,
-        };
+    async fn extract(ctx: &mut RpcRequestContext, init: &String) -> Result<Self, Self::Error> {
+        let data =
+            match ctx.request.data.take().ok_or_else(|| {
+                RpcError::ParamsError(init.clone(), ParamsError::DataAlreadyConsumed)
+            })? {
+                RpcRequestData::Typed(data) => serde_json::from_value(data)?,
+            };
 
         Ok(Self(data))
+    }
+}
+
+impl<Init: Send + Sync> CallableParam<RpcRequestContext, Init> for User {
+    type Error = std::convert::Infallible;
+
+    async fn extract(ctx: &mut RpcRequestContext, _init: &Init) -> Result<Self, Self::Error> {
+        Ok(ctx.request.user.clone())
     }
 }

@@ -1,6 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Context;
+use serde::Serialize;
 use tokio::sync::{
     mpsc::{self, error::TryRecvError},
     RwLock, RwLockReadGuard,
@@ -9,13 +10,17 @@ use uuid::Uuid;
 
 use crate::{
     bindings::bindgen,
+    callable::{self, AnyCallable, IntoCallable},
     channel::UntypedChannelBroadcast,
     packet::{ChannelSendRx, OneStoreUpdate, RxPacket, TxPacket},
-    rpc::{models::TypedRpcRequestPacket, IntoRpcFunction, RpcError, RpcStore},
+    rpc::{
+        models::{TypedRpcRequestPacket, TypedRpcResponsePacket},
+        RpcError, RpcRequestContext, RpcStore,
+    },
     store::{AnyStore, StoreKey},
     tasks::{self, Runtime},
     user::UserMessage,
-    Channel, StoreData, User, UserListener,
+    Channel, RpcFunction, StoreData, User, UserListener,
 };
 
 use super::{
@@ -263,10 +268,40 @@ impl AppBuilder {
         self
     }
 
-    pub fn rpc<P, R>(mut self, path: impl ToString, handler: impl IntoRpcFunction<P, R>) -> Self {
-        let path = path.to_string();
-        self.rpc_functions
-            .add_rpc_function(handler.into_rpc_function(path));
+    pub fn rpc<Params, Ret, const ASYNC: bool, H>(
+        mut self,
+        method: impl ToString,
+        handler: H,
+    ) -> Self
+    where
+        H: IntoCallable<RpcRequestContext, Params, Ret, RpcError, String, ASYNC>
+            + Send
+            + Sync
+            + Copy
+            + 'static,
+        Ret: Serialize + 'static,
+    {
+        let method = method.to_string();
+        let callable: Arc<AnyCallable<RpcRequestContext, Ret, RpcError>> =
+            Arc::from(handler.into_callable(method.clone()));
+
+        self.rpc_functions.add_rpc_function(RpcFunction {
+            type_id: std::any::TypeId::of::<H>(),
+            method: method.clone(),
+            handler: Box::new(move |ctx| {
+                let callable = callable.clone();
+
+                Box::pin(async move {
+                    let id = ctx.request.id;
+                    let result = callable(ctx).await?;
+
+                    Ok(TypedRpcResponsePacket {
+                        id,
+                        result: serde_json::to_value(result)?,
+                    })
+                })
+            }),
+        });
         self
     }
 

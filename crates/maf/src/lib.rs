@@ -1,5 +1,6 @@
 pub mod app;
 pub mod bindings;
+mod callable;
 pub mod channel;
 pub mod packet;
 mod rpc;
@@ -10,7 +11,7 @@ pub(crate) mod utils;
 
 pub use app::{App, AppBuilder, Plugin};
 pub use channel::{Channel, RecvError};
-pub use rpc::{FromRequest, IntoRpcFunction, Params, RpcFunction, RpcRequest};
+pub use rpc::{Params, RpcFunction, RpcRequest};
 pub use store::{Store, StoreData};
 pub use user::{SendError, User, UserListener};
 pub use uuid::Uuid;
