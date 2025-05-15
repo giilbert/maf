@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::{
     bindings::bindgen,
-    callable::{self, AnyCallable, IntoCallable},
+    callable::{AnyCallable, IntoCallable},
     channel::UntypedChannelBroadcast,
     packet::{ChannelSendRx, OneStoreUpdate, RxPacket, TxPacket},
     rpc::{
@@ -268,13 +268,9 @@ impl AppBuilder {
         self
     }
 
-    pub fn rpc<Params, Ret, const ASYNC: bool, H>(
-        mut self,
-        method: impl ToString,
-        handler: H,
-    ) -> Self
+    pub fn rpc<AsyncMarker, Params, Ret, H>(mut self, method: impl ToString, handler: H) -> Self
     where
-        H: IntoCallable<RpcRequestContext, Params, Ret, RpcError, String, ASYNC>
+        H: IntoCallable<RpcRequestContext, Params, Ret, RpcError, String, AsyncMarker>
             + Send
             + Sync
             + Copy

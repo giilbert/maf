@@ -111,6 +111,7 @@ mod tests {
 
     use super::*;
 
+    #[test]
     fn type_checks() {
         check_rpc_parameter::<Params<i32>>();
         check_rpc_parameter::<Params<(i32, String)>>();

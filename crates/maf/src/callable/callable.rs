@@ -1,13 +1,16 @@
-use std::{future::Future, pin::Pin, sync::Arc};
+use std::{future::Future, marker::PhantomData, pin::Pin, sync::Arc};
 
 use crate::callable::CallableParam;
 
 pub type AnyCallable<Ctx, Ret, Err> =
     Box<dyn Fn(Ctx) -> Pin<Box<dyn Future<Output = Result<Ret, Err>>>> + Send + Sync>;
 
-pub trait IntoCallable<Ctx, Params, Ret, Err, Init: Send, const ASYNC: bool> {
+pub trait IntoCallable<Ctx, Params, Ret, Err, Init: Send, AsyncMarker> {
     fn into_callable(self, init: Init) -> AnyCallable<Ctx, Ret, Err>;
 }
+
+pub struct MarkerSync;
+pub struct MarkerAsync;
 
 macro_rules! impl_into_callable {
     ($($members:ident),+) => {
@@ -19,11 +22,12 @@ macro_rules! impl_into_callable {
             Init,
             $($members),*,
             F
-        > IntoCallable<Ctx, ($($members),*), Ret, Err, Init, false> for F
+        > IntoCallable<Ctx, ($($members),*), Ret, Err, Init, MarkerSync> for F
         where
             F: (Fn($($members),*) -> Ret) + Copy + Send + Sync + 'static,
             $($members: CallableParam<Ctx, Init>),*,
             $(Err: From<$members::Error>),*,
+            Ret: serde::Serialize,
             Init: Send + Sync + 'static,
             Ctx: 'static,
         {
@@ -50,11 +54,12 @@ macro_rules! impl_into_callable {
             $($members),*,
             F,
             Fut
-        > IntoCallable<Ctx, ($($members),*), Ret, Err, Init, true> for F
+        > IntoCallable<Ctx, PhantomData<($($members),*)>, Ret, Err, Init, MarkerAsync> for F
         where
             F: (Fn($($members),*) -> Fut) + Copy + Send + Sync + 'static,
             $($members: CallableParam<Ctx, Init>),*,
             $(Err: From<$members::Error>),*,
+            Ret: serde::Serialize,
             Init: Send + Sync + 'static,
             Ctx: 'static,
             Fut: Future<Output = Ret> + Send + Sync + 'static
@@ -75,7 +80,7 @@ macro_rules! impl_into_callable {
     }
 }
 
-impl<Ctx, Ret, Err, Init, F> IntoCallable<Ctx, (), Ret, Err, Init, false> for F
+impl<Ctx, Ret, Err, Init, F> IntoCallable<Ctx, (), Ret, Err, Init, MarkerSync> for F
 where
     F: (Fn() -> Ret) + Copy + Send + Sync + 'static,
     Init: Send + Sync + 'static,
@@ -86,7 +91,7 @@ where
     }
 }
 
-impl<Ctx, Ret, Err, Init, F, Fut> IntoCallable<Ctx, (), Ret, Err, Init, true> for F
+impl<Ctx, Ret, Err, Init, F, Fut> IntoCallable<Ctx, (), Ret, Err, Init, MarkerAsync> for F
 where
     F: (Fn() -> Fut) + Copy + Send + Sync + 'static,
     Init: Send + Sync + 'static,
@@ -98,7 +103,7 @@ where
     }
 }
 
-impl<Ctx, Ret, Err, Init, T1, F> IntoCallable<Ctx, (T1,), Ret, Err, Init, false> for F
+impl<Ctx, Ret, Err, Init, T1, F> IntoCallable<Ctx, (T1,), Ret, Err, Init, MarkerSync> for F
 where
     F: (Fn(T1) -> Ret) + Copy + Send + Sync + 'static,
     T1: CallableParam<Ctx, Init>,
@@ -120,11 +125,12 @@ where
     }
 }
 
-impl<Ctx, Ret, Err, Init, T1, F, Fut> IntoCallable<Ctx, (T1,), Ret, Err, Init, true> for F
+impl<Ctx, Ret, Err, Init, T1, F, Fut> IntoCallable<Ctx, (T1,), Ret, Err, Init, MarkerAsync> for F
 where
     F: (Fn(T1) -> Fut) + Copy + Send + Sync + 'static,
     T1: CallableParam<Ctx, Init>,
     Err: From<T1::Error>,
+    Ret: serde::Serialize,
     Init: Send + Sync + 'static,
     Ctx: 'static,
     Fut: Future<Output = Ret> + Send + Sync + 'static,
