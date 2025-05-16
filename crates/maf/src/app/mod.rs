@@ -9,3 +9,4 @@ pub use plugin::Plugin;
 pub use state::State;
 
 pub(crate) use app::AppState;
+pub(crate) use state::StateError;

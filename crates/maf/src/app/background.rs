@@ -1,6 +1,6 @@
 use crate::callable::{AnyCallable, CallableFetch};
 
-use super::App;
+use super::{state::StateError, App};
 
 pub type BackgroundFn = AnyCallable<BackgroundFnContext, (), BackgroundFnError>;
 
@@ -10,6 +10,9 @@ pub struct BackgroundFnContext {
 
 #[derive(Debug, thiserror::Error)]
 pub enum BackgroundFnError {
+    #[error("state error: {0}")]
+    State(#[from] StateError),
+
     #[error("infalliable error: {0}")]
     Infalliable(#[from] std::convert::Infallible),
 }

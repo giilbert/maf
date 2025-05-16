@@ -33,7 +33,7 @@ use params::ParamsError;
 
 use crate::{
     callable::{AnyCallable, CallableFetch},
-    App, SendError, User,
+    App, SendError, StateError, User,
 };
 
 pub struct RpcFunction {
@@ -94,6 +94,9 @@ pub enum RpcError {
 
     #[error("other error: {0}")]
     Other(#[from] anyhow::Error),
+
+    #[error("state error: {0}")]
+    State(#[from] StateError),
 
     #[error("infalliable error: {0}")]
     Infalliable(#[from] std::convert::Infallible),

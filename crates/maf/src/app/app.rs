@@ -40,6 +40,7 @@ pub struct App {
 pub struct AppInner {
     pub(crate) state: Arc<AppState>,
     pub(crate) rpc_functions: RpcStore,
+    pub(crate) states: StateStore,
     pub(crate) store_dirty_rx: RwLock<mpsc::Receiver<StoreKey>>,
     pub(crate) on_connect: Option<Arc<OnConnectDisconnectFn>>,
     pub(crate) on_disconnect: Option<Arc<OnConnectDisconnectFn>>,
@@ -460,7 +461,7 @@ impl AppBuilder {
     }
 
     /// Declare a store
-    pub fn state<T: 'static>(mut self, state: T) -> Self {
+    pub fn state<T: Send + Sync + 'static>(mut self, state: T) -> Self {
         self.states.insert(state);
         self
     }
@@ -481,6 +482,7 @@ impl AppBuilder {
         let inner = AppInner {
             state,
             store_dirty_rx: RwLock::new(store_dirty_rx),
+            states: self.states,
             rpc_functions: self.rpc_functions,
             on_connect: self.on_connect,
             on_disconnect: self.on_disconnect,

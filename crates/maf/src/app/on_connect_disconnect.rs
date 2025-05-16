@@ -3,6 +3,8 @@ use crate::{
     App, User,
 };
 
+use super::state::StateError;
+
 pub type OnConnectDisconnectFn =
     AnyCallable<OnConnectDiconnectContext, (), OnConnectDisconnectError>;
 
@@ -13,6 +15,8 @@ pub struct OnConnectDiconnectContext {
 
 #[derive(Debug, thiserror::Error)]
 pub enum OnConnectDisconnectError {
+    #[error("state error: {0}")]
+    State(#[from] StateError),
     #[error("infalliable error: {0}")]
     Infalliable(#[from] std::convert::Infallible),
 }
