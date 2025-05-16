@@ -9,7 +9,7 @@ pub mod tasks;
 mod user;
 pub(crate) mod utils;
 
-pub use app::{App, AppBuilder, Plugin};
+pub use app::{App, AppBuilder, Plugin, State};
 pub use channel::{Channel, RecvError};
 pub use rpc::{Params, RpcFunction, RpcRequest};
 pub use store::{Store, StoreData};

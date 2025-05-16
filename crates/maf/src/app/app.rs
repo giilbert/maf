@@ -29,6 +29,7 @@ use super::{
     on_connect_disconnect::{
         OnConnectDiconnectContext, OnConnectDisconnectError, OnConnectDisconnectFn,
     },
+    state::StateStore,
 };
 
 #[derive(Clone)]
@@ -60,6 +61,7 @@ pub struct AppBuilder {
     on_disconnect: Option<Arc<OnConnectDisconnectFn>>,
     background: Option<Arc<BackgroundFn>>,
     rpc_functions: RpcStore,
+    states: StateStore,
     stores: HashMap<StoreKey, AnyStore>,
 }
 
@@ -454,6 +456,12 @@ impl AppBuilder {
     /// Statically declare a store, initializing it with the default value.
     pub fn store<T: StoreData>(mut self) -> Self {
         self.stores.insert(T::key().into(), AnyStore::new::<T>());
+        self
+    }
+
+    /// Declare a store
+    pub fn state<T: 'static>(mut self, state: T) -> Self {
+        self.states.insert(state);
         self
     }
 

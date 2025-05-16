@@ -41,6 +41,11 @@ pub enum StoreSerializeError {
     Serialize(#[from] serde_json::Error),
 }
 
+/// [`Store`] is a wrapper around shared data that can be accessed throughout the app and
+/// **synchronized with connected clients**.
+///
+/// The data stored in [`Store`] must implement [`StoreData`], describing initialization and access
+/// methods.
 pub struct Store<T: StoreData> {
     app: App,
     inner: AnyStore,
@@ -50,6 +55,7 @@ pub struct Store<T: StoreData> {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct StoreKey(Arc<str>);
 
+/// Describes the data stored in a [`Store`].
 pub trait StoreData: 'static {
     type Data: Send + Sync + 'static;
 
