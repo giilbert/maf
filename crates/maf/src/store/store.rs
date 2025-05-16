@@ -9,7 +9,7 @@ use std::{
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::{
-    callable::{CallableParam, CtxWithApp},
+    callable::{CallableFetch, CallableParam},
     App,
 };
 
@@ -126,13 +126,13 @@ impl<T: StoreData> Store<T> {
     }
 }
 
-impl<T: StoreData, Ctx: CtxWithApp + Send + Sync, Init: Send + Sync> CallableParam<Ctx, Init>
-    for Store<T>
+impl<T: StoreData, Ctx: CallableFetch<App> + Send + Sync, Init: Send + Sync>
+    CallableParam<Ctx, Init> for Store<T>
 {
     type Error = std::convert::Infallible;
 
     async fn extract(ctx: &mut Ctx, _init: &Init) -> Result<Self, Self::Error> {
-        let app = ctx.app();
+        let app = ctx.fetch();
         let key = T::key().into();
 
         let existing_store = app.inner.state.stores.read().await.get(&key).cloned();

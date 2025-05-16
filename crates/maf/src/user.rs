@@ -118,7 +118,7 @@ impl User {
         })
     }
 
-    pub(crate) async fn handle_messages(&self, app: Arc<App>) -> Result<(), bindgen::ListenError> {
+    pub(crate) async fn handle_messages(&self, app: App) -> Result<(), bindgen::ListenError> {
         let messages = self.listen_messages()?;
 
         loop {

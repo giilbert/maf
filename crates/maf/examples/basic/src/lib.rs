@@ -20,7 +20,7 @@ async fn increment_counter(Params(counter): Params<i32>, test: Store<CounterStor
     *data
 }
 
-async fn on_connect(user: User) {
+fn on_connect(user: User) {
     println!("!!! user connected! id: {}", user.meta.id());
     println!("HAIII");
 }

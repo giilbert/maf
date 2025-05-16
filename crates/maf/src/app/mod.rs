@@ -7,4 +7,3 @@ pub use app::{App, AppBuilder};
 pub use plugin::Plugin;
 
 pub(crate) use app::AppState;
-pub(crate) use on_connect::IntoOnConnect;

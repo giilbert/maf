@@ -9,7 +9,7 @@ use models::{TypedRpcRequestPacket, TypedRpcResponsePacket};
 use params::ParamsError;
 
 use crate::{
-    callable::{AnyCallable, CallableParam},
+    callable::{AnyCallable, CallableFetch, CallableParam},
     App, SendError, User,
 };
 
@@ -103,7 +103,17 @@ impl RpcStore {
     }
 }
 
-pub const fn check_rpc_parameter<T: CallableParam<RpcRequestContext, String>>() {}
+impl CallableFetch<App> for RpcRequestContext {
+    fn fetch(&self) -> App {
+        self.app.clone()
+    }
+}
+
+impl CallableFetch<User> for RpcRequestContext {
+    fn fetch(&self) -> User {
+        self.request.user.clone()
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -113,6 +123,8 @@ mod tests {
 
     #[test]
     fn type_checks() {
+        const fn check_rpc_parameter<T: CallableParam<RpcRequestContext, String>>() {}
+
         check_rpc_parameter::<Params<i32>>();
         check_rpc_parameter::<Params<(i32, String)>>();
 

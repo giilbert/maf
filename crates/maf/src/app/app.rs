@@ -25,8 +25,7 @@ use crate::{
 
 use super::{
     background::{BackgroundFn, IntoBackgroundFn},
-    on_connect::OnConnectFn,
-    IntoOnConnect,
+    on_connect::{OnConnectContext, OnConnectError, OnConnectFn},
 };
 
 #[derive(Clone)]
@@ -64,7 +63,7 @@ impl App {
         AppBuilder::default()
     }
 
-    async fn handle_connections(self: Arc<Self>) -> Result<(), bindgen::ListenError> {
+    async fn handle_connections(self) -> Result<(), bindgen::ListenError> {
         let users = UserListener::new(self.inner.state.clone())?;
 
         // TODO: handle errors
@@ -101,7 +100,10 @@ impl App {
             let app = self.clone();
             self.inner.on_connect.as_ref().map(|handler| {
                 let handler = handler.clone();
-                tasks::spawn(handler(&app, user));
+                tasks::spawn(handler(OnConnectContext {
+                    app: app.clone(),
+                    user,
+                }));
             });
         }
     }
@@ -236,7 +238,7 @@ impl App {
             .as_ref()
             .map(|handler| tasks::spawn(handler(self.clone())));
 
-        let app = Arc::new(self);
+        let app = self.clone();
         app.handle_connections()
             .await
             .expect("failed to handle connections");
@@ -263,12 +265,19 @@ impl App {
 }
 
 impl AppBuilder {
-    pub fn on_connect<P, R>(mut self, handler: impl IntoOnConnect<P, R>) -> Self {
-        self.on_connect = Some(handler.into_on_connect());
+    pub fn on_connect<Params, H, AsyncMarker>(mut self, handler: H) -> Self
+    where
+        H: IntoCallable<OnConnectContext, Params, (), OnConnectError, (), AsyncMarker>
+            + Send
+            + Sync
+            + Copy
+            + 'static,
+    {
+        self.on_connect = Some(handler.into_callable(()).into());
         self
     }
 
-    pub fn rpc<AsyncMarker, Params, Ret, H>(mut self, method: impl ToString, handler: H) -> Self
+    pub fn rpc<Params, Ret, H, AsyncMarker>(mut self, method: impl ToString, handler: H) -> Self
     where
         H: IntoCallable<RpcRequestContext, Params, Ret, RpcError, String, AsyncMarker>
             + Send

@@ -1,6 +1,6 @@
 use serde::de::DeserializeOwned;
 
-use crate::{callable::CallableParam, User};
+use crate::callable::CallableParam;
 
 use super::{RpcError, RpcRequestContext, RpcRequestData};
 
@@ -27,13 +27,5 @@ impl<T: DeserializeOwned> CallableParam<RpcRequestContext, String> for Params<T>
             };
 
         Ok(Self(data))
-    }
-}
-
-impl<Init: Send + Sync> CallableParam<RpcRequestContext, Init> for User {
-    type Error = std::convert::Infallible;
-
-    async fn extract(ctx: &mut RpcRequestContext, _init: &Init) -> Result<Self, Self::Error> {
-        Ok(ctx.request.user.clone())
     }
 }

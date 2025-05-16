@@ -1,77 +1,55 @@
-use std::{future::Future, pin::Pin, sync::Arc};
+use crate::{
+    callable::{AnyCallable, CallableFetch},
+    App, User,
+};
 
-use crate::{utils::UnitFuture, App, User};
+pub type OnConnectFn = AnyCallable<OnConnectContext, (), OnConnectError>;
 
-pub type OnConnectFn = dyn Fn(&App, User) -> Pin<Box<dyn Future<Output = ()>>> + Send + Sync;
-
-pub trait IntoOnConnect<Params, Returns> {
-    fn into_on_connect(self) -> Arc<OnConnectFn>;
+pub struct OnConnectContext {
+    pub app: App,
+    pub user: User,
 }
 
-pub trait OnConnectParameter: Send {
-    fn extract(app: &App, user: &User) -> Self;
+#[derive(Debug, thiserror::Error)]
+pub enum OnConnectError {
+    #[error("infalliable error: {0}")]
+    Infalliable(#[from] std::convert::Infallible),
 }
 
-macro_rules! impl_on_connect_fn {
-    ($($members:ident),+) => {
-        // non-async impl
-        #[allow(unused_parens)]
-        impl<
-            F: Fn($($members),+) -> () + Clone + Send + Sync + 'static,
-            $($members: OnConnectParameter + 'static),+
-        > IntoOnConnect<($($members),*), ()> for F {
-            fn into_on_connect(self) -> Arc<OnConnectFn> {
-                Arc::new(move |app, user| {
-                    let f = self.clone();
-                    #[allow(non_snake_case)]
-                    let ($($members),+) = ($($members::extract(app, &user)),+);
-                    Box::pin(async move {
-                        f($($members),+);
-                    })
-                })
-            }
-        }
-
-        // async impl
-        #[allow(unused_parens)]
-        impl<
-            F: Fn($($members),+) -> Returns + Clone + Send + Sync + 'static,
-            Returns: Future<Output = ()> + Send + 'static,
-            $($members: OnConnectParameter + 'static),+
-        > IntoOnConnect<($($members),*), UnitFuture> for F
-        {
-            fn into_on_connect(self) -> Arc<OnConnectFn> {
-                Arc::new(move |app, user| {
-                    let f = self.clone();
-                    #[allow(non_snake_case)]
-                    let ($($members),+) = ($($members::extract(app, &user)),+);
-                    Box::pin(async move {
-                        f($($members),+).await;
-                    })
-                })
-            }
-        }
-
-    };
-}
-
-impl_on_connect_fn!(P1);
-impl_on_connect_fn!(P1, P2);
-impl_on_connect_fn!(P1, P2, P3);
-impl_on_connect_fn!(P1, P2, P3, P4);
-impl_on_connect_fn!(P1, P2, P3, P4, P5);
-impl_on_connect_fn!(P1, P2, P3, P4, P5, P6);
-impl_on_connect_fn!(P1, P2, P3, P4, P5, P6, P7);
-impl_on_connect_fn!(P1, P2, P3, P4, P5, P6, P7, P8);
-
-impl OnConnectParameter for User {
-    fn extract(_app: &App, user: &User) -> Self {
-        user.clone()
+impl CallableFetch<App> for OnConnectContext {
+    fn fetch(&self) -> App {
+        self.app.clone()
     }
 }
 
-impl OnConnectParameter for App {
-    fn extract(app: &App, _user: &User) -> Self {
-        app.clone()
+impl CallableFetch<User> for OnConnectContext {
+    fn fetch(&self) -> User {
+        self.user.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{callable::CallableParam, Store, StoreData};
+
+    use super::*;
+
+    #[test]
+    fn type_checks() {
+        const fn check_on_connect_parameter<T: CallableParam<OnConnectContext, String>>() {}
+
+        struct T {}
+
+        impl StoreData for T {
+            type Data = i32;
+
+            fn init() -> Self::Data {
+                42
+            }
+        }
+
+        check_on_connect_parameter::<Store<T>>();
+        check_on_connect_parameter::<User>();
+        check_on_connect_parameter::<App>();
     }
 }
