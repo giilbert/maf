@@ -268,6 +268,24 @@ impl App {
 }
 
 impl AppBuilder {
+    /// Register a function to run when a user connects. To get the user object, use the [`User`]
+    /// struct as a parameter.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// use maf::*;
+    ///
+    /// fn on_connect(user: User) {
+    ///     println!("user connected! id: {}", user.meta.id());
+    /// }
+    ///
+    /// fn build() -> App {
+    ///    App::builder()
+    ///        .on_connect(on_connect)
+    ///        .build()
+    /// }
+    /// ```
     pub fn on_connect<Params, Handler, const IS_ASYNC: bool>(mut self, handler: Handler) -> Self
     where
         Handler: IntoCallable<OnConnectContext, Params, (), OnConnectError, (), IS_ASYNC>,
@@ -276,6 +294,39 @@ impl AppBuilder {
         self
     }
 
+    /// Register a new RPC method.
+    ///
+    /// See [`crate::rpc`] module-level documentation for more details on RPCs.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// use maf::*;
+    ///
+    /// struct CounterStore;
+    ///
+    /// impl StoreData for CounterStore {
+    ///     type Data = i32;
+    ///
+    ///     fn init() -> Self::Data {
+    ///         0
+    ///     }
+    /// }
+    ///
+    /// async fn add(Params(count): Params<i32>, store: Store<CounterStore>) -> i32 {
+    ///     let mut data = store.write().await;
+    ///     *data += count;
+    ///     println!("incremented counter by {count}. new value: {}", &*data);
+    ///     *data
+    /// }
+    ///
+    /// fn build() -> App {
+    ///     App::builder()
+    ///         .rpc("add", add)
+    ///         .store::<CounterStore>()
+    ///         .build()
+    /// }
+    /// ```
     pub fn rpc<Params, Return, Handler, const IS_ASYNC: bool>(
         mut self,
         method: impl ToString,
@@ -312,6 +363,26 @@ impl AppBuilder {
         self
     }
 
+    /// Register a task to run in the background.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// use maf::*;
+    ///
+    /// async fn background() {
+    ///     loop {
+    ///         tasks::sleep(std::time::Duration::from_secs(1)).await;
+    ///         println!("Hello from the background!");  
+    ///     }
+    /// }
+    ///
+    /// fn build() -> App {
+    ///     App::builder()
+    ///         .background(background)
+    ///         .build()
+    /// }
+    /// ```
     pub fn background<Params, Handler, const IS_ASYNC: bool>(mut self, handler: Handler) -> Self
     where
         Handler: IntoCallable<BackgroundFnContext, Params, (), BackgroundFnError, (), IS_ASYNC>,
@@ -320,7 +391,7 @@ impl AppBuilder {
         self
     }
 
-    /// Statically declare a store
+    /// Statically declare a store, initializing it with the default value.
     pub fn store<T: StoreData>(mut self) -> Self {
         self.stores.insert(T::key().into(), AnyStore::new::<T>());
         self

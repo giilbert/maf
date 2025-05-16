@@ -1,3 +1,26 @@
+//! This module provides the RPC (Remote Procedure Call) functionality for the application.
+//!
+//! It allows a MAF client to call functions on the server and receive responses.
+//!
+//! ## Parameters
+//! An RPC function can accept parameters in the form of [`Params<T>`], where `T` is the type of the
+//! parameter. If multiple inputs are needed, they can be passed as a tuple, e.g.
+//! `Params<(i32, String)>`. The parameters will be deserialized from the JSON request body, leaving
+//! it up to the client to ensure the correct types are sent and are in the correct order.
+//!
+//! ## Return Values
+//! The return value of an RPC function can be any type that implements [`serde::Serialize`]. The
+//! response will be serialized to JSON and sent back to the client.
+//!
+//! ## Additional APIs
+//! An RPC function declaration can take in additional parameters which can be used to access
+//! additional MAF APIs:
+//!
+//! - [`crate::App`]: The app instance that the RPC function is running in.
+//! - [`crate::User`]: The user that made the request.
+//! - [`crate::Store<T>`]: A store instance that can be used to access shared data.
+//! - [`crate::Channel<T>`]: A channel instance that can be used to send messages to clients.
+
 pub mod models;
 mod params;
 
