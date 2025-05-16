@@ -1,6 +1,6 @@
 mod app;
 mod background;
-mod on_connect;
+mod on_connect_disconnect;
 mod plugin;
 
 pub use app::{App, AppBuilder};

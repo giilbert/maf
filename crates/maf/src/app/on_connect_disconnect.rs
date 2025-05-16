@@ -3,26 +3,27 @@ use crate::{
     App, User,
 };
 
-pub type OnConnectFn = AnyCallable<OnConnectContext, (), OnConnectError>;
+pub type OnConnectDisconnectFn =
+    AnyCallable<OnConnectDiconnectContext, (), OnConnectDisconnectError>;
 
-pub struct OnConnectContext {
+pub struct OnConnectDiconnectContext {
     pub app: App,
     pub user: User,
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum OnConnectError {
+pub enum OnConnectDisconnectError {
     #[error("infalliable error: {0}")]
     Infalliable(#[from] std::convert::Infallible),
 }
 
-impl CallableFetch<App> for OnConnectContext {
+impl CallableFetch<App> for OnConnectDiconnectContext {
     fn fetch(&self) -> App {
         self.app.clone()
     }
 }
 
-impl CallableFetch<User> for OnConnectContext {
+impl CallableFetch<User> for OnConnectDiconnectContext {
     fn fetch(&self) -> User {
         self.user.clone()
     }
@@ -36,7 +37,10 @@ mod tests {
 
     #[test]
     fn type_checks() {
-        const fn check_on_connect_parameter<T: CallableParam<OnConnectContext, String>>() {}
+        const fn check_on_connect_disconnect_parameter<
+            T: CallableParam<OnConnectDiconnectContext, ()>,
+        >() {
+        }
 
         struct T {}
 
@@ -48,8 +52,8 @@ mod tests {
             }
         }
 
-        check_on_connect_parameter::<Store<T>>();
-        check_on_connect_parameter::<User>();
-        check_on_connect_parameter::<App>();
+        check_on_connect_disconnect_parameter::<Store<T>>();
+        check_on_connect_disconnect_parameter::<User>();
+        check_on_connect_disconnect_parameter::<App>();
     }
 }

@@ -26,7 +26,9 @@ use crate::{
 
 use super::{
     background::{BackgroundFn, BackgroundFnError},
-    on_connect::{OnConnectContext, OnConnectError, OnConnectFn},
+    on_connect_disconnect::{
+        OnConnectDiconnectContext, OnConnectDisconnectError, OnConnectDisconnectFn,
+    },
 };
 
 #[derive(Clone)]
@@ -38,7 +40,8 @@ pub struct AppInner {
     pub(crate) state: Arc<AppState>,
     pub(crate) rpc_functions: RpcStore,
     pub(crate) store_dirty_rx: RwLock<mpsc::Receiver<StoreKey>>,
-    pub(crate) on_connect: Option<Arc<OnConnectFn>>,
+    pub(crate) on_connect: Option<Arc<OnConnectDisconnectFn>>,
+    pub(crate) on_disconnect: Option<Arc<OnConnectDisconnectFn>>,
     pub(crate) background: Option<Arc<BackgroundFn>>,
 }
 
@@ -53,7 +56,8 @@ pub struct AppState {
 
 #[derive(Default)]
 pub struct AppBuilder {
-    on_connect: Option<Arc<OnConnectFn>>,
+    on_connect: Option<Arc<OnConnectDisconnectFn>>,
+    on_disconnect: Option<Arc<OnConnectDisconnectFn>>,
     background: Option<Arc<BackgroundFn>>,
     rpc_functions: RpcStore,
     stores: HashMap<StoreKey, AnyStore>,
@@ -82,6 +86,7 @@ impl App {
             // Listen for messages from the user and handle them
             let user_clone = user.clone();
             let app = self.clone();
+            let on_disconnect = self.inner.on_disconnect.clone();
             tasks::spawn(async move {
                 user_clone
                     .handle_messages(app.clone())
@@ -89,6 +94,21 @@ impl App {
                     .expect("failed to handle user messages");
 
                 // println!("user disconnected: {}", user_clone.meta.id());
+
+                match on_disconnect.as_ref() {
+                    Some(handler) => {
+                        let handler = handler.clone();
+                        if let Err(e) = handler(OnConnectDiconnectContext {
+                            app: app.clone(),
+                            user: user_clone.clone(),
+                        })
+                        .await
+                        {
+                            println!("failed to run on_disconnect handler: {e}");
+                        }
+                    }
+                    None => {}
+                }
 
                 app.inner
                     .state
@@ -101,7 +121,7 @@ impl App {
             let app = self.clone();
             self.inner.on_connect.as_ref().map(|handler| {
                 let handler = handler.clone();
-                tasks::spawn(handler(OnConnectContext {
+                tasks::spawn(handler(OnConnectDiconnectContext {
                     app: app.clone(),
                     user,
                 }));
@@ -288,9 +308,49 @@ impl AppBuilder {
     /// ```
     pub fn on_connect<Params, Handler, const IS_ASYNC: bool>(mut self, handler: Handler) -> Self
     where
-        Handler: IntoCallable<OnConnectContext, Params, (), OnConnectError, (), IS_ASYNC>,
+        Handler: IntoCallable<
+            OnConnectDiconnectContext,
+            Params,
+            (),
+            OnConnectDisconnectError,
+            (),
+            IS_ASYNC,
+        >,
     {
         self.on_connect = Some(handler.into_callable(()).into());
+        self
+    }
+
+    /// Register a function to run when a user disconnects. To get the user object, use the [`User`]
+    /// struct as a parameter.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// use maf::*;
+    ///
+    /// fn on_disconnect(user: User) {
+    ///     println!("user disconnected! id: {}", user.meta.id());
+    /// }
+    ///
+    /// fn build() -> App {
+    ///    App::builder()
+    ///        .on_disconnect(on_disconnect)
+    ///        .build()
+    /// }
+    /// ```
+    pub fn on_disconnect<Params, Handler, const IS_ASYNC: bool>(mut self, handler: Handler) -> Self
+    where
+        Handler: IntoCallable<
+            OnConnectDiconnectContext,
+            Params,
+            (),
+            OnConnectDisconnectError,
+            (),
+            IS_ASYNC,
+        >,
+    {
+        self.on_disconnect = Some(handler.into_callable(()).into());
         self
     }
 
@@ -415,6 +475,7 @@ impl AppBuilder {
             store_dirty_rx: RwLock::new(store_dirty_rx),
             rpc_functions: self.rpc_functions,
             on_connect: self.on_connect,
+            on_disconnect: self.on_disconnect,
             background: self.background,
         };
 
