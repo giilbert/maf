@@ -9,13 +9,14 @@ use tokio::sync::{
 use uuid::Uuid;
 
 use crate::{
+    app::background::BackgroundFnContext,
     bindings::bindgen,
     callable::{AnyCallable, IntoCallable},
     channel::UntypedChannelBroadcast,
     packet::{ChannelSendRx, OneStoreUpdate, RxPacket, TxPacket},
     rpc::{
         models::{TypedRpcRequestPacket, TypedRpcResponsePacket},
-        RpcError, RpcRequestContext, RpcStore,
+        RpcError, RpcRequestContext, RpcRequestInit, RpcStore,
     },
     store::{AnyStore, StoreKey},
     tasks::{self, Runtime},
@@ -24,7 +25,7 @@ use crate::{
 };
 
 use super::{
-    background::{BackgroundFn, IntoBackgroundFn},
+    background::{BackgroundFn, BackgroundFnError},
     on_connect::{OnConnectContext, OnConnectError, OnConnectFn},
 };
 
@@ -236,7 +237,7 @@ impl App {
             .inner
             .background
             .as_ref()
-            .map(|handler| tasks::spawn(handler(self.clone())));
+            .map(|handler| tasks::spawn(handler(BackgroundFnContext { app: self.clone() })));
 
         let app = self.clone();
         app.handle_connections()
@@ -244,7 +245,9 @@ impl App {
             .expect("failed to handle connections");
 
         if let Some(background) = background {
-            background.await;
+            if let Err(e) = background.await {
+                println!("background task failed: {e}");
+            }
         }
 
         println!("run_async finished")
@@ -265,33 +268,32 @@ impl App {
 }
 
 impl AppBuilder {
-    pub fn on_connect<Params, H, AsyncMarker>(mut self, handler: H) -> Self
+    pub fn on_connect<Params, Handler, const IS_ASYNC: bool>(mut self, handler: Handler) -> Self
     where
-        H: IntoCallable<OnConnectContext, Params, (), OnConnectError, (), AsyncMarker>
-            + Send
-            + Sync
-            + Copy
-            + 'static,
+        Handler: IntoCallable<OnConnectContext, Params, (), OnConnectError, (), IS_ASYNC>,
     {
         self.on_connect = Some(handler.into_callable(()).into());
         self
     }
 
-    pub fn rpc<Params, Ret, H, AsyncMarker>(mut self, method: impl ToString, handler: H) -> Self
+    pub fn rpc<Params, Return, Handler, const IS_ASYNC: bool>(
+        mut self,
+        method: impl ToString,
+        handler: Handler,
+    ) -> Self
     where
-        H: IntoCallable<RpcRequestContext, Params, Ret, RpcError, String, AsyncMarker>
-            + Send
-            + Sync
-            + Copy
-            + 'static,
-        Ret: Serialize + 'static,
+        Handler:
+            IntoCallable<RpcRequestContext, Params, Return, RpcError, RpcRequestInit, IS_ASYNC>,
+        Return: Serialize + 'static,
     {
         let method = method.to_string();
-        let callable: Arc<AnyCallable<RpcRequestContext, Ret, RpcError>> =
-            Arc::from(handler.into_callable(method.clone()));
+        let callable: Arc<AnyCallable<RpcRequestContext, Return, RpcError>> =
+            Arc::from(handler.into_callable(RpcRequestInit {
+                method: method.clone(),
+            }));
 
         self.rpc_functions.add_rpc_function(RpcFunction {
-            type_id: std::any::TypeId::of::<H>(),
+            type_id: std::any::TypeId::of::<Handler>(),
             method: method.clone(),
             handler: Box::new(move |ctx| {
                 let callable = callable.clone();
@@ -310,8 +312,11 @@ impl AppBuilder {
         self
     }
 
-    pub fn background<T>(mut self, handler: impl IntoBackgroundFn<T>) -> Self {
-        self.background = Some(handler.into_background_fn());
+    pub fn background<Params, Handler, const IS_ASYNC: bool>(mut self, handler: Handler) -> Self
+    where
+        Handler: IntoCallable<BackgroundFnContext, Params, (), BackgroundFnError, (), IS_ASYNC>,
+    {
+        self.background = Some(handler.into_callable(()).into());
         self
     }
 

@@ -9,7 +9,7 @@ use models::{TypedRpcRequestPacket, TypedRpcResponsePacket};
 use params::ParamsError;
 
 use crate::{
-    callable::{AnyCallable, CallableFetch, CallableParam},
+    callable::{AnyCallable, CallableFetch},
     App, SendError, User,
 };
 
@@ -43,6 +43,10 @@ pub enum RpcRequestData {
 pub struct RpcRequestContext {
     pub app: App,
     pub request: RpcRequest,
+}
+
+pub struct RpcRequestInit {
+    pub method: String,
 }
 
 #[derive(Debug, Default)]
@@ -117,13 +121,13 @@ impl CallableFetch<User> for RpcRequestContext {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Store, StoreData};
+    use crate::{callable::CallableParam, Store, StoreData};
 
     use super::*;
 
     #[test]
     fn type_checks() {
-        const fn check_rpc_parameter<T: CallableParam<RpcRequestContext, String>>() {}
+        const fn check_rpc_parameter<T: CallableParam<RpcRequestContext, RpcRequestInit>>() {}
 
         check_rpc_parameter::<Params<i32>>();
         check_rpc_parameter::<Params<(i32, String)>>();

@@ -2,7 +2,7 @@ use serde::de::DeserializeOwned;
 
 use crate::callable::CallableParam;
 
-use super::{RpcError, RpcRequestContext, RpcRequestData};
+use super::{RpcError, RpcRequestContext, RpcRequestData, RpcRequestInit};
 
 #[derive(Debug)]
 pub struct Params<T: DeserializeOwned>(pub T);
@@ -15,16 +15,18 @@ pub enum ParamsError {
     DataAlreadyConsumed,
 }
 
-impl<T: DeserializeOwned> CallableParam<RpcRequestContext, String> for Params<T> {
+impl<T: DeserializeOwned> CallableParam<RpcRequestContext, RpcRequestInit> for Params<T> {
     type Error = RpcError;
 
-    async fn extract(ctx: &mut RpcRequestContext, init: &String) -> Result<Self, Self::Error> {
-        let data =
-            match ctx.request.data.take().ok_or_else(|| {
-                RpcError::ParamsError(init.clone(), ParamsError::DataAlreadyConsumed)
-            })? {
-                RpcRequestData::Typed(data) => serde_json::from_value(data)?,
-            };
+    async fn extract(
+        ctx: &mut RpcRequestContext,
+        init: &RpcRequestInit,
+    ) -> Result<Self, Self::Error> {
+        let data = match ctx.request.data.take().ok_or_else(|| {
+            RpcError::ParamsError(init.method.clone(), ParamsError::DataAlreadyConsumed)
+        })? {
+            RpcRequestData::Typed(data) => serde_json::from_value(data)?,
+        };
 
         Ok(Self(data))
     }

@@ -5,12 +5,11 @@ use crate::callable::CallableParam;
 pub type AnyCallable<Ctx, Ret, Err> =
     Box<dyn Fn(Ctx) -> Pin<Box<dyn Future<Output = Result<Ret, Err>>>> + Send + Sync>;
 
-pub trait IntoCallable<Ctx, Params, Ret, Err, Init: Send, AsyncMarker> {
+pub trait IntoCallable<Ctx, Params, Ret, Err, Init: Send, const IS_ASYNC: bool>:
+    Send + Sync + Copy + 'static
+{
     fn into_callable(self, init: Init) -> AnyCallable<Ctx, Ret, Err>;
 }
-
-pub struct MarkerSync;
-pub struct MarkerAsync;
 
 macro_rules! impl_into_callable {
     ($($members:ident),+) => {
@@ -22,7 +21,7 @@ macro_rules! impl_into_callable {
             Init,
             $($members),*,
             F
-        > IntoCallable<Ctx, ($($members),*), Ret, Err, Init, MarkerSync> for F
+        > IntoCallable<Ctx, ($($members),*), Ret, Err, Init, false> for F
         where
             F: (Fn($($members),*) -> Ret) + Copy + Send + Sync + 'static,
             $($members: CallableParam<Ctx, Init>),*,
@@ -54,7 +53,7 @@ macro_rules! impl_into_callable {
             $($members),*,
             F,
             Fut
-        > IntoCallable<Ctx, PhantomData<($($members),*)>, Ret, Err, Init, MarkerAsync> for F
+        > IntoCallable<Ctx, PhantomData<($($members),*)>, Ret, Err, Init, false> for F
         where
             F: (Fn($($members),*) -> Fut) + Copy + Send + Sync + 'static,
             $($members: CallableParam<Ctx, Init>),*,
@@ -80,7 +79,7 @@ macro_rules! impl_into_callable {
     }
 }
 
-impl<Ctx, Ret, Err, Init, F> IntoCallable<Ctx, (), Ret, Err, Init, MarkerSync> for F
+impl<Ctx, Ret, Err, Init, F> IntoCallable<Ctx, (), Ret, Err, Init, false> for F
 where
     F: (Fn() -> Ret) + Copy + Send + Sync + 'static,
     Init: Send + Sync + 'static,
@@ -91,7 +90,7 @@ where
     }
 }
 
-impl<Ctx, Ret, Err, Init, F, Fut> IntoCallable<Ctx, (), Ret, Err, Init, MarkerAsync> for F
+impl<Ctx, Ret, Err, Init, F, Fut> IntoCallable<Ctx, (), Ret, Err, Init, true> for F
 where
     F: (Fn() -> Fut) + Copy + Send + Sync + 'static,
     Init: Send + Sync + 'static,
@@ -103,7 +102,7 @@ where
     }
 }
 
-impl<Ctx, Ret, Err, Init, T1, F> IntoCallable<Ctx, (T1,), Ret, Err, Init, MarkerSync> for F
+impl<Ctx, Ret, Err, Init, T1, F> IntoCallable<Ctx, (T1,), Ret, Err, Init, false> for F
 where
     F: (Fn(T1) -> Ret) + Copy + Send + Sync + 'static,
     T1: CallableParam<Ctx, Init>,
@@ -125,7 +124,7 @@ where
     }
 }
 
-impl<Ctx, Ret, Err, Init, T1, F, Fut> IntoCallable<Ctx, (T1,), Ret, Err, Init, MarkerAsync> for F
+impl<Ctx, Ret, Err, Init, T1, F, Fut> IntoCallable<Ctx, (T1,), Ret, Err, Init, true> for F
 where
     F: (Fn(T1) -> Fut) + Copy + Send + Sync + 'static,
     T1: CallableParam<Ctx, Init>,

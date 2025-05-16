@@ -61,6 +61,7 @@ pub trait StoreData: 'static {
         StoreKey::from(Self::name().as_ref())
     }
 
+    #[allow(unused_variables)]
     fn select(data: &Self::Data) -> impl serde::Serialize {
         ()
     }

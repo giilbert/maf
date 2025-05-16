@@ -1,36 +1,21 @@
-use std::{future::Future, pin::Pin, sync::Arc};
-
-use crate::utils::UnitFuture;
+use crate::callable::{AnyCallable, CallableFetch};
 
 use super::App;
 
-pub type BackgroundFn = dyn Fn(App) -> Pin<Box<dyn Future<Output = ()>>> + Send + Sync;
+pub type BackgroundFn = AnyCallable<BackgroundFnContext, (), BackgroundFnError>;
 
-pub trait IntoBackgroundFn<T> {
-    fn into_background_fn(self) -> Arc<BackgroundFn>;
+pub struct BackgroundFnContext {
+    pub app: App,
 }
 
-impl<F, R> IntoBackgroundFn<UnitFuture> for F
-where
-    R: Future<Output = ()> + Send + 'static,
-    F: Fn(App) -> R + Send + Sync + 'static,
-{
-    fn into_background_fn(self) -> Arc<BackgroundFn> {
-        Arc::new(move |app| {
-            let f = self(app);
-            Box::pin(f)
-        })
-    }
+#[derive(Debug, thiserror::Error)]
+pub enum BackgroundFnError {
+    #[error("infalliable error: {0}")]
+    Infalliable(#[from] std::convert::Infallible),
 }
 
-impl<F> IntoBackgroundFn<()> for F
-where
-    F: Fn(App) -> () + Send + Sync + 'static,
-{
-    fn into_background_fn(self) -> Arc<BackgroundFn> {
-        Arc::new(move |app| {
-            self(app);
-            Box::pin(async {})
-        })
+impl CallableFetch<App> for BackgroundFnContext {
+    fn fetch(&self) -> App {
+        self.app.clone()
     }
 }
