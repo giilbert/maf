@@ -1,4 +1,7 @@
 packages:
   - "www"
+  - "packages/compiler"
+  - "packages/compiler/lib"
+  - "packages/compiler/examples/*"
   - "packages/client"
   - "packages/client/examples/*"
