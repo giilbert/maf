@@ -42,6 +42,7 @@ export default class Compile extends Command {
       // TODO: handle this better
       witPath,
       worldName: "imports",
+      debugBuild: true,
       disableFeatures: ["http"],
     });
 
@@ -64,6 +65,6 @@ export default class Compile extends Command {
       }
     }
 
-    await fs.writeFile("out.wasm", result.component, "binary");
+    await fs.writeFile("build/out.wasm", result.component, "binary");
   }
 }
