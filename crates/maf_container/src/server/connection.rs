@@ -60,7 +60,7 @@ impl Connection {
                 ws_tx
                     .send(Message::Text(
                         serde_json::to_string(&serde_json::json!({
-                            "type": "handshake",
+                            "type": "Handshake",
                             "data": {
                                 "id": connection_id,
                             }
