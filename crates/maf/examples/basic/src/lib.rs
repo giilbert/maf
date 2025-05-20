@@ -8,6 +8,10 @@ impl StoreData for CounterStore {
     fn init() -> Self::Data {
         42
     }
+
+    fn select(data: &Self::Data) -> impl serde::Serialize {
+        data
+    }
 }
 
 async fn increment_counter(Params(counter): Params<i32>, test: Store<CounterStore>) -> i32 {
