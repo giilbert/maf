@@ -13,6 +13,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 ADD Cargo.lock ./
+ADD crates/maf_container ./crates/maf_container
 ADD crates/maf_container_host ./crates/maf_container_host
 ADD wit ./wit
 
@@ -29,7 +30,7 @@ RUN useradd -m -u 1000 maf_container_host
 
 # Make bundle directory
 RUN mkdir -p /app/bundle && \
-    chown -R maf_container:maf_container_host /app/bundle
+    chown -R maf_container_host:maf_container_host /app/bundle
 ENV BUNDLE_STORAGE_DIR=/app/bundle
 
 # Install dependencies
