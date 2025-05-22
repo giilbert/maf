@@ -1,6 +1,7 @@
 import Emittery from "emittery";
 import { Channel } from "./channel";
 import { Store, StoreOptions } from "./store";
+import { RxPacket, TxPacket } from "./packet";
 
 export interface MafClientOptions {
   url: URL | string;
