@@ -32,6 +32,7 @@ RUN useradd -m -u 1000 maf_container_host
 RUN mkdir -p /app/bundle && \
     chown -R maf_container_host:maf_container_host /app/bundle
 ENV BUNDLE_STORAGE_DIR=/app/bundle
+ENV ENVIRONMENT=production
 
 # Install dependencies
 RUN apt-get update && \
