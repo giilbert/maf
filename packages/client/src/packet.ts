@@ -1,4 +1,4 @@
-type TxPacket =
+export type TxPacket =
   | {
       type: "ChannelSend";
       data: {
@@ -15,7 +15,7 @@ type TxPacket =
       };
     };
 
-type RxPacket =
+export type RxPacket =
   | {
       type: "ChannelSend";
       data: {

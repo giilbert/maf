@@ -8,6 +8,7 @@ use axum::{
     },
     response::Response,
 };
+use bytes::Bytes;
 use futures_util::{
     SinkExt, StreamExt,
     stream::{SplitSink, SplitStream},
@@ -45,6 +46,7 @@ struct TakeableConnection {
 pub enum ConnectionCommand {
     Close,
     Send(bindings::Message),
+    SendPong(Bytes),
 }
 
 impl Connection {
@@ -60,7 +62,7 @@ impl Connection {
                 ws_tx
                     .send(Message::Text(
                         serde_json::to_string(&serde_json::json!({
-                            "type": "handshake",
+                            "type": "Handshake",
                             "data": {
                                 "id": connection_id,
                             }
@@ -137,10 +139,15 @@ impl Connection {
             .take()
             .ok_or_else(|| anyhow::anyhow!("connection has already been taken"))?;
 
+        let commands = self.shared.command_tx.clone();
+
         loop {
             tokio::select! {
                 message = &mut takeable.ws_rx.next() => {
                     match message {
+                        Some(Ok(Message::Ping(frame))) => {
+                            commands.send(ConnectionCommand::SendPong(frame)).await?;
+                        }
                         Some(Ok(message)) => {
                             self.handle_websocket_message(&takeable.message_tx, message).await?;
                         }
@@ -157,6 +164,11 @@ impl Connection {
                         Some(ConnectionCommand::Send(message)) => {
                             if let Err(error) = takeable.ws_tx.send(
                                 convert_to_axum_message(message)).await {
+                                tracing::warn!("an error occurred sending WebSocket message: {error:?}");
+                            }
+                        },
+                        Some(ConnectionCommand::SendPong(frame)) => {
+                            if let Err(error) = takeable.ws_tx.send(Message::Pong(frame)).await {
                                 tracing::warn!("an error occurred sending WebSocket message: {error:?}");
                             }
                         }
