@@ -129,9 +129,13 @@ impl Runtime {
             }
 
             // self.debug_pollables();
-            let ready_poll_indices = wasi::io::poll::poll(&pollable_ref);
+            let mut ready_poll_indices = wasi::io::poll::poll(&pollable_ref);
             drop(inner);
             // println!("ready pollables: {:?}", ready_poll_indices);
+
+            // Sort in descending order to avoid changing the indices of ready pollables
+            // that are still in the pollables vector.
+            ready_poll_indices.sort_by(|a, b| b.cmp(a));
 
             for index in ready_poll_indices {
                 let waker = {
