@@ -136,7 +136,6 @@ impl App {
     }
 
     async fn handle_hook_requests(self) -> Result<(), bindgen::ListenError> {
-        println!("handle_hook_requests");
         let hooks = HooksListener::new(self.inner.state.clone())?;
 
         loop {
