@@ -164,6 +164,8 @@ impl HookStore {
                 .map_err(|err| HookError::FunctionError(method.clone(), anyhow::anyhow!(err)))?;
 
             raw.respond(&response.body)?;
+
+            return Ok(());
         }
 
         Err(HookError::MethodNotFound(method))
