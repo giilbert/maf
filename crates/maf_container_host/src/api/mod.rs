@@ -1,11 +1,8 @@
 mod admin;
 mod auth;
-mod error;
 mod gateway;
 mod state;
 mod user_app;
-
-pub use error::ErrorResponse;
 
 use auth::authenticate_request;
 use axum::{

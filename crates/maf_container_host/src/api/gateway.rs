@@ -6,12 +6,12 @@ use axum::{
     Router,
 };
 use maf_container::{
-    server::{handle_ws_upgrade, Room},
+    server::{handle_ws_upgrade, ErrorResponse, Room},
     wasi::bindings::{self, HookRequestCaller},
 };
 use serde::Deserialize;
 
-use crate::{api::ErrorResponse, storage::repos::app_repo};
+use crate::storage::repos::app_repo;
 
 use super::{
     state::{AppState, Environment},
@@ -166,6 +166,9 @@ async fn hook_request_handler(
         .expect("room not found")
         .clone();
 
+    tracing::info!("hook request: {method}");
+
+    // TODO: handle hook bodies
     let response = room
         .call_hook(
             HookRequestCaller::Service,
@@ -176,13 +179,10 @@ async fn hook_request_handler(
         .map_err(|e| anyhow::anyhow!(e))?;
 
     let response = match response {
-        bindings::HookBody::None => Response::builder()
-            .body(Body::empty())
-            .expect("failed to build response"),
+        bindings::HookBody::None => Response::builder().body(Body::empty())?,
         bindings::HookBody::Json(json) => Response::builder()
             .header("Content-Type", "application/json")
-            .body(Body::from(json))
-            .expect("failed to build response"),
+            .body(Body::from(json))?,
     };
 
     Ok(response)

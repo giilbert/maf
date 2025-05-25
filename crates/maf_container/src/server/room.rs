@@ -65,8 +65,15 @@ impl Room {
         );
         self.hooks_request_tx.send(request).await?;
 
-        let response = message_rx.await?;
-
-        Ok(response)
+        match tokio::time::timeout(std::time::Duration::from_secs(5), message_rx).await? {
+            Ok(response) => {
+                tracing::info!("hook response: {:?}", response);
+                Ok(response)
+            }
+            Err(_) => {
+                tracing::info!("hook response timed out");
+                anyhow::bail!("failed to receive hook response");
+            }
+        }
     }
 }

@@ -107,6 +107,7 @@ where
     F: (Fn(T1) -> Ret) + Copy + Send + Sync + 'static,
     T1: CallableParam<Ctx, Init>,
     Err: From<T1::Error>,
+    Ret: serde::Serialize,
     Init: Send + Sync + 'static,
     Ctx: 'static,
     Err: From<T1::Error>,

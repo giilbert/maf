@@ -9,7 +9,7 @@ use tokio::sync::{
 use uuid::Uuid;
 
 use crate::{
-    app::background::BackgroundFnContext,
+    app::{background::BackgroundFnContext, hooks::HooksListener},
     bindings::bindgen,
     callable::{AnyCallable, IntoCallable},
     channel::UntypedChannelBroadcast,
@@ -26,6 +26,7 @@ use crate::{
 
 use super::{
     background::{BackgroundFn, BackgroundFnError},
+    hooks::{HookContext, HookError, HookFunction, HookInit, HookResponse, HookStore},
     on_connect_disconnect::{
         OnConnectDiconnectContext, OnConnectDisconnectError, OnConnectDisconnectFn,
     },
@@ -41,6 +42,7 @@ pub struct AppInner {
     pub(crate) state: Arc<AppState>,
     pub(crate) rpc_functions: RpcStore,
     pub(crate) states: StateStore,
+    pub(crate) hooks: HookStore,
     pub(crate) store_dirty_rx: RwLock<mpsc::Receiver<StoreKey>>,
     pub(crate) on_connect: Option<Arc<OnConnectDisconnectFn>>,
     pub(crate) on_disconnect: Option<Arc<OnConnectDisconnectFn>>,
@@ -63,6 +65,7 @@ pub struct AppBuilder {
     background: Option<Arc<BackgroundFn>>,
     rpc_functions: RpcStore,
     states: StateStore,
+    hooks: HookStore,
     stores: HashMap<StoreKey, AnyStore>,
 }
 
@@ -128,6 +131,26 @@ impl App {
                     app: app.clone(),
                     user,
                 }));
+            });
+        }
+    }
+
+    async fn handle_hook_requests(self) -> Result<(), bindgen::ListenError> {
+        println!("handle_hook_requests");
+        let hooks = HooksListener::new(self.inner.state.clone())?;
+
+        loop {
+            let request = hooks.next().await?;
+            let app = self.clone();
+            tasks::spawn(async move {
+                if let Err(e) = app
+                    .inner
+                    .hooks
+                    .handle_hook_request(app.clone(), request)
+                    .await
+                {
+                    println!("failed to handle hook request: {e}");
+                }
             });
         }
     }
@@ -263,7 +286,14 @@ impl App {
             .map(|handler| tasks::spawn(handler(BackgroundFnContext { app: self.clone() })));
 
         let app = self.clone();
-        app.handle_connections()
+
+        tasks::spawn(async move {
+            if let Err(e) = app.handle_hook_requests().await {
+                println!("failed to handle hook requests: {e}");
+            }
+        });
+
+        self.handle_connections()
             .await
             .expect("failed to handle connections");
 
@@ -466,6 +496,40 @@ impl AppBuilder {
         self
     }
 
+    /// Declare a hook function. TODO: write documentation for this.
+    pub fn hook<Params, Return, Handler, const IS_ASYNC: bool>(
+        mut self,
+        method: impl ToString,
+        handler: Handler,
+    ) -> Self
+    where
+        Handler: IntoCallable<HookContext, Params, Return, HookError, HookInit, IS_ASYNC>,
+        Return: Serialize + 'static,
+    {
+        let method = method.to_string();
+
+        let callable: Arc<AnyCallable<HookContext, Return, HookError>> =
+            Arc::from(handler.into_callable(HookInit {}));
+
+        self.hooks.add_hook_function(HookFunction {
+            type_id: std::any::TypeId::of::<Handler>(),
+            method: method.clone(),
+            callable: Box::new(move |ctx| {
+                let callable = callable.clone();
+
+                Box::pin(async move {
+                    let result = callable(ctx).await?;
+
+                    Ok(HookResponse {
+                        body: bindgen::HookBody::Json(serde_json::to_string(&result)?),
+                    })
+                })
+            }),
+        });
+
+        self
+    }
+
     pub fn build(self) -> App {
         const STORE_UPDATE_LIMIT: usize = 10_000;
 
@@ -487,6 +551,7 @@ impl AppBuilder {
             on_connect: self.on_connect,
             on_disconnect: self.on_disconnect,
             background: self.background,
+            hooks: self.hooks,
         };
 
         App {

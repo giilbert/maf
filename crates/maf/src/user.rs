@@ -31,14 +31,14 @@ impl UserListener {
 
     pub fn next(&self) -> UserListenerNextFuture<'_> {
         UserListenerNextFuture {
-            state: self.state.clone(),
+            state: &self.state,
             listener: &self.future_user,
         }
     }
 }
 
 pub struct UserListenerNextFuture<'a> {
-    state: Arc<AppState>,
+    state: &'a Arc<AppState>,
     listener: &'a bindgen::FutureUser,
 }
 
