@@ -1,0 +1,70 @@
+---
+title: Channel
+category: Primitives
+---
+
+# Channel
+
+Channels are a way to send messages between the client and the server.
+
+## Example
+
+### Server
+
+<Tabs defaultValue="rust">
+  <TabsList>
+    <TabsTrigger value="rust">Rust</TabsTrigger>
+    <TabsTrigger value="javascript">JavaScript</TabsTrigger>
+    <TabsTrigger value="python">Python</TabsTrigger>
+  </TabsList>
+
+<TabsContent value="rust">
+
+```rust
+fn build() -> App {
+    App::builder()
+        .on_connect(on_connect)
+        .background(|app: App| async move {
+            let mut chan = app.channel::<String>("hello");
+            loop {
+                match chan.recv().await {
+                    Ok(msg) => println!("got message! `{msg}`"),
+                    Err(e) => println!("failed to receive message: {e}"),
+                }
+            }
+        })
+        .build()
+}
+
+maf::register!(build);
+```
+
+</TabsContent>
+
+</Tabs>
+
+### Client
+
+<Tabs defaultValue="javascript">
+  <TabsList>
+    <TabsTrigger value="rust">Rust</TabsTrigger>
+    <TabsTrigger value="javascript">JavaScript</TabsTrigger>
+    <TabsTrigger value="python">Python</TabsTrigger>
+  </TabsList>
+
+<TabsContent value="javascript">
+
+```ts
+const maf = new MafClient(/* ... */);
+
+const channel = maf.channel<string>("hello");
+channel.send("Hello, world!");
+```
+
+</TabsContent>
+
+</Tabs>
+
+## See Also
+
+- [Store](./store)

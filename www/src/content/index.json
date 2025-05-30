@@ -2,11 +2,20 @@
   {
     "name": "Getting Started",
     "docs": [
-      "introduction",
-      "quickstart",
-      "installation",
-      "why-maf",
-      "examples"
+      "getting-started/introduction",
+      "getting-started/quickstart",
+      "getting-started/installation",
+      "getting-started/why-maf",
+      "getting-started/examples"
+    ]
+  },
+  {
+    "name": "Primitives",
+    "docs": [
+      "primitives/channel",
+      "primitives/store",
+      "primitives/state",
+      "primitives/rpc"
     ]
   }
 ]
