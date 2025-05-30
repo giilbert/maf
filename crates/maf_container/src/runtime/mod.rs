@@ -1,7 +1,10 @@
 mod bridge;
 pub mod wasi;
 
-use std::fmt::Debug;
+use std::{
+    fmt::Debug,
+    sync::{Arc, atomic::AtomicU64},
+};
 
 use crate::container::ContainerData;
 use wasmtime as wt;
@@ -10,6 +13,7 @@ use wasmtime as wt;
 pub struct ContainerRuntime {
     pub(super) engine: wt::Engine,
     pub(super) linker: wt::component::Linker<ContainerData>,
+    pub(super) app_activity: &'static AtomicU64,
 }
 
 impl Debug for ContainerRuntime {
@@ -19,7 +23,7 @@ impl Debug for ContainerRuntime {
 }
 
 impl ContainerRuntime {
-    pub fn init() -> anyhow::Result<Self> {
+    pub fn init(app_activity: &'static AtomicU64) -> anyhow::Result<Self> {
         let engine = wt::Engine::new(
             &wt::Config::new()
                 .wasm_memory64(false)
@@ -31,6 +35,7 @@ impl ContainerRuntime {
         Ok(Self {
             engine: engine.clone(),
             linker: linker.clone(),
+            app_activity,
         })
     }
 }

@@ -147,6 +147,7 @@ impl bindings::HostUser for ContainerData {
         message: bindings::Message,
     ) -> anyhow::Result<Result<(), bindings::SendError>> {
         let user = self.resources.get_mut(&user)?;
+
         Ok(user.connection.send(message))
     }
 }

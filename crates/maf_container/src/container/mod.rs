@@ -40,6 +40,7 @@ pub struct ContainerData {
     pub connection_rx: Option<mpsc::Receiver<BoxedConnection>>,
     pub hook_request_rx: Option<mpsc::Receiver<HookRequest>>,
     pub(crate) last_activity: Arc<AtomicU64>,
+    pub(crate) app_activity: &'static AtomicU64,
 }
 
 impl std::fmt::Debug for ContainerData {
@@ -76,6 +77,7 @@ impl Container {
                 connection_rx: Some(connection_rx),
                 hook_request_rx: Some(hook_request_rx),
                 last_activity: Arc::new(AtomicU64::new(utils::now_as_secs())),
+                app_activity: runtime.app_activity,
             },
         );
 
@@ -133,8 +135,9 @@ impl Container {
 
 impl ContainerData {
     pub fn update_last_activity(&self) {
-        self.last_activity
-            .store(utils::now_as_secs(), Ordering::Relaxed);
+        let now = utils::now_as_secs();
+        self.app_activity.store(now, Ordering::Relaxed);
+        self.last_activity.store(now, Ordering::Relaxed);
     }
 }
 
