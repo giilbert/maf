@@ -91,3 +91,16 @@ class TxHandshakeData:
 class TxHandshakePacket(TxPacket):
     data: TxHandshakeData
     type: Literal["Handshake"] = "Handshake"
+
+
+@dataclass
+class TxTypedRpcCallData:
+    id: int
+    method: str
+    params: T
+
+
+@dataclass
+class TxTypedRpcCallPacket(TxPacket):
+    data: TxTypedRpcCallData
+    type: Literal["TypedRpcCall"] = "TypedRpcCall"
