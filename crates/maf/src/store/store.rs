@@ -171,3 +171,13 @@ impl<T: StoreData, Ctx: CallableFetch<App> + Send + Sync, Init: Send + Sync>
         })
     }
 }
+
+impl<T: StoreData> Clone for Store<T> {
+    fn clone(&self) -> Self {
+        Self {
+            app: self.app.clone(),
+            inner: self.inner.clone(),
+            _phantom: std::marker::PhantomData,
+        }
+    }
+}
