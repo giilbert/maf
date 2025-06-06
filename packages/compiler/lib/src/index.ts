@@ -18,37 +18,14 @@ class App {
     const messageListener = user.listenMessage();
 
     while (true) {
-      const message = await new Promise<
-        | {
-            type: "message";
-            data: Message;
-          }
-        | {
-            type: "error";
-            data: ListenError;
-          }
-      >((resolve) => {
-        reactor.addPollable(
-          messageListener.subscribe(),
-          () => {
-            try {
-              resolve({ type: "message", data: messageListener.get() });
-            } catch (err) {
-              const typed = err as { payload: ListenError };
-              resolve({
-                type: "error",
-                data: typed.payload,
-              });
-            }
-          },
-          "next-message"
-        );
-      });
+      const message = await reactor.await<Message, ListenError>(
+        messageListener,
+        "next-message"
+      );
 
       if (message.type === "error") {
-        if (message.data.tag === "closed") break;
-
-        console.log("user message error:", message.data);
+        if (message.error.tag === "closed") break;
+        console.log("user message error:", message.error);
         break;
       }
 
@@ -60,15 +37,14 @@ class App {
     const listener = listenUser();
 
     while (true) {
-      const user = await new Promise<User>((resolve) => {
-        reactor.addPollable(
-          listener.subscribe(),
-          () => resolve(listener.get()),
-          "next-user"
-        );
-      });
+      const user = await reactor.await<User, ListenError>(
+        listener,
+        "next-user"
+      );
 
-      this.handleUser(user).catch((err) => {
+      if (user.type !== "ready") continue;
+
+      this.handleUser(user.value).catch((err) => {
         console.error("Error handling user:", err);
       });
     }

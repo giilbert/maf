@@ -5,6 +5,16 @@ interface PollableWithHandler {
   handler: (() => void) | null;
 }
 
+type AwaitResult<T, E = void> =
+  | {
+      type: "ready";
+      value: T;
+    }
+  | {
+      type: "error";
+      error: E;
+    };
+
 export class IoReactor {
   private pollables: Pollable[] = [];
   private handlers: (() => void)[] = [];
@@ -16,6 +26,28 @@ export class IoReactor {
     this.pollables.push(pollable);
     this.handlers.push(handler);
     this.names.push(name || "<unknown>");
+  }
+
+  public await<T, E = void>(
+    pollableWithGet: {
+      subscribe: () => Pollable;
+      get: () => T;
+    },
+    name?: string
+  ) {
+    return new Promise<AwaitResult<T, E>>((resolve) => {
+      this.addPollable(
+        pollableWithGet.subscribe(),
+        () => {
+          try {
+            resolve({ type: "ready", value: pollableWithGet.get() });
+          } catch (err) {
+            resolve({ type: "error", error: err as E });
+          }
+        },
+        name || "<unknown>"
+      );
+    });
   }
 
   /**
