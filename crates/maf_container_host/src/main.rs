@@ -30,10 +30,11 @@ async fn main() -> anyhow::Result<()> {
 async fn try_main() -> anyhow::Result<()> {
     let address = "0.0.0.0:3000";
 
+    tracing::info!("Initializing server...");
     let (state, app) = api::create_app().await?;
     let listener = tokio::net::TcpListener::bind(address).await?;
 
-    tracing::info!("starting server on {}", address);
+    tracing::info!("Starting server on {}", address);
     axum::serve(listener, app)
         .with_graceful_shutdown(async move { state.cancel_server.cancelled().await })
         .await?;

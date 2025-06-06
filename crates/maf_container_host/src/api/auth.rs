@@ -4,11 +4,12 @@ use axum::{
     middleware::Next,
     response::Response,
 };
+use maf_container::server::ErrorResponse;
 use uuid::Uuid;
 
 use crate::storage::{db::user, repos::user_repo};
 
-use super::{error::ErrorResponse, state::AppState};
+use super::state::AppState;
 
 pub async fn authenticate_request(
     State(state): State<AppState>,

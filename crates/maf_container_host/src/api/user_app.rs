@@ -5,6 +5,7 @@ use axum::{
     Json, Router,
 };
 use chrono::Utc;
+use maf_container::server::ErrorResponse;
 use sea_orm::{ActiveValue::Set, ModelTrait};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -14,7 +15,7 @@ use crate::storage::{
     repos::{app_repo, org_repo, utils::DbErrorExt},
 };
 
-use super::{auth::AuthedUser, error::ErrorResponse, state::AppState};
+use super::{auth::AuthedUser, state::AppState};
 
 // TODO:
 pub struct UserApp {

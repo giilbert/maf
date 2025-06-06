@@ -1,6 +1,7 @@
 import Emittery from "emittery";
 import { Channel } from "./channel";
 import { Store, StoreOptions } from "./store";
+import { RxPacket, TxPacket } from "./packet";
 
 export interface MafClientOptions {
   url: URL | string;
@@ -67,7 +68,7 @@ export class MafClient extends Emittery<MafClientEvents> {
 
     ws.send(
       JSON.stringify({
-        type: "handshake",
+        type: "Handshake",
         data: {
           auth: {
             username: "hello",
@@ -83,7 +84,7 @@ export class MafClient extends Emittery<MafClientEvents> {
           "message",
           (event) => {
             const { data, type } = JSON.parse(event.data);
-            if (type === "handshake") resolve(data);
+            if (type === "Handshake") resolve(data);
           },
           { once: true }
         );

@@ -1,12 +1,14 @@
 use std::{
     collections::HashMap,
     sync::{atomic::AtomicU64, Arc},
+    time::Duration,
 };
 
 use anyhow::Context;
 use maf_container::{server::Room, utils, ContainerRuntime};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, TransactionTrait,
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectOptions, EntityTrait, QueryFilter,
+    TransactionTrait,
 };
 use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
@@ -42,11 +44,14 @@ pub struct AppState {
 
 impl AppState {
     pub async fn new() -> anyhow::Result<Self> {
-        let container_runtime = ContainerRuntime::init()?;
+        let last_activity = Box::leak(Box::new(AtomicU64::new(utils::now_as_secs())));
+        let container_runtime = ContainerRuntime::init(last_activity)?;
 
         let database_url = dotenvy::var("DATABASE_URL")
             .map_err(|_| anyhow::anyhow!("DATABASE_URL environment variable not found"))?;
-        let db = sea_orm::Database::connect(&database_url).await?;
+        let mut db_options = ConnectOptions::new(database_url.clone());
+        db_options.connect_timeout(Duration::from_secs(5));
+        let db = sea_orm::Database::connect(db_options).await?;
 
         tracing::info!("Connected to database `{}`", database_url);
 
@@ -65,7 +70,7 @@ impl AppState {
             rooms: Default::default(),
             bundle_storage: BundleStorage::new().await?,
             db,
-            last_activity: Box::leak(Box::new(AtomicU64::new(utils::now_as_secs()))),
+            last_activity,
             cancel_server: CancellationToken::new(),
         };
 

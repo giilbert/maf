@@ -1,13 +1,17 @@
 use axum::{
-    extract::{ws::WebSocket, Path, Query, State, WebSocketUpgrade},
+    body::Body,
+    extract::{Path, Query, State, WebSocketUpgrade},
     response::Response,
-    routing::get,
+    routing::{get, post},
     Router,
 };
-use maf_container::server::{handle_ws_upgrade, Room};
+use maf_container::{
+    server::{handle_ws_upgrade, ErrorResponse, Room},
+    wasi::bindings::{self, HookRequestCaller},
+};
 use serde::Deserialize;
 
-use crate::{api::ErrorResponse, storage::repos::app_repo};
+use crate::storage::repos::app_repo;
 
 use super::{
     state::{AppState, Environment},
@@ -15,7 +19,10 @@ use super::{
 };
 
 pub fn create_gateway_router(_state: AppState) -> Router<AppState> {
-    let inner = Router::new().route("/connect", get(connect_route));
+    let inner = Router::new()
+        .route("/connect", get(connect_route))
+        .route("/{room_id}/hooks/{method}", post(hook_request_handler));
+
     Router::new().nest("/@/{org_slug}/{app_slug}", inner)
 }
 
@@ -25,7 +32,7 @@ pub struct ConnectQueryParams {}
 async fn connect_route(
     State(state): State<AppState>,
     Path((org_slug, app_name)): Path<(String, String)>,
-    Query(query_params): Query<ConnectQueryParams>,
+    Query(_query_params): Query<ConnectQueryParams>,
     ws: WebSocketUpgrade,
 ) -> Result<Response, ErrorResponse> {
     // TODO: replace logic with actual user app query from the database
@@ -131,4 +138,52 @@ async fn connect_route(
     };
 
     Ok(handle_ws_upgrade(ws, room).await)
+}
+
+async fn hook_request_handler(
+    State(state): State<AppState>,
+    Path((org_slug, _app_name, room_id, method)): Path<(String, String, String, String)>,
+) -> Result<Response, ErrorResponse> {
+    if room_id != "default" {
+        return Err(ErrorResponse::forbidden(Some(
+            "only autocreated rooms are supported right now",
+        )));
+    }
+
+    // TODO: handle other room types other than autocreated
+    let room_id = *state
+        .auto_created_rooms_by_org_slug
+        .read()
+        .await
+        .get(&org_slug)
+        .ok_or_else(|| ErrorResponse::not_found(Some("app not found")))?;
+
+    let room = state
+        .rooms
+        .read()
+        .await
+        .get(&room_id)
+        .expect("room not found")
+        .clone();
+
+    tracing::info!("hook request: {method}");
+
+    // TODO: handle hook bodies
+    let response = room
+        .call_hook(
+            HookRequestCaller::Service,
+            method.clone(),
+            bindings::HookBody::None,
+        )
+        .await
+        .map_err(|e| anyhow::anyhow!(e))?;
+
+    let response = match response {
+        bindings::HookBody::None => Response::builder().body(Body::empty())?,
+        bindings::HookBody::Json(json) => Response::builder()
+            .header("Content-Type", "application/json")
+            .body(Body::from(json))?,
+    };
+
+    Ok(response)
 }

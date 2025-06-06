@@ -1,5 +1,6 @@
 mod app;
 mod background;
+mod hooks;
 mod on_connect_disconnect;
 mod plugin;
 mod state;

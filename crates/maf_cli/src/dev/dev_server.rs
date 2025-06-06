@@ -1,12 +1,17 @@
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::{atomic::AtomicU64, Arc},
+    time::Duration,
+};
 
 use axum::{
+    body::Body,
     extract::{Path, State, WebSocketUpgrade},
-    response::{ErrorResponse, Response},
-    routing::get,
+    response::Response,
+    routing::{get, post},
 };
 use maf_container::{
-    server::{handle_ws_upgrade, Bundle, Room},
+    server::{handle_ws_upgrade, Bundle, ErrorResponse, Room},
+    wasi::bindings::{self, HookRequestCaller},
     ContainerRuntime,
 };
 use notify::RecommendedWatcher;
@@ -39,7 +44,7 @@ pub async fn start_dev_server(config: DevServerConfig) -> anyhow::Result<()> {
     let address = format!("0.0.0.0:{}", config.port);
     pretty::info!("starting maf dev server...");
 
-    let runtime = ContainerRuntime::init()?;
+    let runtime = ContainerRuntime::init(Box::leak(Box::new(AtomicU64::new(0))))?;
 
     // This is so jank
     let reload_notify = if config.watch {
@@ -92,6 +97,10 @@ pub async fn start_dev_server(config: DevServerConfig) -> anyhow::Result<()> {
 
     let app = axum::Router::new()
         .route("/@/{org_slug}/{app_slug}/connect", get(connect_route))
+        .route(
+            "/@/{org_slug}/{app_slug}/{room_id}/hooks/{method}",
+            post(hook_request_handler),
+        )
         .with_state(state.clone());
 
     let listener = tokio::net::TcpListener::bind(address).await?;
@@ -169,9 +178,41 @@ fn create_file_watcher(
 
 async fn connect_route(
     State(state): State<DevServerState>,
-    Path((org_slug, app_name)): Path<(String, String)>,
+    Path((_org_slug, _app_name)): Path<(String, String)>,
     ws: WebSocketUpgrade,
 ) -> Result<Response, ErrorResponse> {
     let room = state.inner.room.read().await.clone();
     Ok(handle_ws_upgrade(ws, room).await)
+}
+
+async fn hook_request_handler(
+    State(state): State<DevServerState>,
+    Path((_org_slug, _app_name, room_id, method)): Path<(String, String, String, String)>,
+) -> Result<Response, ErrorResponse> {
+    if room_id != "default" {
+        return Err(ErrorResponse::forbidden(Some(
+            "only default room is supported for now",
+        )));
+    }
+
+    let room = state.inner.room.read().await.clone();
+
+    // TODO: handle hook bodies
+    let response = room
+        .call_hook(
+            HookRequestCaller::Service,
+            method.clone(),
+            bindings::HookBody::None,
+        )
+        .await
+        .map_err(|e| anyhow::anyhow!(e))?;
+
+    let response = match response {
+        bindings::HookBody::None => Response::builder().body(Body::empty())?,
+        bindings::HookBody::Json(json) => Response::builder()
+            .header("Content-Type", "application/json")
+            .body(Body::from(json))?,
+    };
+
+    Ok(response)
 }

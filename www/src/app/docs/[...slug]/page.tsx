@@ -8,9 +8,9 @@ import { MdxContentWrapper, renderMdx } from "../_components/mdx-renderer";
 export default async function Page({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ slug: string[] }>;
 }) {
-  const { slug } = await params;
+  const slug = (await params).slug.join("/");
 
   const meta = await getDocMeta(slug);
   const source = await loadDocSource(slug);
@@ -18,7 +18,7 @@ export default async function Page({
 
   const { content, headings } = await renderMdx({ source });
 
-  console.log("headings", headings.map((h) => h.title).join(", "));
+  // console.log("headings", headings.map((h) => h.title).join(", "));
 
   return (
     <>
@@ -61,7 +61,7 @@ const TableOfContents: React.FC<{
 
 export async function generateStaticParams() {
   const slugs = await getAllSlugs();
-  return slugs.map((slug) => ({ slug }));
+  return slugs.map((slug) => ({ slug: slug.split("/") }));
 }
 
 export const dynamicParams = false;

@@ -14,7 +14,7 @@ use tokio_util::sync::CancellationToken;
 use wasmtime as wt;
 use wasmtime_wasi::IoView;
 
-use crate::{interface::BoxedConnection, runtime::wasi::Bindings, utils};
+use crate::{interface::BoxedConnection, runtime::wasi::Bindings, utils, wasi::HookRequest};
 
 pub struct Container {
     pub instance: Bindings,
@@ -36,8 +36,11 @@ pub struct ContainerData {
     pub resources: wasmtime_wasi::ResourceTable,
     pub wasi_ctx: wasmtime_wasi::WasiCtx,
     pub connection_tx: mpsc::Sender<BoxedConnection>,
+    pub hook_request_tx: mpsc::Sender<HookRequest>,
     pub connection_rx: Option<mpsc::Receiver<BoxedConnection>>,
+    pub hook_request_rx: Option<mpsc::Receiver<HookRequest>>,
     pub(crate) last_activity: Arc<AtomicU64>,
+    pub(crate) app_activity: &'static AtomicU64,
 }
 
 impl std::fmt::Debug for ContainerData {
@@ -57,6 +60,8 @@ impl Container {
 
         let (connection_tx, connection_rx) = mpsc::channel(10);
         let (output_tx, output_rx) = mpsc::channel(100);
+        let (hook_request_tx, hook_request_rx) = mpsc::channel(1000);
+
         let resources = wasmtime_wasi::ResourceTable::default();
         let stdout = ContainerStdoutFactory {
             output_tx: output_tx.clone(),
@@ -68,8 +73,11 @@ impl Container {
                 resources,
                 wasi_ctx,
                 connection_tx,
+                hook_request_tx,
                 connection_rx: Some(connection_rx),
+                hook_request_rx: Some(hook_request_rx),
                 last_activity: Arc::new(AtomicU64::new(utils::now_as_secs())),
+                app_activity: runtime.app_activity,
             },
         );
 
@@ -127,8 +135,9 @@ impl Container {
 
 impl ContainerData {
     pub fn update_last_activity(&self) {
-        self.last_activity
-            .store(utils::now_as_secs(), Ordering::Relaxed);
+        let now = utils::now_as_secs();
+        self.app_activity.store(now, Ordering::Relaxed);
+        self.last_activity.store(now, Ordering::Relaxed);
     }
 }
 

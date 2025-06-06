@@ -17,7 +17,7 @@ destination = "/app/bundle"
 
 [http_service]
 internal_port = 3000
-force_https = true
+force_https = false
 auto_start_machines = true
 auto_restart = true
 min_machines_running = 0

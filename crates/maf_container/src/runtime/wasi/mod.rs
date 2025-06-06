@@ -1,6 +1,8 @@
 mod errors;
+mod hooks;
 mod user;
 
+pub use hooks::{FutureHookRequest, HookRequest};
 pub use user::{FutureMessage, FutureUser, User};
 use wasmtime::component::Resource;
 
@@ -15,11 +17,13 @@ mod generated {
             "wasi:io/poll": wasmtime_wasi_io::bindings::wasi::io::poll,
             "maf:bindings/bindings/future-user": crate::runtime::wasi::FutureUser,
             "maf:bindings/bindings/future-message": crate::runtime::wasi::FutureMessage,
-            "maf:bindings/bindings/user": crate::runtime::wasi::User
+            "maf:bindings/bindings/future-hook-request": crate::runtime::wasi::FutureHookRequest,
+            "maf:bindings/bindings/user": crate::runtime::wasi::User,
+            "maf:bindings/bindings/hook-request": crate::runtime::wasi::HookRequest,
         },
         trappable_imports: true,
         trappable_error_type: {
-            "maf:bindings/bindings/listen-error" => crate::runtime::wasi::ListenError,
+            "maf:bindings/bindings/listen-error" => crate::runtime::wasi::ListenError
         }
     });
 }
@@ -30,6 +34,11 @@ pub use generated::maf::bindings::bindings;
 impl bindings::Host for ContainerData {
     async fn listen_user(&mut self) -> Result<Resource<FutureUser>, ListenError> {
         let res = FutureUser::new(self)?;
+        Ok(self.resources.push(res)?)
+    }
+
+    async fn listen_hook_request(&mut self) -> Result<Resource<FutureHookRequest>, ListenError> {
+        let res = FutureHookRequest::new(self)?;
         Ok(self.resources.push(res)?)
     }
 

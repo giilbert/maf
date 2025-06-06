@@ -18,7 +18,11 @@ export const mdxComponents: MDXComponents = {
     return <CodeBlock lang={lang}>{props.children}</CodeBlock>;
   },
   pre: (props) => {
-    return <pre className="border px-4 py-3">{props.children}</pre>;
+    return (
+      <pre className="border px-4 py-3 overflow-x-scroll text-sm">
+        {props.children}
+      </pre>
+    );
   },
   ul: (props) => {
     return <ul className="list-disc pl-5 space-y-1">{props.children}</ul>;

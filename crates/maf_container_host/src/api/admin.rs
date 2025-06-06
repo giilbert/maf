@@ -4,11 +4,12 @@ use axum::{
     response::IntoResponse,
     Router,
 };
+use maf_container::server::ErrorResponse;
 use sea_orm::EntityTrait;
 
 use crate::storage::db::user::{self};
 
-use super::{auth::AuthedUser, error::ErrorResponse, state::AppState};
+use super::{auth::AuthedUser, state::AppState};
 
 pub fn create_admin_router(_state: AppState) -> Router<AppState> {
     Router::new()

@@ -31,8 +31,8 @@ impl FutureUser {
 
 impl bindings::HostFutureUser for ContainerData {
     async fn drop(&mut self, user: Resource<FutureUser>) -> anyhow::Result<()> {
-        let mut user = self.resources.delete(user)?;
-        user.channel.close();
+        let mut future_user = self.resources.delete(user)?;
+        future_user.channel.close();
         Ok(())
     }
 
@@ -147,6 +147,7 @@ impl bindings::HostUser for ContainerData {
         message: bindings::Message,
     ) -> anyhow::Result<Result<(), bindings::SendError>> {
         let user = self.resources.get_mut(&user)?;
+
         Ok(user.connection.send(message))
     }
 }
