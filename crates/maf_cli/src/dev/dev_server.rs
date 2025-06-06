@@ -1,4 +1,7 @@
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::{atomic::AtomicU64, Arc},
+    time::Duration,
+};
 
 use axum::{
     body::Body,
@@ -41,7 +44,7 @@ pub async fn start_dev_server(config: DevServerConfig) -> anyhow::Result<()> {
     let address = format!("0.0.0.0:{}", config.port);
     pretty::info!("starting maf dev server...");
 
-    let runtime = ContainerRuntime::init()?;
+    let runtime = ContainerRuntime::init(Box::leak(Box::new(AtomicU64::new(0))))?;
 
     // This is so jank
     let reload_notify = if config.watch {
