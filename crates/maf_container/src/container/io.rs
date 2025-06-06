@@ -17,6 +17,7 @@ impl StdoutStream for ContainerStdoutFactory {
         Box::new(ContainerStdout {
             buffer_length: 0,
             buffer: Vec::new(),
+            line_buffer: String::new(),
             output_tx: self.output_tx.clone(),
         })
     }
@@ -25,6 +26,7 @@ impl StdoutStream for ContainerStdoutFactory {
 pub struct ContainerStdout {
     buffer_length: usize,
     buffer: Vec<Bytes>,
+    line_buffer: String,
     pub(super) output_tx: mpsc::Sender<String>,
 }
 
@@ -33,18 +35,26 @@ impl OutputStream for ContainerStdout {
     fn write(&mut self, bytes: Bytes) -> StreamResult<()> {
         self.buffer_length += bytes.len();
         self.buffer.push(bytes);
+
         Ok(())
     }
 
     fn flush(&mut self) -> wasmtime_wasi::StreamResult<()> {
-        let string = String::from_utf8_lossy(&self.buffer.concat()).to_string();
+        let buffer = self.buffer.concat();
+        let string = String::from_utf8_lossy(&buffer);
 
         self.buffer.drain(..);
         self.buffer_length = 0;
 
-        self.output_tx
-            .try_send(string)
-            .map_err(|_| wasmtime_wasi::StreamError::Closed)?;
+        self.line_buffer += &string;
+
+        while let Some(pos) = self.line_buffer.find('\n') {
+            let line = self.line_buffer.drain(..=pos).collect::<String>();
+            self.output_tx
+                .try_send(line)
+                .map_err(|_| wasmtime_wasi::StreamError::Closed)?;
+        }
+
         Ok(())
     }
 
