@@ -1,5 +1,7 @@
 mod admin;
 mod app;
+mod auth;
+mod config;
 mod context;
 mod dev;
 mod input;
@@ -11,6 +13,8 @@ use clap::{Parser, Subcommand};
 
 pub use context::Context;
 use dev::DevCommands;
+
+use crate::auth::AuthCommands;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -26,6 +30,9 @@ enum Commands {
     Admin(AdminCommands),
     #[command(subcommand)]
     App(AppCommands),
+    #[command(subcommand)]
+    Auth(AuthCommands),
+
     Dev {
         #[arg(value_name = "FILE_PATH")]
         file_path: Option<String>,
@@ -38,15 +45,16 @@ enum Commands {
 async fn try_main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
 
-    let context = Context::new()?;
+    let mut context = Context::new().await?;
 
     match Cli::parse().commands {
-        Commands::Admin(admin) => admin::handle_commands(&context, admin).await?,
-        Commands::App(app) => app::handle_commands(&context, app).await?,
+        Commands::Admin(admin) => admin::handle_commands(&mut context, admin).await?,
+        Commands::App(app) => app::handle_commands(&mut context, app).await?,
+        Commands::Auth(auth) => auth::handle_commands(&mut context, auth).await?,
         Commands::Dev {
             file_path,
             subcommand,
-        } => dev::handle_commands(&context, file_path, subcommand).await?,
+        } => dev::handle_commands(&mut context, file_path, subcommand).await?,
     }
 
     Ok(())
