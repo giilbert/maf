@@ -5,12 +5,12 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct ConfigOptions {
+pub struct GlobalConfig {
     pub server_url: Option<String>,
     pub token: Option<String>,
 }
 
-impl ConfigOptions {
+impl GlobalConfig {
     pub fn config_directory() -> anyhow::Result<PathBuf> {
         let directory = if cfg!(target_os = "windows") {
             PathBuf::from(std::env::var("APPDATA").context("Missing APPDATA environment variable")?)
@@ -46,7 +46,7 @@ impl ConfigOptions {
             return Ok(Self::default());
         }
 
-        let mut config_data = toml::from_str::<ConfigOptions>(
+        let mut config_data = toml::from_str::<GlobalConfig>(
             &fs::read_to_string(Self::get_config_file()?)
                 .await
                 .context("Failed to read config file")?,

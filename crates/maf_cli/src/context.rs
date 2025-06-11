@@ -3,11 +3,11 @@ use reqwest::header::HeaderMap;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use url::Url;
 
-use crate::{config::ConfigOptions, pretty};
+use crate::{config::GlobalConfig, pretty};
 
 pub struct Context {
     pub client: reqwest::Client,
-    pub config: ConfigOptions,
+    pub config: GlobalConfig,
     server_url: Option<Url>,
 }
 
@@ -34,7 +34,7 @@ impl Context {
             .build()
             .context("failed to build client")?;
 
-        let config = ConfigOptions::load().await?;
+        let config = GlobalConfig::load().await?;
 
         Ok(Context {
             client,

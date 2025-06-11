@@ -6,15 +6,23 @@ use crate::{pretty, Context};
 pub enum AuthCommands {
     /// Add a authentication token to the CLI
     Login,
+    /// Logout from the CLI
+    Logout,
 }
 
 pub async fn handle_commands(context: &mut Context, command: AuthCommands) -> anyhow::Result<()> {
     match command {
         AuthCommands::Login => handle_login(context, command).await,
+        AuthCommands::Logout => handle_logout(context, command).await,
     }
 }
 
 async fn handle_login(context: &mut Context, _command: AuthCommands) -> anyhow::Result<()> {
+    if context.config.token.is_some() {
+        pretty::warn!("You are already logged in. Use `maf auth logout` to log out first.");
+        return Ok(());
+    }
+
     context.config.token = Some(
         rpassword::prompt_password(
             format!(
@@ -30,6 +38,20 @@ async fn handle_login(context: &mut Context, _command: AuthCommands) -> anyhow::
     context.config.save().await?;
 
     pretty::info!("Configuration saved successfully.");
+
+    Ok(())
+}
+
+async fn handle_logout(context: &mut Context, _command: AuthCommands) -> anyhow::Result<()> {
+    if context.config.token.is_none() {
+        pretty::warn!("You are not logged in. Use `maf auth login` to log in first.");
+        return Ok(());
+    }
+
+    context.config.token = None;
+    context.config.save().await?;
+
+    pretty::info!("Logged out successfully.");
 
     Ok(())
 }

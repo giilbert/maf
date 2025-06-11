@@ -14,7 +14,7 @@ use clap::{Parser, Subcommand};
 pub use context::Context;
 use dev::DevCommands;
 
-use crate::auth::AuthCommands;
+use crate::{auth::AuthCommands, config::ConfigCommands};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -32,6 +32,8 @@ enum Commands {
     App(AppCommands),
     #[command(subcommand)]
     Auth(AuthCommands),
+    #[command(subcommand)]
+    Config(ConfigCommands),
 
     Dev {
         #[arg(value_name = "FILE_PATH")]
@@ -51,6 +53,7 @@ async fn try_main() -> anyhow::Result<()> {
         Commands::Admin(admin) => admin::handle_commands(&mut context, admin).await?,
         Commands::App(app) => app::handle_commands(&mut context, app).await?,
         Commands::Auth(auth) => auth::handle_commands(&mut context, auth).await?,
+        Commands::Config(config) => config::handle_commands(&mut context, config).await?,
         Commands::Dev {
             file_path,
             subcommand,
