@@ -10,6 +10,7 @@ export interface MafClientOptions {
 
 export interface MafClientEvents {
   ready: SessionInfo;
+  close: void;
 }
 
 export interface SessionInfo {
@@ -96,12 +97,18 @@ export class MafClient extends Emittery<MafClientEvents> {
     this._sessionInfo = handshakeResponse;
     this.emit("ready", handshakeResponse);
 
-    ws.addEventListener("message", (event) => {
+    const handleMessage = (event: MessageEvent) => {
       if (typeof event.data === "string") {
         this.handleMessage(JSON.parse(event.data));
       } else {
         console.warn("Received non-string message:", event.data);
       }
+    };
+    ws.addEventListener("message", handleMessage);
+
+    ws.addEventListener("close", () => {
+      ws.removeEventListener("message", handleMessage);
+      this.emit("close", undefined);
     });
 
     return handshakeResponse;
@@ -124,6 +131,7 @@ export class MafClient extends Emittery<MafClientEvents> {
       const { store, data } = packet.data;
       this._storeData[store] = data;
       this._stores[store]?.emit("change", data);
+      console.log("emit change for store", store, data);
     }
   }
 
