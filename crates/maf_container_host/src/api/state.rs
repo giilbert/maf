@@ -44,7 +44,8 @@ pub struct AppState {
 
 impl AppState {
     pub async fn new() -> anyhow::Result<Self> {
-        let container_runtime = ContainerRuntime::init()?;
+        let last_activity = Box::leak(Box::new(AtomicU64::new(utils::now_as_secs())));
+        let container_runtime = ContainerRuntime::init(last_activity)?;
 
         let database_url = dotenvy::var("DATABASE_URL")
             .map_err(|_| anyhow::anyhow!("DATABASE_URL environment variable not found"))?;
@@ -69,7 +70,7 @@ impl AppState {
             rooms: Default::default(),
             bundle_storage: BundleStorage::new().await?,
             db,
-            last_activity: Box::leak(Box::new(AtomicU64::new(utils::now_as_secs()))),
+            last_activity,
             cancel_server: CancellationToken::new(),
         };
 

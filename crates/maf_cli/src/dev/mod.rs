@@ -11,7 +11,7 @@ pub enum DevCommands {
 }
 
 pub async fn handle_commands(
-    _context: &Context,
+    _context: &mut Context,
     file_path: Option<String>,
     command: Option<DevCommands>,
 ) -> anyhow::Result<()> {

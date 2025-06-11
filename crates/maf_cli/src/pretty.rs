@@ -6,7 +6,7 @@ macro_rules! info {
     };
 }
 
-macro_rules! warn {
+macro_rules! _warn {
     ($($arg:tt)*) => {
         #[allow(unused_imports)]
         use colored::Colorize as _;
@@ -22,5 +22,6 @@ macro_rules! error {
     };
 }
 
+pub(crate) use _warn as warn;
 pub(crate) use error;
 pub(crate) use info;

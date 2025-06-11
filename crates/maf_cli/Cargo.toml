@@ -24,3 +24,5 @@ tokio = { version = "1.43.0", features = ["full"] }
 tokio-util = "0.7.14"
 url = "2.5.4"
 uuid = { version = "1.16.0", features = ["serde", "v4"] }
+toml = "0.8.23"
+rpassword = "7.4.0"

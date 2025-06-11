@@ -18,7 +18,7 @@ pub enum UserCommands {
     List,
 }
 
-pub async fn handle_commands(context: &Context, command: AdminCommands) -> anyhow::Result<()> {
+pub async fn handle_commands(context: &mut Context, command: AdminCommands) -> anyhow::Result<()> {
     match command {
         AdminCommands::User(user_command) => match user_command {
             UserCommands::List => list_users(context).await,

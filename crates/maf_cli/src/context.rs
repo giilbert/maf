@@ -3,15 +3,16 @@ use reqwest::header::HeaderMap;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use url::Url;
 
-use crate::pretty;
+use crate::{config::GlobalConfig, pretty};
 
 pub struct Context {
     pub client: reqwest::Client,
+    pub config: GlobalConfig,
     server_url: Option<Url>,
 }
 
 impl Context {
-    pub fn new() -> anyhow::Result<Self> {
+    pub async fn new() -> anyhow::Result<Self> {
         let mut headers = HeaderMap::new();
         headers.insert(
             "Authorization",
@@ -33,7 +34,13 @@ impl Context {
             .build()
             .context("failed to build client")?;
 
-        Ok(Context { client, server_url })
+        let config = GlobalConfig::load().await?;
+
+        Ok(Context {
+            client,
+            server_url,
+            config,
+        })
     }
 
     pub fn assert_token(&self) {
@@ -54,18 +61,28 @@ impl Context {
             .context("failed to join url")
     }
 
-    pub async fn get<T: DeserializeOwned>(&self, url: impl AsRef<str>) -> anyhow::Result<T> {
-        let response = self
-            .client
-            .get(self.url(url).context("failed to join url")?)
-            .send()
-            .await?;
+    pub async fn fetch(
+        &self,
+        url: impl AsRef<str>,
+        fetch: impl FnOnce(reqwest::Client, Url) -> reqwest::RequestBuilder,
+    ) -> anyhow::Result<reqwest::Response> {
+        let url = self.url(url).context("failed to join url")?;
+        let request = fetch(self.client.clone(), url);
+        let response = request.send().await?;
 
         if response.status().is_success() {
-            return Ok(response.json().await?);
+            Ok(response)
         } else {
-            return Err(handle_error_response(response).await?);
+            Err(handle_error_response(response).await?)
         }
+    }
+
+    pub async fn get<T: DeserializeOwned>(&self, url: impl AsRef<str>) -> anyhow::Result<T> {
+        self.fetch(url, |client, url| client.get(url))
+            .await?
+            .json()
+            .await
+            .context("Failed to deserialize response")
     }
 
     pub async fn post<T: DeserializeOwned>(
@@ -73,18 +90,11 @@ impl Context {
         url: impl AsRef<str>,
         body: impl Serialize,
     ) -> anyhow::Result<T> {
-        let response = self
-            .client
-            .post(self.url(url).context("failed to join url")?)
-            .json(&body)
-            .send()
-            .await?;
-
-        if response.status().is_success() {
-            return Ok(response.json().await?);
-        } else {
-            return Err(handle_error_response(response).await?);
-        }
+        self.fetch(url, |client, url| client.post(url).json(&body))
+            .await?
+            .json()
+            .await
+            .context("Failed to deserialize response")
     }
 
     pub async fn delete<T: DeserializeOwned>(
@@ -92,18 +102,11 @@ impl Context {
         url: impl AsRef<str>,
         body: impl Serialize,
     ) -> anyhow::Result<T> {
-        let response = self
-            .client
-            .delete(self.url(url).context("failed to join url")?)
-            .json(&body)
-            .send()
-            .await?;
-
-        if response.status().is_success() {
-            return Ok(response.json().await?);
-        } else {
-            return Err(handle_error_response(response).await?);
-        }
+        self.fetch(url, |client, url| client.delete(url).json(&body))
+            .await?
+            .json()
+            .await
+            .context("Failed to deserialize response")
     }
 }
 
@@ -112,7 +115,7 @@ pub async fn handle_error_response(response: reqwest::Response) -> anyhow::Resul
     let response = response.json::<ErrorResponse>().await?;
 
     if response.r#type != "error" {
-        anyhow::bail!("Unable to get error message from server");
+        anyhow::bail!("Unable to get error message from server.");
     }
 
     Err(anyhow::anyhow!(

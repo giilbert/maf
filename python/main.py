@@ -20,28 +20,15 @@ async def main():
             async for data in store.changed():
                 print(f"store changed: {data}")
 
+        async def update_counter():
+            while True:
+                await client.rpc("increment_counter", 1)
+                await asyncio.sleep(1)
+
         asyncio.create_task(counter_store())
+        asyncio.create_task(update_counter())
 
         pass
-
-    # async with connect("ws://localhost:3000/@/hello/hello/connect") as ws:
-    #     await ws.send(TxHandshakePacket(
-    #         data = TxHandshakeData(
-    #             auth="hello"
-    #         ),
-    #     ).to_json())
-
-    #     response = RxPacket(await ws.recv())
-    #     print(f"Received from server: {response}")
-
-    #     async for message in ws:
-    #         response = RxPacket(message)
-
-    #         if response.type == "StoreUpdate":
-    #             data = response.store_update()
-    #             print(f"StoreUpdate data: {data}")
-
-    #         print(f"Received from server: {response}")
 
 
 if __name__ == "__main__":

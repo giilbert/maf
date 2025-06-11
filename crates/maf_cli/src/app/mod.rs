@@ -26,7 +26,7 @@ pub enum AppCommands {
     Deploy { name: String, path: String },
 }
 
-pub async fn handle_commands(context: &Context, command: AppCommands) -> anyhow::Result<()> {
+pub async fn handle_commands(context: &mut Context, command: AppCommands) -> anyhow::Result<()> {
     match command {
         AppCommands::List => list_apps(context).await,
         AppCommands::Create => create_app(context).await,
@@ -113,7 +113,7 @@ async fn create_app(context: &Context) -> anyhow::Result<()> {
             }),
         )
         .await
-        .context("failed to create app")?;
+        .context("Failed to create app")?;
 
     println!("App `{}` created!", app.name);
 
