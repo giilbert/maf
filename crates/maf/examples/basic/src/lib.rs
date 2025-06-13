@@ -31,8 +31,7 @@ async fn counter_read_hook(test: Store<CounterStore>) -> i32 {
 }
 
 fn on_connect(user: User) {
-    println!("!!! user connected! id: {}", user.meta.id());
-    println!("HIII");
+    println!("user connected! id: {}", user.meta.id());
 }
 
 fn build() -> App {
@@ -41,6 +40,7 @@ fn build() -> App {
         .rpc("increment_counter", increment_counter)
         .hook("counter", counter_read_hook)
         .background(|app: App| async move {
+            println!("hello world!");
             let mut chan = app.channel::<String>("hello");
             loop {
                 match chan.recv().await {

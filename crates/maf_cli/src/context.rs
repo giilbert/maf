@@ -3,11 +3,16 @@ use reqwest::header::HeaderMap;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use url::Url;
 
-use crate::{config::GlobalConfig, pretty};
+use crate::{
+    config::{GlobalConfig, ProjectConfig},
+    pretty,
+};
 
 pub struct Context {
     pub client: reqwest::Client,
-    pub config: GlobalConfig,
+    pub global_config: GlobalConfig,
+    pub project_config: Option<ProjectConfig>,
+
     server_url: Option<Url>,
 }
 
@@ -34,13 +39,24 @@ impl Context {
             .build()
             .context("failed to build client")?;
 
-        let config = GlobalConfig::load().await?;
-
         Ok(Context {
             client,
             server_url,
-            config,
+            global_config: GlobalConfig::load().await?,
+            project_config: ProjectConfig::load().await?,
         })
+    }
+
+    pub fn assert_project(&self) -> &ProjectConfig {
+        match &self.project_config {
+            Some(config) => config,
+            None => {
+                pretty::error!(
+                    "No project configuration found in the current directory or any parent directory."
+                );
+                std::process::exit(1);
+            }
+        }
     }
 
     pub fn assert_token(&self) {

@@ -1,8 +1,10 @@
 mod global_config;
+mod project_config;
 
 use clap::Subcommand;
 use colored::Colorize;
 pub use global_config::GlobalConfig;
+pub use project_config::{ProjectConfig, ProjectConfigFile, TargetConfig};
 
 use crate::{pretty, Context};
 
@@ -33,7 +35,7 @@ pub async fn handle_commands(context: &mut Context, command: ConfigCommands) -> 
 }
 
 async fn handle_show(context: &mut Context) -> anyhow::Result<()> {
-    let config = context.config.clone();
+    let config = context.global_config.clone();
     println!("{}", "Current configuration:".bold());
 
     for (key, value) in [
@@ -66,17 +68,17 @@ async fn handle_set(context: &mut Context, key: String, value: String) -> anyhow
                     "Server URL must start with 'http://' or 'https://'"
                 ));
             }
-            context.config.server_url = Some(value);
+            context.global_config.server_url = Some(value);
         }
         "token" => {
-            context.config.token = Some(value);
+            context.global_config.token = Some(value);
         }
         _ => {
             return Err(anyhow::anyhow!("Unknown configuration key: {}", key));
         }
     }
 
-    context.config.save().await?;
+    context.global_config.save().await?;
     pretty::info!("Configuration updated successfully.");
     Ok(())
 }
@@ -84,17 +86,17 @@ async fn handle_set(context: &mut Context, key: String, value: String) -> anyhow
 async fn handle_reset(context: &mut Context, key: String) -> anyhow::Result<()> {
     match key.as_str() {
         "server_url" => {
-            context.config.server_url = None;
+            context.global_config.server_url = None;
         }
         "token" => {
-            context.config.token = None;
+            context.global_config.token = None;
         }
         _ => {
             return Err(anyhow::anyhow!("Unknown configuration key: {}", key));
         }
     }
 
-    context.config.save().await?;
+    context.global_config.save().await?;
     pretty::info!("Configuration reset successfully.");
     Ok(())
 }

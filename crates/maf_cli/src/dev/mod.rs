@@ -3,7 +3,7 @@ mod dev_server;
 use clap::Subcommand;
 use dev_server::DevServerConfig;
 
-use crate::Context;
+use crate::{pretty, Context};
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum DevCommands {
@@ -11,19 +11,12 @@ pub enum DevCommands {
 }
 
 pub async fn handle_commands(
-    _context: &mut Context,
+    context: &mut Context,
     file_path: Option<String>,
     command: Option<DevCommands>,
 ) -> anyhow::Result<()> {
     match command {
-        Some(DevCommands::Run { file_path }) => {
-            dev_server::start_dev_server(DevServerConfig {
-                port: 3000,
-                wasm_module_path: file_path,
-                watch: false,
-            })
-            .await
-        }
+        Some(DevCommands::Run { file_path }) => handle_run(context, Some(file_path)).await,
         None => {
             let file_path = file_path.expect("FILE_PATH argument is required");
 
@@ -35,4 +28,50 @@ pub async fn handle_commands(
             .await
         }
     }
+}
+
+pub async fn handle_run(context: &mut Context, file_path: Option<String>) -> anyhow::Result<()> {
+    dev_server::start_dev_server(DevServerConfig {
+        port: 3000,
+        wasm_module_path: match file_path {
+            Some(path) => path,
+            None => {
+                let project = context.assert_project();
+
+                pretty::info!(
+                    "running build command `{}` in `{}`...",
+                    &project.data.debug.command,
+                    &project.base_path.to_string_lossy()
+                );
+
+                println!("\n----------\n");
+
+                let start = std::time::Instant::now();
+
+                let mut command = project.data.debug.command.split(" ");
+                let executable = command.next().expect("Command must have an executable");
+
+                let args = command.collect::<Vec<_>>();
+
+                let mut process = tokio::process::Command::new(executable)
+                    .args(args)
+                    .current_dir(&project.base_path)
+                    .spawn()?;
+
+                let path =
+                    tokio::fs::canonicalize(project.base_path.join(&project.data.debug.output))
+                        .await?;
+
+                process.wait().await?;
+
+                println!("\n----------\n");
+
+                pretty::info!("build completed in {:.2?}", start.elapsed());
+
+                path.to_string_lossy().to_string()
+            }
+        },
+        watch: false,
+    })
+    .await
 }

@@ -42,7 +42,6 @@ struct StateInner {
 
 pub async fn start_dev_server(config: DevServerConfig) -> anyhow::Result<()> {
     let address = format!("0.0.0.0:{}", config.port);
-    pretty::info!("starting maf dev server...");
 
     let runtime = ContainerRuntime::init(Box::leak(Box::new(AtomicU64::new(0))))?;
 

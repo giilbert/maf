@@ -18,12 +18,12 @@ pub async fn handle_commands(context: &mut Context, command: AuthCommands) -> an
 }
 
 async fn handle_login(context: &mut Context, _command: AuthCommands) -> anyhow::Result<()> {
-    if context.config.token.is_some() {
+    if context.global_config.token.is_some() {
         pretty::warn!("You are already logged in. Use `maf auth logout` to log out first.");
         return Ok(());
     }
 
-    context.config.token = Some(
+    context.global_config.token = Some(
         rpassword::prompt_password(
             format!(
                 "{} {} ",
@@ -35,7 +35,7 @@ async fn handle_login(context: &mut Context, _command: AuthCommands) -> anyhow::
         .map_err(|e| anyhow::anyhow!("Failed to read token: {}", e))?,
     );
 
-    context.config.save().await?;
+    context.global_config.save().await?;
 
     pretty::info!("Configuration saved successfully.");
 
@@ -43,13 +43,13 @@ async fn handle_login(context: &mut Context, _command: AuthCommands) -> anyhow::
 }
 
 async fn handle_logout(context: &mut Context, _command: AuthCommands) -> anyhow::Result<()> {
-    if context.config.token.is_none() {
+    if context.global_config.token.is_none() {
         pretty::warn!("You are not logged in. Use `maf auth login` to log in first.");
         return Ok(());
     }
 
-    context.config.token = None;
-    context.config.save().await?;
+    context.global_config.token = None;
+    context.global_config.save().await?;
 
     pretty::info!("Logged out successfully.");
 

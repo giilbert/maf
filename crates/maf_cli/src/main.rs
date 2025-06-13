@@ -25,6 +25,11 @@ struct Cli {
 
 #[derive(Subcommand, Debug, Clone)]
 enum Commands {
+    Run {
+        /// Path to the WASM file to run
+        file_path: Option<String>,
+    },
+
     /// Server management commands
     #[command(subcommand)]
     Admin(AdminCommands),
@@ -50,6 +55,10 @@ async fn try_main() -> anyhow::Result<()> {
     let mut context = Context::new().await?;
 
     match Cli::parse().commands {
+        Commands::Run { file_path } => {
+            dev::handle_run(&mut context, file_path).await?;
+            return Ok(());
+        }
         Commands::Admin(admin) => admin::handle_commands(&mut context, admin).await?,
         Commands::App(app) => app::handle_commands(&mut context, app).await?,
         Commands::Auth(auth) => auth::handle_commands(&mut context, auth).await?,
