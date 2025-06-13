@@ -18,21 +18,20 @@ pub struct Context {
 
 impl Context {
     pub async fn new() -> anyhow::Result<Self> {
+        let global_config = GlobalConfig::load().await?;
         let mut headers = HeaderMap::new();
         headers.insert(
             "Authorization",
-            format!(
-                "Bearer {}",
-                dotenvy::var("MAF_CLI_TOKEN").unwrap_or("".to_string())
-            )
-            .parse()
-            .context("failed to parse header")?,
+            format!("Bearer {}", global_config.token.as_deref().unwrap_or(""))
+                .parse()
+                .context("failed to parse header")?,
         );
 
-        let server_url = match dotenvy::var("MAF_CLI_SERVER_URL") {
-            Ok(url) => Some(Url::parse(&url).context("failed to parse server url")?),
-            Err(_) => None,
-        };
+        let server_url = global_config
+            .server_url
+            .clone()
+            .map(|url| Url::parse(&url).ok())
+            .flatten();
 
         let client = reqwest::Client::builder()
             .default_headers(headers)
@@ -42,7 +41,7 @@ impl Context {
         Ok(Context {
             client,
             server_url,
-            global_config: GlobalConfig::load().await?,
+            global_config,
             project_config: ProjectConfig::load().await?,
         })
     }
