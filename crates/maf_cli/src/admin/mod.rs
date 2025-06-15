@@ -38,7 +38,7 @@ pub async fn list_users(context: &Context) -> anyhow::Result<()> {
     context.assert_token();
 
     let users = context
-        .get::<Vec<User>>("/api/admin/users")
+        .get::<Vec<User>>("/api/v1/admin/users")
         .await
         .context("failed to get users")?;
 

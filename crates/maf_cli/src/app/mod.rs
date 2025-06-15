@@ -79,7 +79,7 @@ pub async fn handle_commands(context: &mut Context, command: AppCommands) -> any
 async fn list_apps(context: &Context) -> anyhow::Result<()> {
     context.assert_token();
 
-    let apps = context.get::<Vec<models::App>>("/api/apps").await?;
+    let apps = context.get::<Vec<models::App>>("/api/v1/apps").await?;
 
     if apps.is_empty() {
         println!("No apps found")
@@ -99,7 +99,7 @@ async fn show_short_app_info(context: &Context, name: &str) -> anyhow::Result<mo
     println!("Fetching app `{name}`...\n");
 
     let app = context
-        .get::<models::App>(format!("/api/apps/{name}"))
+        .get::<models::App>(format!("/api/v1/apps/{name}"))
         .await
         .context("failed to get app")?;
 
@@ -192,7 +192,7 @@ async fn create_app(context: &Context) -> anyhow::Result<()> {
     };
 
     let app = context
-        .post::<models::App>("/api/apps", &config)
+        .post::<models::App>("/api/v1/apps", &config)
         .await
         .context("Failed to create app")?;
 
@@ -225,7 +225,7 @@ async fn delete_app(context: &Context, name: String) -> anyhow::Result<()> {
     println!("Deleting app `{name}`...");
 
     context
-        .delete::<models::App>(format!("/api/apps/{name}"), ())
+        .delete::<models::App>(format!("/api/v1/apps/{name}"), ())
         .await?;
 
     Ok(())
@@ -257,7 +257,7 @@ async fn deploy_bundle(context: &Context, name: String, path: &Path) -> anyhow::
 
     let response = context
         .client
-        .post(context.url(format!("/api/apps/{name}/deployments"))?)
+        .post(context.url(format!("/api/v1/apps/{name}/deployments"))?)
         .body(Body::wrap_stream(stream))
         .send()
         .await?;
