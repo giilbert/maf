@@ -7,7 +7,7 @@ use axum::{
 use maf_container::server::ErrorResponse;
 use sea_orm::EntityTrait;
 
-use crate::storage::db::user::{self};
+use crate::storage::db::user;
 
 use super::{auth::AuthedUser, state::AppState};
 

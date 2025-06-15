@@ -24,15 +24,17 @@ async fn handle_login(context: &mut Context, _command: AuthCommands) -> anyhow::
     }
 
     context.global_config.token = Some(
-        rpassword::prompt_password(
-            format!(
-                "{} {} ",
-                "?".bold().purple(),
-                "Enter your authentication token:".bold()
+        dialoguer::Password::new()
+            .with_prompt(
+                format!(
+                    "{} {} ",
+                    "?".bold().purple(),
+                    "Enter your authentication token:".bold()
+                )
+                .as_str(),
             )
-            .as_str(),
-        )
-        .map_err(|e| anyhow::anyhow!("Failed to read token: {}", e))?,
+            .interact()
+            .map_err(|e| anyhow::anyhow!("Failed to read token: {}", e))?,
     );
 
     context.global_config.save().await?;

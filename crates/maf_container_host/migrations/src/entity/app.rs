@@ -11,6 +11,9 @@ pub struct Model {
     pub name: String,
     pub org_id: Uuid,
     pub updated_at: chrono::NaiveDateTime,
+    pub config: Option<String>,
+    pub api_client_id: String,
+    pub api_secret: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -30,3 +33,21 @@ impl Related<org::Entity> for Entity {
 }
 
 impl ActiveModelBehavior for ActiveModel {}
+
+pub fn generate_api_client_id_and_secret() -> (String, String) {
+    use rand::Rng;
+    let mut rng = rand::rng();
+
+    let client_id = format!(
+        "maf-client-{}",
+        (0..16)
+            .map(|_| rng.sample(rand::distr::Alphanumeric) as char)
+            .collect::<String>()
+    );
+
+    let client_secret = (0..32)
+        .map(|_| rng.sample(rand::distr::Alphanumeric) as char)
+        .collect();
+
+    (client_id, client_secret)
+}

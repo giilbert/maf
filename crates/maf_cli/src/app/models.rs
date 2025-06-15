@@ -4,4 +4,5 @@ use uuid::Uuid;
 pub struct App {
     pub id: Uuid,
     pub name: String,
+    pub config: Option<String>,
 }

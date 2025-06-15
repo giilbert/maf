@@ -11,12 +11,14 @@ use std::{
 use io::ContainerStdoutFactory;
 use tokio::{sync::mpsc, time};
 use tokio_util::sync::CancellationToken;
+use uuid::Uuid;
 use wasmtime as wt;
 use wasmtime_wasi::IoView;
 
 use crate::{interface::BoxedConnection, runtime::wasi::Bindings, utils, wasi::HookRequest};
 
 pub struct Container {
+    pub id: Uuid,
     pub instance: Bindings,
     pub store: wt::Store<ContainerData>,
     pub output: Option<mpsc::Receiver<String>>,
@@ -86,6 +88,7 @@ impl Container {
         let instance = Bindings::instantiate_async(&mut store, &component, &runtime.linker).await?;
 
         Ok(Self {
+            id: Uuid::new_v4(),
             instance,
             store,
             output: Some(output_rx),
@@ -130,6 +133,22 @@ impl Container {
 
     pub fn take_output(&mut self) -> Option<mpsc::Receiver<String>> {
         self.output.take()
+    }
+
+    pub fn pass_output(&mut self) {
+        let mut output = self
+            .take_output()
+            .expect("output channel should be available");
+        let container_id = self.id.clone();
+
+        tokio::spawn(async move {
+            while let Some(line) = output.recv().await {
+                tracing::info!(
+                    "{container_id} > {}",
+                    serde_json::to_string(&line).unwrap_or_else(|_| line.clone())
+                );
+            }
+        });
     }
 }
 

@@ -1,4 +1,5 @@
 name = "example-basic"
+rooms = "AuthenticatedApiRequest"
 
 [debug]
 command = "cargo build --target wasm32-wasip2"

@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 maf_container = { path = "../maf_container" }
+schemas = { path = "../schemas" }
 
 anyhow = "^1.0.96"
 async-trait = "0.1.88"
@@ -12,6 +13,7 @@ axum = { version = "0.8.3", features = ["macros", "ws"] }
 async_zip = { version = "0.0.17", features = ["full"] }
 clap = { version = "4.5.36", features = ["derive"] }
 colored = "3.0.0"
+dialoguer = "0.11.0"
 dotenvy = "0.15.7"
 futures-util = { version = "0.3.31", features = ["io"] }
 indicatif = "0.17.11"
@@ -25,4 +27,3 @@ tokio-util = "0.7.14"
 url = "2.5.4"
 uuid = { version = "1.16.0", features = ["serde", "v4"] }
 toml = "0.8.23"
-rpassword = "7.4.0"

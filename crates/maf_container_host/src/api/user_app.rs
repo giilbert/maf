@@ -6,38 +6,23 @@ use axum::{
 };
 use chrono::Utc;
 use maf_container::server::ErrorResponse;
+use schemas::apps::CreateUserAppRequest;
 use sea_orm::{ActiveValue::Set, ModelTrait};
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::storage::{
+    bundle::BundleError,
     db::app,
     repos::{app_repo, org_repo, utils::DbErrorExt},
 };
 
 use super::{auth::AuthedUser, state::AppState};
 
-// TODO:
-pub struct UserApp {
-    pub room_creation_strategy: RoomCreationStrategy,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum RoomCreationStrategy {
-    /// Auto-create a room and put everyone in it
-    AutoCreate,
-}
-
 pub fn create_user_app_router(_state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", post(create_user_app).get(get_user_apps))
         .route("/{app_name}", get(get_app).delete(delete_app))
         .route("/{app_name}/deployments", post(upload_app_bundle))
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct CreateUserAppRequest {
-    pub name: String,
 }
 
 async fn create_user_app(
@@ -63,10 +48,22 @@ async fn create_user_app(
         )));
     }
 
+    if user_app
+        .config
+        .as_ref()
+        .is_some_and(|config| config.len() > 2000)
+    {
+        return Err(ErrorResponse::bad_request(Some(
+            "Config cannot be longer than 2000 characters.",
+        )));
+    }
+
     // TODO: configure organizations
     let org = crate::storage::repos::org_repo::get_default_org_of_user(&state.db, user.id())
         .await?
         .ok_or_else(|| ErrorResponse::not_found(Some("No default org found.")))?;
+
+    let (api_client_id, api_secret) = app::generate_api_client_id_and_secret();
 
     let app = app_repo::create_app(
         &state.db,
@@ -75,6 +72,9 @@ async fn create_user_app(
             name: Set(user_app.name.clone()),
             org_id: Set(org.id),
             updated_at: Set(Utc::now().naive_utc()),
+            config: Set(user_app.config),
+            api_client_id: Set(api_client_id),
+            api_secret: Set(api_secret),
         },
     )
     .await
@@ -158,7 +158,10 @@ async fn delete_app(
     };
 
     app.clone().delete(&state.db).await?;
-    state.bundle_storage.delete_app_bundle(app.id).await?;
+    match state.bundle_storage.delete_app_bundle(app.id).await {
+        Ok(_) | Err(BundleError::FileNotFound) => (),
+        Err(e) => return Err(ErrorResponse::from(e)),
+    };
 
     Ok(Json(app))
 }
