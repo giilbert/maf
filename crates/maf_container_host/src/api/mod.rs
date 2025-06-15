@@ -4,7 +4,6 @@ mod gateway;
 mod state;
 mod user_app;
 
-use auth::authenticate_request;
 use axum::{
     extract::{Request, State},
     middleware::{self, Next},
@@ -33,7 +32,6 @@ fn create_api_v1_router(state: AppState) -> Router<AppState> {
     Router::new()
         .nest("/admin", admin::create_admin_router(state.clone()))
         .nest("/apps", user_app::create_user_app_router(state.clone()))
-        .layer(middleware::from_fn_with_state(state, authenticate_request))
 }
 
 async fn update_last_activity(

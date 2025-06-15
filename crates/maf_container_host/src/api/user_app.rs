@@ -1,6 +1,7 @@
 use axum::{
     body::Body,
     extract::{Path, State},
+    middleware,
     routing::{get, post},
     Json, Router,
 };
@@ -10,19 +11,26 @@ use schemas::apps::CreateUserAppRequest;
 use sea_orm::{ActiveValue::Set, ModelTrait};
 use uuid::Uuid;
 
-use crate::storage::{
-    bundle::BundleError,
-    db::app,
-    repos::{app_repo, org_repo, utils::DbErrorExt},
+use crate::{
+    api::auth::authenticate_user_request,
+    storage::{
+        bundle::BundleError,
+        db::app,
+        repos::{app_repo, org_repo, utils::DbErrorExt},
+    },
 };
 
 use super::{auth::AuthedUser, state::AppState};
 
-pub fn create_user_app_router(_state: AppState) -> Router<AppState> {
+pub fn create_user_app_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", post(create_user_app).get(get_user_apps))
         .route("/{app_name}", get(get_app).delete(delete_app))
         .route("/{app_name}/deployments", post(upload_app_bundle))
+        .layer(middleware::from_fn_with_state(
+            state,
+            authenticate_user_request,
+        ))
 }
 
 async fn create_user_app(

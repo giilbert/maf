@@ -11,7 +11,7 @@ use crate::storage::{db::user, repos::user_repo};
 
 use super::state::AppState;
 
-pub async fn authenticate_request(
+pub async fn authenticate_user_request(
     State(state): State<AppState>,
     mut req: Request,
     next: Next,
@@ -21,11 +21,13 @@ pub async fn authenticate_request(
         .get("Authorization")
         .and_then(|h| h.to_str().ok())
         .map(|h| h.trim_start_matches("Bearer ").to_string())
-        .ok_or_else(|| ErrorResponse::unauthorized(Some("Missing Authorization header")))?;
+        .ok_or_else(|| {
+            ErrorResponse::unauthorized(Some("Missing Authorization header with user token."))
+        })?;
 
     let user = user_repo::get_token_user(&state.db, &token)
         .await?
-        .ok_or_else(|| ErrorResponse::unauthorized(Some("Invalid token")))?;
+        .ok_or_else(|| ErrorResponse::unauthorized(Some("Invalid user token.")))?;
 
     req.extensions_mut().insert(AuthedUser { inner: user });
 
