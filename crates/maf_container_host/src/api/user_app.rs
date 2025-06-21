@@ -12,6 +12,7 @@ use schemas::{
     project_config::ProjectConfigFile,
 };
 use sea_orm::{ActiveValue::Set, ModelTrait};
+use serde::Serialize;
 use uuid::Uuid;
 
 use crate::{
@@ -190,10 +191,17 @@ async fn delete_app(
     Ok(Json(app))
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RoomCreationResponse {
+    pub id: Uuid,
+    pub secret: String,
+}
+
 async fn create_room(
     State(state): State<AppState>,
     service_account: AuthedServiceAccount,
-) -> Result<(), ErrorResponse> {
+) -> Result<Json<RoomCreationResponse>, ErrorResponse> {
     let app = service_account.app();
     let org = service_account.org();
 
@@ -275,5 +283,8 @@ async fn create_room(
         }
     });
 
-    Ok(())
+    Ok(Json(RoomCreationResponse {
+        id: room_id,
+        secret: room.room_secret.clone(),
+    }))
 }

@@ -57,6 +57,7 @@ impl Container {
     pub async fn load_from_binary(
         runtime: &super::ContainerRuntime,
         bytes: impl AsRef<[u8]>,
+        id: Uuid,
     ) -> anyhow::Result<Self> {
         let component = wt::component::Component::new(&runtime.engine, &bytes)?;
 
@@ -88,7 +89,7 @@ impl Container {
         let instance = Bindings::instantiate_async(&mut store, &component, &runtime.linker).await?;
 
         Ok(Self {
-            id: Uuid::new_v4(),
+            id,
             instance,
             store,
             output: Some(output_rx),

@@ -23,7 +23,8 @@ export type ConnectOptions =
     }
   | {
       type: "room";
-      room: string;
+      id: string;
+      secret: string;
     };
 
 export class MafClient extends Emittery<MafClientEvents> {
@@ -69,7 +70,8 @@ export class MafClient extends Emittery<MafClientEvents> {
     if (options.type === "room") {
       // If the connection type is "room" (authenticated api request, etc.), add
       // the room ID to the path
-      connectionUrl.pathname += `/${options.room}/connect`;
+      connectionUrl.pathname += `/${options.id}/connect`;
+      connectionUrl.searchParams.set("secret", options.secret);
     } else if (options.type === "default") {
       // If the connection type is "default" (auto created room), use "default"
       connectionUrl.pathname += "/default/connect";

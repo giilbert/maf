@@ -2193,6 +2193,7 @@ dependencies = [
  "axum",
  "bytes",
  "futures-util",
+ "rand 0.9.1",
  "serde",
  "serde_json",
  "tokio",

@@ -13,11 +13,10 @@ const server = new MafServiceClient({
 
 export default async (_req: Request, res: Response) => {
   try {
-    await server.rooms.create();
+    const data = await server.rooms.create();
+    return res.status(200).send({ type: "success", data });
   } catch (e) {
     console.error("Failed to create room:", e);
     return res.status(500).send({ type: "error" });
   }
-  console.log("Created room!");
-  res.status(200).send({ type: "success" });
 };

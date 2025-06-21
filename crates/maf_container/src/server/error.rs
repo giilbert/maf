@@ -15,6 +15,13 @@ macro_rules! impl_error_status {
         impl ErrorResponse {
             #[allow(dead_code)]
             pub fn $name(message: Option<&str>) -> Self {
+                tracing::debug!(
+                    "Error: {} - {}",
+                    StatusCode::$status,
+                    message
+                        .map(|m| m.to_string())
+                        .unwrap_or_else(|| $message.to_string())
+                );
                 ErrorResponse {
                     status_code: StatusCode::$status,
                     message: message

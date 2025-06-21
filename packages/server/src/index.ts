@@ -30,12 +30,12 @@ export class MafServiceClient {
 class Rooms {
   constructor(private client: MafServiceClient) {}
 
-  async create(): Promise<void> {
+  async create() {
     const url = new URL(
       `api/v1/apps/${this.client.app}/rooms`,
       this.client.serverBaseUrl
     );
-    console.log(url);
+
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -47,5 +47,12 @@ class Rooms {
     if (!response.ok) {
       throw new Error(`Failed to create room: ${response.statusText}`);
     }
+
+    const data = (await response.json()) as {
+      id: string;
+      secret: string;
+    };
+
+    return data;
   }
 }

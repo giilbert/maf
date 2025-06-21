@@ -9,6 +9,7 @@ anyhow = "^1.0.96"
 axum = { version = "0.8.3", features = ["macros", "ws"] }
 bytes = "1.10.1"
 futures-util = "0.3.31"
+rand = "0.9.1"
 tokio = { version = "1.43.0", features = ["full"] }
 tokio-util = { version = "0.7.15", features = ["io"] }
 serde = { version = "^1", features = ["derive"] }

@@ -26,12 +26,14 @@ pub fn create_gateway_router(_state: AppState) -> Router<AppState> {
 }
 
 #[derive(Deserialize)]
-pub struct ConnectQueryParams {}
+pub struct ConnectQueryParams {
+    secret: Option<String>,
+}
 
 async fn connect_route(
     State(state): State<AppState>,
     Path((org_slug, app_name, room_id)): Path<(String, String, String)>,
-    Query(_query_params): Query<ConnectQueryParams>,
+    Query(query_params): Query<ConnectQueryParams>,
     ws: WebSocketUpgrade,
 ) -> Result<Response, ErrorResponse> {
     let app = app_repo::get_app_by_name_and_org_slug(&state.db, &app_name, &org_slug)
@@ -66,7 +68,21 @@ async fn connect_route(
                 )));
             }
 
-            fetch_autocreated_room(app, &state, org_slug).await?
+            let room = fetch_autocreated_room(app, &state, org_slug).await?;
+
+            if let Some(secret) = query_params.secret {
+                if secret != room.room_secret {
+                    return Err(ErrorResponse::forbidden(Some(
+                        "Invalid room secret provided.",
+                    )));
+                }
+            } else {
+                return Err(ErrorResponse::bad_request(Some(
+                    "Room secret is required for autocreated rooms.",
+                )));
+            }
+
+            room
         }
     };
 
