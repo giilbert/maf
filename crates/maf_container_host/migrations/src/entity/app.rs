@@ -45,7 +45,7 @@ pub fn generate_api_client_id_and_secret() -> (String, String) {
             .collect::<String>()
     );
 
-    let client_secret = (0..32)
+    let client_secret = (0..64)
         .map(|_| rng.sample(rand::distr::Alphanumeric) as char)
         .collect();
 

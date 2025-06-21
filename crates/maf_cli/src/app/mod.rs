@@ -27,6 +27,8 @@ pub enum AppCommands {
     List,
     /// Create a new app
     Create,
+    /// Get service account credentials for an app by name, or the current project's app if no name is provided
+    Credentials { name: Option<String> },
     /// Show information about an app by name, or the current project's app if no name is provided
     View { name: Option<String> },
     /// Delete an app by name, or the current project's app if no name is provided
@@ -43,6 +45,13 @@ pub async fn handle_commands(context: &mut Context, command: AppCommands) -> any
     match command {
         AppCommands::List => list_apps(context).await,
         AppCommands::Create => create_app(context).await,
+        AppCommands::Credentials { name } => match name {
+            Some(name) => get_app_credentials(context, &name).await,
+            None => {
+                let project = context.assert_project();
+                get_app_credentials(context, &project.data.name).await
+            }
+        },
         AppCommands::View { name } => match name {
             Some(name) => view_app(context, &name).await,
             None => {
@@ -197,6 +206,31 @@ async fn create_app(context: &Context) -> anyhow::Result<()> {
         .context("Failed to create app")?;
 
     println!("App `{}` created!", app.name);
+
+    Ok(())
+}
+
+async fn get_app_credentials(context: &Context, name: &str) -> anyhow::Result<()> {
+    context.assert_token();
+
+    let app = show_short_app_info(context, name).await?;
+
+    const CREDENTIALS_PATH: &str = "credentials.txt";
+
+    tokio::fs::write(
+        CREDENTIALS_PATH,
+        format!(
+            r#"# MAF service client credentials for {name}
+MAF_CLIENT_ID={client_id}
+MAF_CLIENT_SECRET={secret}"#,
+            name = app.name,
+            client_id = app.api_client_id,
+            secret = app.api_secret
+        ),
+    )
+    .await?;
+
+    println!("Credentials for app `{name}` written to `{CREDENTIALS_PATH}`");
 
     Ok(())
 }

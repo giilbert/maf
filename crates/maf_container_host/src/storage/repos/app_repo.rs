@@ -94,3 +94,20 @@ pub async fn get_app_by_service_account(
 
     assert_related_org_exists(app)
 }
+
+pub async fn get_app_credentials_by_name_and_user_id(
+    conn: &impl ConnectionTrait,
+    app_name: &str,
+    user_id: Uuid,
+) -> Result<Option<(String, String)>, DbErr> {
+    let app = app::Entity::find()
+        .filter(app::Column::Name.eq(app_name))
+        .left_join(org::Entity)
+        .one(conn)
+        .await?;
+
+    match app {
+        Some(app_model) => Ok(Some((app_model.api_client_id, app_model.api_secret))),
+        None => Ok(None),
+    }
+}
