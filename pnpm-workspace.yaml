@@ -2,3 +2,4 @@ packages:
   - "www"
   - "packages/client"
   - "packages/client/examples/*"
+  - "packages/server"

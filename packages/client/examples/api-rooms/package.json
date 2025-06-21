@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -12,11 +13,16 @@
   "license": "ISC",
   "dependencies": {
     "@maf/client": "workspace:*",
+    "@maf/server": "workspace:*",
+    "express": "^5.1.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^20",
     "@vitejs/plugin-react": "^4.3.4",
     "typescript": "^5.8.2",
-    "vite": "^6.2.3"
+    "vite": "^6.2.3",
+    "vite-plugin-api-routes": "1.2.4-beta"
   }
 }
