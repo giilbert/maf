@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{atomic::AtomicU64, Arc},
     time::Duration,
 };
@@ -35,6 +35,7 @@ pub struct AppState {
     pub environment: Environment,
     pub container_runtime: ContainerRuntime,
     pub auto_created_rooms_by_org_slug: Arc<RwLock<HashMap<String, Uuid>>>,
+    pub api_created_rooms_by_org_slug: Arc<RwLock<HashMap<String, HashSet<Uuid>>>>,
     pub rooms: Arc<RwLock<HashMap<Uuid, Room>>>,
     pub bundle_storage: BundleStorage,
     pub db: sea_orm::DatabaseConnection,
@@ -67,6 +68,7 @@ impl AppState {
                 })?,
             container_runtime,
             auto_created_rooms_by_org_slug: Default::default(),
+            api_created_rooms_by_org_slug: Default::default(),
             rooms: Default::default(),
             bundle_storage: BundleStorage::new().await?,
             db,

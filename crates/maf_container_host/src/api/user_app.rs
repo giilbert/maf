@@ -6,13 +6,16 @@ use axum::{
     Json, Router,
 };
 use chrono::Utc;
-use maf_container::server::ErrorResponse;
-use schemas::apps::CreateUserAppRequest;
+use maf_container::server::{ErrorResponse, Room};
+use schemas::{
+    apps::{CreateUserAppRequest, RoomCreationStrategy},
+    project_config::ProjectConfigFile,
+};
 use sea_orm::{ActiveValue::Set, ModelTrait};
 use uuid::Uuid;
 
 use crate::{
-    api::auth::authenticate_user_request,
+    api::auth::{authenticate_service_request, authenticate_user_request, AuthedServiceAccount},
     storage::{
         bundle::BundleError,
         db::app,
@@ -23,14 +26,27 @@ use crate::{
 use super::{auth::AuthedUser, state::AppState};
 
 pub fn create_user_app_router(state: AppState) -> Router<AppState> {
-    Router::new()
+    // Router for user operations
+    let user_router = Router::new()
         .route("/", post(create_user_app).get(get_user_apps))
         .route("/{app_name}", get(get_app).delete(delete_app))
         .route("/{app_name}/deployments", post(upload_app_bundle))
         .layer(middleware::from_fn_with_state(
-            state,
+            state.clone(),
             authenticate_user_request,
-        ))
+        ));
+
+    // Router for service account operations
+    let service_account_router = Router::new()
+        .route("/{org_slug}/{app_name}/rooms", post(create_room))
+        .layer(middleware::from_fn_with_state(
+            state,
+            authenticate_service_request,
+        ));
+
+    Router::new()
+        .merge(user_router)
+        .merge(service_account_router)
 }
 
 async fn create_user_app(
@@ -172,4 +188,92 @@ async fn delete_app(
     };
 
     Ok(Json(app))
+}
+
+async fn create_room(
+    State(state): State<AppState>,
+    service_account: AuthedServiceAccount,
+) -> Result<(), ErrorResponse> {
+    let app = service_account.app();
+    let org = service_account.org();
+
+    let room_creation_strategy = match &app.config {
+        Some(config) => {
+            let config: ProjectConfigFile = toml::from_str(&config)
+                .map_err(|_| ErrorResponse::bad_request(Some("Invalid project config")))?;
+            config.rooms
+        }
+        None => RoomCreationStrategy::AuthenticatedApiRequest,
+    };
+
+    if room_creation_strategy != RoomCreationStrategy::AuthenticatedApiRequest {
+        return Err(ErrorResponse::forbidden(Some(
+            "Authenticated API request is not supported for this app.",
+        )));
+    }
+
+    let (room, mut container) = Room::new(
+        &state.container_runtime,
+        state
+            .bundle_storage
+            .load_app_bundle(app.id)
+            .await
+            .map_err(|e| match e {
+                BundleError::InvalidZip => ErrorResponse::bad_request(Some("Invalid app bundle")),
+                _ => ErrorResponse::internal_server_error(Some("Failed to load app bundle")),
+            })?
+            .ok_or_else(|| ErrorResponse::not_found(Some("App bundle not found")))?,
+    )
+    .await?;
+
+    state
+        .api_created_rooms_by_org_slug
+        .write()
+        .await
+        .entry(org.slug.clone())
+        .or_default()
+        .insert(room.id);
+
+    state.rooms.write().await.insert(room.id, room.clone());
+
+    let room_id = room.id;
+    let org_slug = org.slug.clone();
+    let state = state.clone();
+
+    container.pass_output();
+    container.start_inactive_shutdown_task();
+
+    tokio::spawn(async move {
+        if let Err(e) = container.run().await {
+            tracing::error!("container {} error: {e:?}", container.id);
+        }
+        tracing::info!("container {} stopped", container.id);
+
+        state.rooms.write().await.remove(&room_id);
+        state
+            .api_created_rooms_by_org_slug
+            .write()
+            .await
+            .entry(org_slug.clone())
+            .and_modify(|rooms| {
+                rooms.remove(&room_id);
+            });
+
+        // Remove the entry in api_created_rooms_by_org_slug if it's empty
+        if state
+            .api_created_rooms_by_org_slug
+            .read()
+            .await
+            .get(&org_slug)
+            .map_or(false, |rooms| rooms.is_empty())
+        {
+            state
+                .api_created_rooms_by_org_slug
+                .write()
+                .await
+                .remove(&org_slug);
+        }
+    });
+
+    Ok(())
 }

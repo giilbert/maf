@@ -17,6 +17,15 @@ export interface SessionInfo {
   id: string;
 }
 
+export type ConnectOptions =
+  | {
+      type: "default";
+    }
+  | {
+      type: "room";
+      room: string;
+    };
+
 export class MafClient extends Emittery<MafClientEvents> {
   public readonly url: URL;
 
@@ -55,9 +64,18 @@ export class MafClient extends Emittery<MafClientEvents> {
     this.url = url;
   }
 
-  async connect() {
+  async connect(options: ConnectOptions = { type: "default" }) {
     const connectionUrl = new URL(this.url);
-    connectionUrl.pathname += "/connect";
+    if (options.type === "room") {
+      // If the connection type is "room" (authenticated api request, etc.), add
+      // the room ID to the path
+      connectionUrl.pathname += `/${options.room}/connect`;
+    } else if (options.type === "default") {
+      // If the connection type is "default" (auto created room), use "default"
+      connectionUrl.pathname += "/default/connect";
+    } else {
+      throw new Error("Invalid connection options");
+    }
 
     const ws = new WebSocket(connectionUrl);
     this._ws = ws;
@@ -131,7 +149,6 @@ export class MafClient extends Emittery<MafClientEvents> {
       const { store, data } = packet.data;
       this._storeData[store] = data;
       this._stores[store]?.emit("change", data);
-      console.log("emit change for store", store, data);
     }
   }
 

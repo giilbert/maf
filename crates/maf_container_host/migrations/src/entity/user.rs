@@ -43,6 +43,10 @@ impl Related<org_member::Entity> for Entity {
 impl ActiveModelBehavior for ActiveModel {}
 
 bitflags::bitflags! {
+    /// Permissions for a user on the server.
+    ///
+    /// - `MANAGE_SERVER` allows the user to have full administrative privileges on the server,
+    ///   including managing users, apps, and server settings.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
     #[repr(transparent)]
     pub struct Permissions: i64 {
@@ -50,6 +54,7 @@ bitflags::bitflags! {
     }
 }
 
+/// Implement SeaORM traits for `Permissions` to allow it to be used as a database value type.
 impl ValueType for Permissions {
     fn type_name() -> String {
         "Permissions".to_string()

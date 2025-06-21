@@ -1,33 +1,12 @@
 use std::path::PathBuf;
 
 use anyhow::Context;
-use schemas::apps::RoomCreationStrategy;
-use serde::{Deserialize, Serialize};
+use schemas::project_config::ProjectConfigFile;
 
 #[derive(Debug)]
 pub struct ProjectConfig {
     pub data: ProjectConfigFile,
     pub base_path: PathBuf,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ProjectConfigFile {
-    pub name: String,
-    #[serde(default = "default_room_creation_strategy")]
-    pub rooms: RoomCreationStrategy,
-
-    pub debug: TargetConfig,
-    pub release: TargetConfig,
-}
-
-fn default_room_creation_strategy() -> RoomCreationStrategy {
-    RoomCreationStrategy::AuthenticatedApiRequest
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TargetConfig {
-    pub command: String,
-    pub output: String,
 }
 
 impl ProjectConfig {

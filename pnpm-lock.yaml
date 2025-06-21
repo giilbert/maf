@@ -18,6 +18,25 @@ importers:
         specifier: ^5.8.2
         version: 5.8.2
 
+  packages/client/examples/api-rooms:
+    dependencies:
+      '@maf/client':
+        specifier: workspace:*
+        version: link:../..
+      zod:
+        specifier: ^3.24.2
+        version: 3.24.2
+    devDependencies:
+      '@vitejs/plugin-react':
+        specifier: ^4.3.4
+        version: 4.3.4(vite@6.2.3(@types/node@22.15.17)(jiti@2.4.2)(lightningcss@1.29.2)(yaml@2.7.1))
+      typescript:
+        specifier: ^5.8.2
+        version: 5.8.2
+      vite:
+        specifier: ^6.2.3
+        version: 6.2.3(@types/node@22.15.17)(jiti@2.4.2)(lightningcss@1.29.2)(yaml@2.7.1)
+
   packages/client/examples/simple:
     dependencies:
       '@maf/client':

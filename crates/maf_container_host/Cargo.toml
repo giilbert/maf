@@ -12,6 +12,7 @@ anyhow = "^1.0.96"
 async-trait = "0.1.88"
 axum = { version = "0.8.3", features = ["macros", "ws"] }
 async_zip = { version = "0.0.17", features = ["full"] }
+base64 = "0.22.1"
 bitflags = { version = "2.9.0", features = ["serde"] }
 bytes = "1.10.1"
 dashmap = "6.1.0"
@@ -31,3 +32,4 @@ tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 uuid = { version = "1.16.0", features = ["serde", "v4"] }
 chrono = { version = "0.4.40", features = ["serde"] }
+toml = "0.8.23"
