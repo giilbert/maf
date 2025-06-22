@@ -1,5 +1,6 @@
-use sea_orm::{ActiveModelTrait, ActiveValue::Set, EntityTrait};
+use sea_orm::ActiveValue::Set;
 use sea_orm_migration::prelude::*;
+use serde::Deserialize;
 
 use crate::{entity::app, m20250419_015427_create_apps::App};
 
@@ -14,8 +15,9 @@ impl MigrationTrait for Migration {
                 TableAlterStatement::new()
                     .table(App::Table)
                     .add_column(ColumnDef::new(App::Config).string())
-                    .add_column(ColumnDef::new(App::ApiClientId).not_null().string())
-                    .add_column(ColumnDef::new(App::ApiSecret).not_null().string())
+                    // These two columns are initially null, but will be populated later
+                    .add_column(ColumnDef::new(App::ApiClientId).string())
+                    .add_column(ColumnDef::new(App::ApiSecret).string())
                     .to_owned(),
             )
             .await?;
@@ -35,16 +37,47 @@ impl MigrationTrait for Migration {
 
         let db = manager.get_connection();
 
-        for app in app::Entity::find().all(db).await?.into_iter() {
-            let (client_id, client_secret) = app::generate_api_client_id_and_secret();
+        {
+            use sea_orm::entity::prelude::*;
+            use serde::Deserialize;
 
-            let mut active: app::ActiveModel = app.into();
+            // Use a temporary entity to update existing apps with API client ID and secret
+            #[derive(Clone, Debug, PartialEq, Eq, Deserialize, DeriveEntityModel)]
+            #[sea_orm(table_name = "app")]
+            pub struct Model {
+                #[sea_orm(primary_key)]
+                pub id: Uuid,
+                pub api_client_id: Option<String>,
+                pub api_secret: Option<String>,
+            }
 
-            active.api_client_id = Set(client_id);
-            active.api_secret = Set(client_secret);
+            #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+            pub enum Relation {}
 
-            active.update(db).await?;
+            impl ActiveModelBehavior for ActiveModel {}
+
+            for app in Entity::find().all(db).await?.into_iter() {
+                let (client_id, client_secret) = app::generate_api_client_id_and_secret();
+
+                let mut active: ActiveModel = app.into();
+
+                active.api_client_id = Set(Some(client_id));
+                active.api_secret = Set(Some(client_secret));
+
+                active.update(db).await?;
+            }
         }
+
+        // Make the api client id and secret non-nullable
+        manager
+            .alter_table(
+                TableAlterStatement::new()
+                    .table(App::Table)
+                    .modify_column(ColumnDef::new(App::ApiClientId).string().not_null())
+                    .modify_column(ColumnDef::new(App::ApiSecret).string().not_null())
+                    .to_owned(),
+            )
+            .await?;
 
         Ok(())
     }
