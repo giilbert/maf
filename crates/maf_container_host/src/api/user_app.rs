@@ -39,7 +39,10 @@ pub fn create_user_app_router(state: AppState) -> Router<AppState> {
 
     // Router for service account operations
     let service_account_router = Router::new()
-        .route("/{org_slug}/{app_name}/rooms", post(create_room))
+        .route(
+            "/{org_slug}/{app_name}/rooms",
+            get(get_rooms).post(create_room),
+        )
         .layer(middleware::from_fn_with_state(
             state,
             authenticate_service_request,
@@ -193,6 +196,44 @@ async fn delete_app(
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+struct RoomInfo {
+    id: Uuid,
+    secret: String,
+}
+
+async fn get_rooms(
+    State(state): State<AppState>,
+    service_account: AuthedServiceAccount,
+) -> Result<Json<Vec<RoomInfo>>, ErrorResponse> {
+    let app = service_account.app();
+    let org = service_account.org();
+
+    match state
+        .api_created_rooms_by_app_name_org_slug
+        .read()
+        .await
+        .get(&(app.name.clone(), org.slug.clone()))
+    {
+        Some(rooms_set) => {
+            let mut rooms: Vec<RoomInfo> = vec![];
+
+            for room_id in rooms_set.iter() {
+                if let Some(room) = state.rooms.read().await.get(&room_id) {
+                    rooms.push(RoomInfo {
+                        id: room.id,
+                        secret: room.room_secret.clone(),
+                    });
+                }
+            }
+
+            Ok(Json(rooms))
+        }
+        None => Ok(Json(vec![])),
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RoomCreationResponse {
     pub id: Uuid,
     pub secret: String,
@@ -235,16 +276,17 @@ async fn create_room(
     .await?;
 
     state
-        .api_created_rooms_by_org_slug
+        .api_created_rooms_by_app_name_org_slug
         .write()
         .await
-        .entry(org.slug.clone())
+        .entry((app.name.clone(), org.slug.clone()))
         .or_default()
         .insert(room.id);
 
     state.rooms.write().await.insert(room.id, room.clone());
 
     let room_id = room.id;
+    let app_name = app.name.clone();
     let org_slug = org.slug.clone();
     let state = state.clone();
 
@@ -259,27 +301,29 @@ async fn create_room(
 
         state.rooms.write().await.remove(&room_id);
         state
-            .api_created_rooms_by_org_slug
+            .api_created_rooms_by_app_name_org_slug
             .write()
             .await
-            .entry(org_slug.clone())
+            .entry((app_name.clone(), org_slug.clone()))
             .and_modify(|rooms| {
                 rooms.remove(&room_id);
             });
 
+        let key = (app_name.clone(), org_slug.clone());
+
         // Remove the entry in api_created_rooms_by_org_slug if it's empty
         if state
-            .api_created_rooms_by_org_slug
+            .api_created_rooms_by_app_name_org_slug
             .read()
             .await
-            .get(&org_slug)
+            .get(&key)
             .map_or(false, |rooms| rooms.is_empty())
         {
             state
-                .api_created_rooms_by_org_slug
+                .api_created_rooms_by_app_name_org_slug
                 .write()
                 .await
-                .remove(&org_slug);
+                .remove(&key);
         }
     });
 
