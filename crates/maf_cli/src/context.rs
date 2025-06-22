@@ -59,8 +59,8 @@ impl Context {
     }
 
     pub fn assert_token(&self) {
-        let token = dotenvy::var("MAF_CLI_TOKEN");
-        if token.is_ok_and(|t| t.len() > 0) {
+        let token = self.global_config.token.as_deref();
+        if token.is_some_and(|t| t.len() > 0) {
             return;
         } else {
             pretty::error!("MAF_CLI_TOKEN environment variable is not set");
