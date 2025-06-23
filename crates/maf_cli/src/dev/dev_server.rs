@@ -95,7 +95,10 @@ pub async fn start_dev_server(config: DevServerConfig) -> anyhow::Result<()> {
     }
 
     let app = axum::Router::new()
-        .route("/@/{org_slug}/{app_slug}/connect", get(connect_route))
+        .route(
+            "/@/{org_slug}/{app_slug}/{room_id}/connect",
+            get(connect_route),
+        )
         .route(
             "/@/{org_slug}/{app_slug}/{room_id}/hooks/{method}",
             post(hook_request_handler),
