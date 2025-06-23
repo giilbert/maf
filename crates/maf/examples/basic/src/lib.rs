@@ -9,7 +9,7 @@ impl StoreData for CounterStore {
         42
     }
 
-    fn select(data: &Self::Data) -> impl serde::Serialize {
+    fn select(data: &Self::Data, _user: &User) -> impl serde::Serialize {
         data
     }
 }

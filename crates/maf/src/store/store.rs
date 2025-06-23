@@ -10,7 +10,7 @@ use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::{
     callable::{CallableFetch, CallableParam},
-    App,
+    App, User,
 };
 
 use super::change_detection::StoreMut;
@@ -21,7 +21,10 @@ pub struct AnyStore {
     pub(crate) dirty: Arc<AtomicBool>,
     pub(crate) data: Arc<RwLock<dyn Any + Send + Sync>>,
     pub(crate) serializer: Arc<
-        dyn Fn(&dyn Any) -> Result<serde_json::Value, StoreSerializeError> + Send + Sync + 'static,
+        dyn Fn(&dyn Any, &User) -> Result<serde_json::Value, StoreSerializeError>
+            + Send
+            + Sync
+            + 'static,
     >,
 }
 
@@ -68,7 +71,7 @@ pub trait StoreData: 'static {
     }
 
     #[allow(unused_variables)]
-    fn select(data: &Self::Data) -> impl serde::Serialize {
+    fn select(data: &Self::Data, user: &User) -> impl serde::Serialize {
         ()
     }
 
@@ -81,13 +84,13 @@ impl AnyStore {
             key: T::key().into(),
             dirty: Arc::new(AtomicBool::new(false)),
             data: Arc::new(RwLock::new(T::init())),
-            serializer: Arc::new(|data| {
+            serializer: Arc::new(|data, user| {
                 let data = data.downcast_ref::<T::Data>().expect(&std::format!(
                     "store data is not of expected type {}",
                     std::any::type_name::<T::Data>()
                 ));
 
-                serde_json::to_value(T::select(&data)).map_err(Into::into)
+                serde_json::to_value(T::select(&data, user)).map_err(Into::into)
             }),
         }
     }

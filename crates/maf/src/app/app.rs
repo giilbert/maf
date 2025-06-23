@@ -237,10 +237,10 @@ impl App {
         let serializer = store.serializer.clone();
         let data = store.data.read_owned().await;
 
-        let serialized =
-            serializer(&*data).map_err(|_| anyhow::anyhow!("failed to serialize store"))?;
-
         for (user_id, user) in self.inner.state.users.read().await.iter() {
+            let serialized = serializer(&*data, &user)
+                .map_err(|_| anyhow::anyhow!("failed to serialize store"))?;
+
             if let Err(e) = user.send(TxPacket::StoreUpdate(OneStoreUpdate {
                 store: store_key.as_ref(),
                 data: &serialized,
@@ -258,7 +258,7 @@ impl App {
         let mut data: Vec<(&StoreKey, serde_json::Value)> = Vec::with_capacity(stores.len());
 
         for (store_key, store) in stores.iter() {
-            let serialized = (store.serializer)(&*store.data.read().await)
+            let serialized = (store.serializer)(&*store.data.read().await, user)
                 .context("failed to serialize store")?;
 
             data.push((store_key, serialized));
