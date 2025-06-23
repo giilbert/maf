@@ -112,6 +112,8 @@ impl App {
                         {
                             println!("failed to run on_disconnect handler: {e}");
                         }
+
+                        let _ = app.flush_all_store_changes().await;
                     }
                     None => {}
                 }
@@ -127,10 +129,17 @@ impl App {
             let app = self.clone();
             self.inner.on_connect.as_ref().map(|handler| {
                 let handler = handler.clone();
-                tasks::spawn(handler(OnConnectDiconnectContext {
-                    app: app.clone(),
-                    user,
-                }));
+                tasks::spawn(async move {
+                    handler(OnConnectDiconnectContext {
+                        app: app.clone(),
+                        user,
+                    })
+                    .await?;
+
+                    app.flush_all_store_changes().await?;
+
+                    Ok::<_, anyhow::Error>(())
+                });
             });
         }
     }
