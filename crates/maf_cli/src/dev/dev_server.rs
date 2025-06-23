@@ -180,7 +180,7 @@ fn create_file_watcher(
 
 async fn connect_route(
     State(state): State<DevServerState>,
-    Path((_org_slug, _app_name)): Path<(String, String)>,
+    Path((_org_slug, _app_name, _room_id)): Path<(String, String, String)>,
     ws: WebSocketUpgrade,
 ) -> Result<Response, ErrorResponse> {
     let room = state.inner.room.read().await.clone();
