@@ -3,6 +3,7 @@ import type { MafClient } from "./client";
 
 export interface StoreOptions<T> {
   default?: T;
+  hasInit?: (value: T | null) => boolean;
 }
 
 export interface StoreEvents<T> {
@@ -48,7 +49,14 @@ export class Store<T> extends Emittery<StoreEvents<T>> {
 
     this.init = new Promise((resolve) => {
       if (this._hasInit) return resolve();
-      this.once("change").then(() => resolve());
+
+      const unsubscribe = this.on("change", (data) => {
+        if (options?.hasInit && !options.hasInit(data)) return;
+
+        this._hasInit = true;
+        unsubscribe();
+        resolve();
+      });
     });
   }
 

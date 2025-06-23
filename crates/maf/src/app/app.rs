@@ -246,16 +246,15 @@ impl App {
         let serializer = store.serializer.clone();
         let data = store.data.read_owned().await;
 
-        for (user_id, user) in self.inner.state.users.read().await.iter() {
+        for (_user_id, user) in self.inner.state.users.read().await.iter() {
             let serialized = serializer(&*data, &user)
                 .map_err(|_| anyhow::anyhow!("failed to serialize store"))?;
 
-            if let Err(e) = user.send(TxPacket::StoreUpdate(OneStoreUpdate {
+            user.send(TxPacket::StoreUpdate(OneStoreUpdate {
                 store: store_key.as_ref(),
                 data: &serialized,
-            })) {
-                println!("failed to send store update to user {user_id}: {e}");
-            }
+            }))
+            .ok();
         }
 
         Ok(())
