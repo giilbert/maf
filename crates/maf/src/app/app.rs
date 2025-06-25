@@ -93,7 +93,25 @@ impl App {
             let user_clone = user.clone();
             let app = self.clone();
             let on_disconnect = self.inner.on_disconnect.clone();
+            let on_connect = self.inner.on_connect.clone();
             tasks::spawn(async move {
+                match on_connect.as_ref() {
+                    Some(handler) => {
+                        let handler = handler.clone();
+                        if let Err(e) = handler(OnConnectDiconnectContext {
+                            app: app.clone(),
+                            user: user_clone.clone(),
+                        })
+                        .await
+                        {
+                            println!("failed to run on_connect handler: {e}");
+                        }
+
+                        app.flush_all_store_changes().await.ok();
+                    }
+                    None => (),
+                }
+
                 user_clone
                     .handle_messages(app.clone())
                     .await
@@ -124,22 +142,6 @@ impl App {
                     .write()
                     .await
                     .remove(&user_clone.meta.id);
-            });
-
-            let app = self.clone();
-            self.inner.on_connect.as_ref().map(|handler| {
-                let handler = handler.clone();
-                tasks::spawn(async move {
-                    handler(OnConnectDiconnectContext {
-                        app: app.clone(),
-                        user,
-                    })
-                    .await?;
-
-                    app.flush_all_store_changes().await?;
-
-                    Ok::<_, anyhow::Error>(())
-                });
             });
         }
     }
