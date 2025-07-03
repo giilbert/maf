@@ -4,3 +4,177 @@ category: Primitives
 ---
 
 # Store
+
+Stores keep track of synchronized state between the client and server. They are
+used to manage data that needs to be updated or fetched from the server with
+real-time capabilities.
+
+## Usage
+
+### Server
+
+<Tabs defaultValue="rust">
+  <TabsList>
+    <TabsTrigger value="rust">Rust</TabsTrigger>
+  </TabsList>
+
+<TabsContent value="rust">
+
+In Rust, a store is created by implementing `StoreData` on a struct (1) and
+either using it (2) or declaring it when building the app (3).
+
+```rust
+struct Counter {
+    count: u32,
+}
+
+// (1) Implementing StoreData for a struct
+impl StoreData for Counter {
+    // ... Methods to configure the store
+}
+
+// (2) Using the store in an RPC function
+async fn some_rpc_function(store: Store<Counter>) {
+    // ... RPC function body
+}
+
+fn build() -> App {
+    App::builder()
+        // (3) Statically declaring the store
+        .store::<Counter>()
+        .build()
+}
+
+maf::register!(build);
+```
+
+#### Implementing `StoreData`
+
+The `StoreData` trait defines the necessary methods for a store, including
+initialization, selection, and key generation. Only the `init` method and `Data`
+associated type are required, while the others can be overridden for custom
+behavior.
+
+```rust
+pub trait StoreData: 'static {
+    type Data: Send + Sync + 'static;
+
+    fn name() -> impl AsRef<str> + Send {
+        std::any::type_name::<Self>()
+    }
+
+    fn key() -> impl Into<StoreKey> {
+        StoreKey::from(Self::name().as_ref())
+    }
+
+    #[allow(unused_variables)]
+    fn select(data: &Self::Data, user: &User) -> impl serde::Serialize {
+        ()
+    }
+
+    fn init() -> Self::Data;
+}
+```
+
+##### `Data`
+
+The `Data` associated type represents the data structure that the store will
+manage. It must implement `Send`, `Sync`, and `'static` traits to ensure thread
+safety.
+
+`Data` will commonly be `Self`, but can be other types if needed.
+
+##### `name`
+
+The `name` method returns the _name_ of the store, which is used client-side to
+refer to the store. It defaults to the type name of the struct implementing
+`StoreData`.
+
+##### `key`
+
+The `key` method returns a unique identifier for the store, which is used to
+distinguish it from other stores. It defaults to the store's name. `key` will be
+used in the future to allow multiple stores of the same type.
+
+##### `select`
+
+The `select` method is used to select a subset of the store's data to be sent
+to the client.
+
+**NOTE**: By default, it returns an empty tuple, meaning no data is sent to the
+client. You can override this method to return any serializable data that you
+want to send to the client.
+
+If you want to send the entire data structure, you can return `data` directly:
+
+```rust
+// NOTE: Self::Data should implement `serde::Serialize`
+fn select(data: &Self::Data, user: &User) -> impl serde::Serialize
+{
+    data
+}
+```
+
+##### `init`
+
+The `init` method is called when the store is initialized. It should return an
+instance of the `Data` type that the store will manage. This is where you can
+set up the initial state of the store.
+
+### Accessing Stores In RPC Functions
+
+Stores can be accessed in RPC functions by declaring them as parameters to the
+handler. Reading and writing to the store is done using `Store.read()` and
+`Store.write()`, with a locking API similar to `RwLock<T>`.
+
+Example:
+
+```rust
+// Access a store with Store<T: StoreData>
+async fn some_rpc_function(store: Store<Counter>) {
+    // Access the store's data with `Store.read()`
+    let count = store.read().await.count;
+
+    // Modify the store's data with `Store.write()`
+    store.write().await.count += 1;
+
+    // ...
+}
+```
+
+</TabsContent>
+
+</Tabs>
+
+### Client
+
+<Tabs defaultValue="javascript">
+  <TabsList>
+    <TabsTrigger value="javascript">JavaScript</TabsTrigger>
+  </TabsList>
+
+<TabsContent value="javascript">
+
+Stores can be accessed on the client using the `maf.store` method, which
+returns a `Store` instance.
+
+```ts
+const maf = new MafClient(/* ... */);
+
+// This should match the return type of `StoreData::serialize` on the server
+interface Counter {
+  count: number;
+}
+
+// Pass in the type of the store data as a type parameter
+const store = maf.store<Counter>("counter");
+
+// Subscribe to changes in the store
+store.on("change", (data) => {
+  console.log("Store data changed:", data);
+});
+```
+
+</TabsContent>
+
+</Tabs>

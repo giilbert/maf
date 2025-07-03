@@ -54,5 +54,7 @@ const CodeBlock: React.FC<{
     structure: "inline",
   });
 
-  return <span dangerouslySetInnerHTML={{ __html: out }} />;
+  return (
+    <span className="font-mono" dangerouslySetInnerHTML={{ __html: out }} />
+  );
 };
