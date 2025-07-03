@@ -4,4 +4,5 @@ members = [
     "crates/*",
     "crates/*/examples/*",
     "crates/maf_container_host/migrations",
+    "www/demo",
 ]

@@ -1,0 +1,10 @@
+name = "demo"
+rooms = "AutoCreate"
+
+[debug]
+command = "cargo build --target wasm32-wasip2"
+output = "../../target/wasm32-wasip2/debug/demo.wasm"
+
+[release]
+command = "cargo build --target wasm32-wasip2 --release"
+output = "../../target/wasm32-wasip2/release/demo.wasm"

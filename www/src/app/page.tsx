@@ -10,15 +10,16 @@ import {
   RocketIcon,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
+import { DemoApp } from "./_components/demo-app";
 
 export default function Home() {
   return (
-    <div className="p-6 lg:pt-12 pb-8 md:px-16 xl:px-24 h-screen w-screen space-y-6 lg:space-y-8 flex flex-col">
+    <div className="p-6 lg:pt-12 pb-8 md:px-16 xl:px-24 lg:h-screen w-screen space-y-6 lg:space-y-8 flex flex-col">
       <Navbar />
 
-      <div className="space-y-8 xl:space-y-0 lg:grid grid-cols-4 xl:grid-cols-5 gap-2 md:gap-8 h-full flex flex-col">
-        <div className="col-span-2 space-y-12 flex flex-col">
-          <div className="space-y-6 bg-background-300 px-8 pt-6 pb-8 relative h-full -ml-8 -mr-6 md:mr-0 flex flex-col justify-center">
+      <div className="space-y-8 xl:space-y-0 lg:grid grid-cols-4 xl:grid-cols-5 gap-2 md:gap-8 h-fit lg:h-[calc(100vh-9rem)] flex flex-col">
+        <div className="col-span-2 space-y-12 flex flex-col h-full">
+          <div className="space-y-6 bg-background-300 px-8 pt-6 pb-8 relative h-fit lg:h-full -ml-8 -mr-6 md:mr-0 flex flex-col justify-center">
             <div className="hidden md:block w-full h-full absolute bg-background-500 -z-10 top-4 left-4"></div>
 
             <div className="space-y-2">
@@ -69,8 +70,8 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="h-full col-span-2 xl:col-span-3 border border-dashed border-neutral-700 flex items-center justify-center">
-          <p className="text-2xl">TODO: insert demo app here</p>
+        <div className="h-[calc(100vh-8rem)] lg:h-full col-span-2 xl:col-span-3 border border-dashed border-neutral-700 flex items-center justify-center">
+          <DemoApp />
         </div>
       </div>
     </div>

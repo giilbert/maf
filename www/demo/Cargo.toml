@@ -1,0 +1,11 @@
+[package]
+name = "demo"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+maf = { path = "../../crates/maf" }
+serde = { version = "^1", features = ["derive"] }
+
+[lib]
+crate-type = ["cdylib"]
