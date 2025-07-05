@@ -83,6 +83,9 @@ importers:
 
   www:
     dependencies:
+      '@gsap/react':
+        specifier: ^2.1.2
+        version: 2.1.2(gsap@3.13.0)(react@19.1.0)
       '@maf/client':
         specifier: workspace:*
         version: link:../packages/client
@@ -92,18 +95,27 @@ importers:
       '@types/mdast':
         specifier: ^4.0.4
         version: 4.0.4
+      add:
+        specifier: ^2.0.6
+        version: 2.0.6
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      devicons-react:
+        specifier: ^1.4.1
+        version: 1.4.1(react@19.1.0)
       glob:
         specifier: ^11.0.2
         version: 11.0.2
       gray-matter:
         specifier: ^4.0.3
         version: 4.0.3
+      gsap:
+        specifier: ^3.13.0
+        version: 3.13.0
       lucide-react:
         specifier: ^0.509.0
         version: 0.509.0(react@19.1.0)
@@ -113,6 +125,9 @@ importers:
       next-mdx-remote-client:
         specifier: '2'
         version: 2.1.2(@types/react@19.1.3)(acorn@8.14.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      pnpm:
+        specifier: ^10.12.4
+        version: 10.12.4
       react:
         specifier: ^19.0.0
         version: 19.1.0
@@ -474,6 +489,12 @@ packages:
   '@eslint/plugin-kit@0.2.8':
     resolution: {integrity: sha512-ZAoA40rNMPwSm+AeHpCq8STiNAwzWLJuP8Xv4CHIc9wv/PSuExjMrmjfYNj682vW0OOiZ1HKxzvjQr9XZIisQA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+
+  '@gsap/react@2.1.2':
+    resolution: {integrity: sha512-JqliybO1837UcgH2hVOM4VO+38APk3ECNrsuSM4MuXp+rbf+/2IG2K1YJiqfTcXQHH7XlA0m3ykniFYstfq0Iw==}
+    peerDependencies:
+      gsap: ^3.12.5
+      react: '>=17'
 
   '@humanfs/core@0.19.1':
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}
@@ -1330,6 +1351,9 @@ packages:
     engines: {node: '>=0.4.0'}
     hasBin: true
 
+  add@2.0.6:
+    resolution: {integrity: sha512-j5QzrmsokwWWp6kUcJQySpbG+xfOBqqKnup3OIk1pz+kB/80SLorZ9V8zHFLO92Lcd+hbvq8bT+zOGoPkmBV0Q==}
+
   ajv@6.12.6:
     resolution: {integrity: sha512-j3fVLgvTo527anyYyJOGTYJbG+vnnQYvE0m5mmkc1TK+nxAppkCLMIL0aZ4dblVCNoGShhm+kzE4ZUykBoMg4g==}
 
@@ -1609,6 +1633,11 @@ packages:
   detect-libc@2.0.4:
     resolution: {integrity: sha512-3UDv+G9CsCKO1WKMGw9fwq/SWJYbI0c5Y7LU1AXYoDdbhE2AHQ6N6Nb34sG8Fj7T5APy8qXDCKuuIHd1BR0tVA==}
     engines: {node: '>=8'}
+
+  devicons-react@1.4.1:
+    resolution: {integrity: sha512-mQl0EtroOZp29VAfLD4clsSszpKgj4XFAro4y+W5vdLsO7HY/Bwjs+h9xacebJ+wRGU1xbta31k5yGi0XTUrYg==}
+    peerDependencies:
+      react: '*'
 
   devlop@1.1.0:
     resolution: {integrity: sha512-RWmIqhcFf1lRYBvNmr7qTNuyCt/7/ns2jbpp1+PalgE/rDQcBT0fioSMUpJ93irlUhC5hrg4cYqe6U+0ImW0rA==}
@@ -2028,6 +2057,9 @@ packages:
   gray-matter@4.0.3:
     resolution: {integrity: sha512-5v6yZd4JK3eMI3FqqCouswVqwugaA9r4dNZB1wwcmrD02QkV5H0y7XBQW8QwQqEaZY1pM9aqORSORhJRdNK44Q==}
     engines: {node: '>=6.0'}
+
+  gsap@3.13.0:
+    resolution: {integrity: sha512-QL7MJ2WMjm1PHWsoFrAQH/J8wUeqZvMtHO58qdekHpCfhvhSL4gSiz6vJf5EeMP0LOn3ZCprL2ki/gjED8ghVw==}
 
   has-bigints@1.1.0:
     resolution: {integrity: sha512-R3pbpkcIqv2Pm3dUwgjclDRVmWpTJW2DcMzcIhEXEx1oh/CEMObMm3KLmRJOdvhM7o4uQBnwr8pzRK2sJWIqfg==}
@@ -2736,6 +2768,11 @@ packages:
   pkce-challenge@5.0.0:
     resolution: {integrity: sha512-ueGLflrrnvwB3xuo/uGob5pd5FN7l0MsLf0Z87o/UQmRtwjvfylfc9MurIxRAWywCYTgrvpXBcqjV4OfCYGCIQ==}
     engines: {node: '>=16.20.0'}
+
+  pnpm@10.12.4:
+    resolution: {integrity: sha512-Xqiw3u2U7WhpHJutTJVUknBcXuuKh++GvGLHSiawN7CP+VcPEIsuTb0d0akYb+qSXlJ/FBxkjoWvRWMQdGgBhA==}
+    engines: {node: '>=18.12'}
+    hasBin: true
 
   possible-typed-array-names@1.1.0:
     resolution: {integrity: sha512-/+5VFTchJDoVj3bhoqi6UeymcD00DAwb1nJwamzPvHEszJ4FpF6SNNbUbOS8yI56qHzdV8eK0qEfOSiodkTdxg==}
@@ -3623,6 +3660,11 @@ snapshots:
       '@eslint/core': 0.13.0
       levn: 0.4.1
 
+  '@gsap/react@2.1.2(gsap@3.13.0)(react@19.1.0)':
+    dependencies:
+      gsap: 3.13.0
+      react: 19.1.0
+
   '@humanfs/core@0.19.1': {}
 
   '@humanfs/node@0.16.6':
@@ -4415,6 +4457,8 @@ snapshots:
 
   acorn@8.14.1: {}
 
+  add@2.0.6: {}
+
   ajv@6.12.6:
     dependencies:
       fast-deep-equal: 3.1.3
@@ -4709,6 +4753,10 @@ snapshots:
   dequal@2.0.3: {}
 
   detect-libc@2.0.4: {}
+
+  devicons-react@1.4.1(react@19.1.0):
+    dependencies:
+      react: 19.1.0
 
   devlop@1.1.0:
     dependencies:
@@ -5345,6 +5393,8 @@ snapshots:
       kind-of: 6.0.3
       section-matter: 1.0.0
       strip-bom-string: 1.0.0
+
+  gsap@3.13.0: {}
 
   has-bigints@1.1.0: {}
 
@@ -6284,6 +6334,8 @@ snapshots:
   picomatch@4.0.2: {}
 
   pkce-challenge@5.0.0: {}
+
+  pnpm@10.12.4: {}
 
   possible-typed-array-names@1.1.0: {}
 

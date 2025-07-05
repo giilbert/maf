@@ -56,3 +56,16 @@
     @apply bg-background text-foreground;
   }
 }
+
+@theme {
+  --animate-blink: blink 1s step-start infinite;
+  /* Blink animation */
+  @keyframes blink {
+    50% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+}
