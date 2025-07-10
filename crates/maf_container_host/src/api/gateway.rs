@@ -59,16 +59,7 @@ async fn connect_route(
 
     let room = match room_creation_strategy {
         RoomCreationStrategy::AuthenticatedApiRequest => {
-            get_api_created_room(&state, room_id).await?
-        }
-        RoomCreationStrategy::AutoCreate => {
-            if room_id != "default" {
-                return Err(ErrorResponse::bad_request(Some(
-                    "Only `default` room is supported for autocreated rooms.",
-                )));
-            }
-
-            let room = fetch_autocreated_room(app, &state, org_slug).await?;
+            let room = get_api_created_room(&state, room_id).await?;
 
             if let Some(secret) = query_params.secret {
                 if secret != room.room_secret {
@@ -78,11 +69,20 @@ async fn connect_route(
                 }
             } else {
                 return Err(ErrorResponse::bad_request(Some(
-                    "Room secret is required for autocreated rooms.",
+                    "Room secret is required for api-created rooms.",
                 )));
             }
 
             room
+        }
+        RoomCreationStrategy::AutoCreate => {
+            if room_id != "default" {
+                return Err(ErrorResponse::bad_request(Some(
+                    "Only `default` room is supported for autocreated rooms.",
+                )));
+            }
+
+            fetch_autocreated_room(app, &state, org_slug).await?
         }
     };
 
