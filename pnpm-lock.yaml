@@ -104,9 +104,6 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      devicons-react:
-        specifier: ^1.4.1
-        version: 1.4.1(react@19.1.0)
       glob:
         specifier: ^11.0.2
         version: 11.0.2
@@ -1633,11 +1630,6 @@ packages:
   detect-libc@2.0.4:
     resolution: {integrity: sha512-3UDv+G9CsCKO1WKMGw9fwq/SWJYbI0c5Y7LU1AXYoDdbhE2AHQ6N6Nb34sG8Fj7T5APy8qXDCKuuIHd1BR0tVA==}
     engines: {node: '>=8'}
-
-  devicons-react@1.4.1:
-    resolution: {integrity: sha512-mQl0EtroOZp29VAfLD4clsSszpKgj4XFAro4y+W5vdLsO7HY/Bwjs+h9xacebJ+wRGU1xbta31k5yGi0XTUrYg==}
-    peerDependencies:
-      react: '*'
 
   devlop@1.1.0:
     resolution: {integrity: sha512-RWmIqhcFf1lRYBvNmr7qTNuyCt/7/ns2jbpp1+PalgE/rDQcBT0fioSMUpJ93irlUhC5hrg4cYqe6U+0ImW0rA==}
@@ -4753,10 +4745,6 @@ snapshots:
   dequal@2.0.3: {}
 
   detect-libc@2.0.4: {}
-
-  devicons-react@1.4.1(react@19.1.0):
-    dependencies:
-      react: 19.1.0
 
   devlop@1.1.0:
     dependencies:

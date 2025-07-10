@@ -76,6 +76,9 @@ fn build() -> App {
     App::builder()
         .store::<LightsOut>()
         .rpc("toggle_tile", toggle_tile)
+        .rpc("greet", |Params(name): Params<String>| {
+            format!("Hello, {}!", name)
+        })
         .on_connect(on_connect)
         .on_disconnect(on_disconnect)
         .build()

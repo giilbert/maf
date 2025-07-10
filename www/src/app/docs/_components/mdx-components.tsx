@@ -44,7 +44,7 @@ export const mdxComponents: MDXComponents = {
   },
 };
 
-const CodeBlock: React.FC<{
+export const CodeBlock: React.FC<{
   children: string;
   lang: BundledLanguage;
 }> = async (props) => {
