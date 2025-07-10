@@ -34,7 +34,9 @@ export const mdxComponents: MDXComponents = {
       </Link>
     );
   },
-  ...UiTabs,
+  Tabs: UiTabs.Tabs,
+  TabsList: UiTabs.TabsList,
+  TabsTrigger: UiTabs.TabsTrigger,
   TabsContent: (props) => {
     return (
       <UiTabs.TabsContent value={props.value} className="space-y-5">
