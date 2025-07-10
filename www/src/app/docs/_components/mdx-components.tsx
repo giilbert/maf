@@ -7,10 +7,11 @@ export const mdxComponents: MDXComponents = {
   p: (props) => <p className="leading-relaxed" {...props}></p>,
   h1: (props) => <h1 className="text-4xl font-bold mb-2" {...props} />,
   h2: (props) => {
-    return <h2 className="text-2xl font-bold" {...props} />;
+    return <h2 className="text-2xl font-bold pt-4" {...props} />;
   },
-  h3: (props) => <h3 className="text-xl font-semibold" {...props} />,
-  h4: (props) => <h4 className="text-lg font-semibold" {...props} />,
+  h3: (props) => <h3 className="text-xl font-semibold pt-2" {...props} />,
+  h4: (props) => <h4 className="text-lg font-semibold pt-2" {...props} />,
+  h5: (props) => <h5 className="text-base font-semibold pt-2" {...props} />,
   code: (props) => {
     const { className } = props;
     const lang = className?.replace("language-", "") as BundledLanguage;
@@ -26,6 +27,9 @@ export const mdxComponents: MDXComponents = {
   },
   ul: (props) => {
     return <ul className="list-disc pl-5 space-y-1">{props.children}</ul>;
+  },
+  ol: (props) => {
+    return <ol className="list-decimal pl-5 space-y-1">{props.children}</ol>;
   },
   a: (props) => {
     return (

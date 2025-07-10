@@ -22,7 +22,7 @@ export default async function Page({
 
   return (
     <>
-      <div className="space-y-4 col-span-3">
+      <div className="space-y-4 col-span-3 mt-4">
         <p className="text-muted-foreground">{meta.category}</p>
 
         <MdxContentWrapper>{content}</MdxContentWrapper>
@@ -39,7 +39,7 @@ const TableOfContents: React.FC<{
   headings: Heading[];
 }> = ({ headings }) => {
   return (
-    <div className="sticky top-0 space-y-4">
+    <div className="sticky top-9 space-y-4">
       <h2 className="text-sm font-semibold">On this page</h2>
 
       <ul className="flex flex-col gap-2">
