@@ -202,7 +202,7 @@ export class MafClient extends Emittery<MafClientEvents> {
     const data = this._storeData[name];
     if (!this._stores[name])
       this._stores[name] = new Store(this, name, {
-        default: data,
+        default: data as T,
         ...options,
       });
     return this._stores[name] as Store<T>;
