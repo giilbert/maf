@@ -16,11 +16,7 @@ impl GlobalConfig {
             PathBuf::from(std::env::var("APPDATA").context("Missing APPDATA environment variable")?)
                 .join(".maf")
         } else if cfg!(target_os = "macos") {
-            PathBuf::from(
-                std::env::var("XDG_CONFIG_HOME")
-                    .context("Missing XDG_CONFIG_HOME environment variable")?,
-            )
-            .join(".maf")
+            PathBuf::from("~/Library/Preferences").join(".maf")
         } else if cfg!(target_os = "linux") {
             PathBuf::from(std::env::var("HOME").context("Missing HOME environment variable")?)
                 .join(".maf")
