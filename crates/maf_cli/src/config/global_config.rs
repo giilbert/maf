@@ -4,6 +4,8 @@ use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
+use directories::ProjectDirs;
+
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct GlobalConfig {
     pub server_url: Option<String>,
@@ -12,14 +14,8 @@ pub struct GlobalConfig {
 
 impl GlobalConfig {
     pub fn config_directory() -> anyhow::Result<PathBuf> {
-        let directory = if cfg!(target_os = "windows") {
-            PathBuf::from(std::env::var("APPDATA").context("Missing APPDATA environment variable")?)
-                .join(".maf")
-        } else if cfg!(target_os = "macos") {
-            PathBuf::from("~/Library/Preferences").join(".maf")
-        } else if cfg!(target_os = "linux") {
-            PathBuf::from(std::env::var("HOME").context("Missing HOME environment variable")?)
-                .join(".maf")
+        let directory = if let Some(proj_dirs) = ProjectDirs::from("com", "Foo Corp", "Bar App") {
+            proj_dirs.config_dir().to_path_buf()
         } else {
             return Err(anyhow::anyhow!("Unsupported operating system"));
         };
