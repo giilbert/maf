@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { MafServiceClient } from "@maf/server";
+import { MafServiceClient } from "@usemaf/server";
 
 const server = new MafServiceClient({
   url: "http://localhost:3000",

@@ -11,8 +11,8 @@ importers:
   packages/client:
     dependencies:
       emittery:
-        specifier: ^1.1.0
-        version: 1.1.0
+        specifier: ^1.2.0
+        version: 1.2.0
     devDependencies:
       typescript:
         specifier: ^5.8.2
@@ -20,10 +20,10 @@ importers:
 
   packages/client/examples/api-rooms:
     dependencies:
-      '@maf/client':
+      '@usemaf/client':
         specifier: workspace:*
         version: link:../..
-      '@maf/server':
+      '@usemaf/server':
         specifier: workspace:*
         version: link:../../../server
       express:
@@ -54,7 +54,7 @@ importers:
 
   packages/client/examples/simple:
     dependencies:
-      '@maf/client':
+      '@usemaf/client':
         specifier: workspace:*
         version: link:../..
       zod:
@@ -86,9 +86,6 @@ importers:
       '@gsap/react':
         specifier: ^2.1.2
         version: 2.1.2(gsap@3.13.0)(react@19.1.0)
-      '@maf/client':
-        specifier: workspace:*
-        version: link:../packages/client
       '@radix-ui/react-accordion':
         specifier: ^1.2.11
         version: 1.2.11(@types/react-dom@19.1.3(@types/react@19.1.3))(@types/react@19.1.3)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -104,6 +101,9 @@ importers:
       '@types/mdast':
         specifier: ^4.0.4
         version: 4.0.4
+      '@usemaf/client':
+        specifier: workspace:*
+        version: link:../packages/client
       add:
         specifier: ^2.0.6
         version: 2.0.6
@@ -1824,6 +1824,10 @@ packages:
 
   emittery@1.1.0:
     resolution: {integrity: sha512-rsX7ktqARv/6UQDgMaLfIqUWAEzzbCQiVh7V9rhDXp6c37yoJcks12NVD+XPkgl4AEavmNhVfrhGoqYwIsMYYA==}
+    engines: {node: '>=14.16'}
+
+  emittery@1.2.0:
+    resolution: {integrity: sha512-KxdRyyFcS85pH3dnU8Y5yFUm2YJdaHwcBZWrfG8o89ZY9a13/f9itbN+YG3ELbBo9Pg5zvIozstmuV8bX13q6g==}
     engines: {node: '>=14.16'}
 
   emoji-regex@8.0.0:
@@ -5138,6 +5142,8 @@ snapshots:
   electron-to-chromium@1.5.128: {}
 
   emittery@1.1.0: {}
+
+  emittery@1.2.0: {}
 
   emoji-regex@8.0.0: {}
 

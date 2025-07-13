@@ -1,7 +1,7 @@
 "use client";
 
 import { CircleIcon } from "lucide-react";
-import { MafClient } from "@maf/client";
+import { MafClient } from "@usemaf/client";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 

@@ -1,4 +1,4 @@
-import { MafClient } from "@maf/client";
+import { MafClient } from "@usemaf/client";
 
 const client = new MafClient({
   url: "http://localhost:3000",
