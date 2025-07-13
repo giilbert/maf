@@ -157,7 +157,7 @@ fn create_file_watcher(
     path: &std::path::Path,
 ) -> anyhow::Result<(
     Arc<tokio::sync::Notify>,
-    Debouncer<RecommendedWatcher, NoCache>,
+    Debouncer<RecommendedWatcher, RecommendedCache>,
 )> {
     let notify = Arc::new(tokio::sync::Notify::new());
 
