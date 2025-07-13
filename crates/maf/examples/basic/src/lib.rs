@@ -12,6 +12,10 @@ impl StoreData for CounterStore {
     fn select(data: &Self::Data, _user: &User) -> impl serde::Serialize {
         data
     }
+
+    fn name() -> impl AsRef<str> {
+        "CounterStore" // This name will be used to identify the store
+    }
 }
 
 async fn increment_counter(Params(counter): Params<i32>, test: Store<CounterStore>) -> i32 {

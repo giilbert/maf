@@ -5,27 +5,144 @@ category: Getting Started
 
 # Quickstart
 
-## Install MAF CLI
+This guide will help set up a simple MAF application (both server and client)
+that synchronizes a counter between multiple clients.
+
+⚠️ **NOTE**: MAF is still in very early development, so APIs and features are
+subject to change. Given that MAF does not have a stable release yet, so you
+will need to use the library by referencing the GitHub repository directly and
+install the CLI from source. The following instructions will help you get
+started with MAF and use the libraries via Git submodules.
+
+## Recommended File Structure
+
+Since MAF does not have any packages published yet, it is recommended to install
+MAF as a [Git submodule](https://www.atlassian.com/git/tutorials/git-submodule)
+in your project.
+
+Create a new directory for your project, create a Git repository (`git init`) in
+that directory, and install MAF as a Git submodule:
 
 ```bash
-$ git clone https://github.com/giilbert/maf.git
+$ git submodule add https://github.com/giilbert/maf.git
+```
+
+Your file structure after running the command should look like this:
+
+```
+project-root/
+|-- .git                # Git repository metadata
+|-- .gitmodules         # Git submodule configuration
+|-- maf/                # MAF submodule
+```
+
+This guide will place server code in a `server` directory and client code in a
+`client` directory in the root of your project. The final file structure
+should look like this:
+
+```
+project-root/
+|-- .git                # Git repository metadata
+|-- .gitmodules         # Git submodule configuration
+|-- maf/                # MAF submodule, managed by Git
+|-- server/             # MAF server code
+|--   ...               # ... other server files (with your code)
+|-- client/             # MAF client code
+|--   ...               # ... other client files (with your code)
+```
+
+## Install MAF CLI
+
+MAF CLI is a command-line tool that helps you run, test, and deploy MAF servers.
+
+<Tabs defaultValue="macos-linux">
+  <TabsList>
+    <TabsTrigger value="macos-linux">MacOS/Linux</TabsTrigger>
+  </TabsList>
+
+<TabsContent value="macos-linux">
+
+You will need to install a Rust toolchain to build MAF CLI. See
+[https://www.rust-lang.org/tools/install](https://www.rust-lang.org/tools/install)
+for installation instructions.
+
+```bash
+# While in the root of your project directory,
 $ cd maf/crates/maf_cli
 $ cargo install --path .
 ```
 
-TODO: Create installation script / other installation methods for CLI
+If the installation is successful, you should be able to run the `maf_cli`
+command:
+
+```bash
+$ maf_cli -V
+maf_cli 0.1.0
+```
+
+Add the following to your shell configuration file (e.g., `~/.bashrc`,
+`~/.zshrc`):
+
+```bash
+alias maf="maf_cli"
+```
+
+This will allow you to run the `maf` command instead of `maf_cli`. The rest of
+the documentation will refer to the `maf` command.
+
+</TabsContent>
+
+</Tabs>
 
 ## Write a MAF Server
 
 <Tabs defaultValue="rust">
   <TabsList>
     <TabsTrigger value="rust">Rust</TabsTrigger>
-    <TabsTrigger value="javascript">JavaScript</TabsTrigger>
-    <TabsTrigger value="python">Python</TabsTrigger>
   </TabsList>
 
 <TabsContent value="rust">
-TODO: Rust server library
+
+1\. Create a new Rust project use Cargo:
+
+```bash
+$ cargo --lib new server # MAF applications compile as Rust libraries
+$ cd server
+```
+
+2\. Create a `maf-project.toml` file in the `server` directory with the
+following content:
+
+```toml
+name = "your-project-name" # Edit this to your application name
+rooms = "AutoCreate" # This will make MAF put all users in a single room
+
+# If your build output path is different, adjust the paths accordingly.
+[debug]
+command = "cargo build --target wasm32-wasip2"
+output = "./target/wasm32-wasip2/debug/server.wasm"
+
+[release]
+command = "cargo build --target wasm32-wasip2 --release"
+output = "./target/wasm32-wasip2/release/server.wasm"
+```
+
+3\. Add the following to the `Cargo.toml` file:
+
+```toml
+[dependencies]
+# If you installed MAF in a different directory, adjust the path accordingly.
+# The path should point the directory containing the `Cargo.toml` file with
+# a `maf` library.
+maf = { path = "../maf/crates/maf" }
+# serde is a library for serializing and deserializing data
+serde = { version = "^1", features = ["derive"] }
+
+[lib]
+crate-type = ["cdylib"] # This is required for Cargo to build the library
+```
+
+4\. Edit the `src/lib.rs` file to include the following code:
 
 ```rust
 use maf::*;
@@ -36,41 +153,41 @@ impl StoreData for CounterStore {
     type Data = i32;
 
     fn init() -> Self::Data {
-        42
+        0
+    }
+
+    // Determines what data to send to the client when the store is serialized
+    fn select(data: &Self::Data, _user: &User) -> impl serde::Serialize {
+        data
+    }
+
+    // This name will be used to identify the store
+    fn name() -> impl AsRef<str> {
+        "count"
     }
 }
 
+// RPC functions can be used to perform actions on the server
 async fn increment_counter(
+    // Special types for extracting parameters, data, and context
     Params(counter): Params<i32>,
     test: Store<CounterStore>
 ) -> i32 {
     let mut data = test.write().await;
-
     *data += counter;
-
     println!("incremented counter by {counter}. new value: {}", &*data);
-
     *data
 }
 
 async fn on_connect(user: User) {
-    println!("!!! user connected! id: {}", user.meta.id());
-    println!("HAIII");
+    println!("user connected! id: {}", user.meta.id());
 }
 
+// Declare what the MAF application should do
 fn build() -> App {
     App::builder()
         .on_connect(on_connect)
         .rpc("increment_counter", increment_counter)
-        .background(|app: App| async move {
-            let mut chan = app.channel::<String>("hello");
-            loop {
-                match chan.recv().await {
-                    Ok(msg) => println!("got message! `{msg}`"),
-                    Err(e) => println!("failed to receive message: {e}"),
-                }
-            }
-        })
         .build()
 }
 
@@ -80,68 +197,118 @@ maf::register!(build);
 
 </TabsContent>
 
-<TabsContent value="javascript">
-
-TODO: JavaScript server library
-
-</TabsContent>
-
-<TabsContent value="python">
-
-TODO: Python server library
-
-</TabsContent>
-
 </Tabs>
 
-## Connect With MAF Client
+5\. Finally, build and run the server:
 
-<Tabs defaultValue="javascript">
+```bash
+$ maf run
+```
+
+If all goes well, you should see the following:
+
+```
+INFO: running build command `cargo build --target wasm32-wasip2` in ...
+
+----------
+
+[cargo build output]
+
+-----------
+
+INFO: build completed in 16.69s
+INFO: loaded room from <output path>
+INFO: dev server listening on 3000
+```
+
+## Use a MAF Client
+
+The client library allows you to connect to a MAF server and interact with it.
+
+<Tabs defaultValue="javascript-typescript">
   <TabsList>
-    <TabsTrigger value="rust">Rust</TabsTrigger>
-    <TabsTrigger value="javascript">JavaScript</TabsTrigger>
-    <TabsTrigger value="python">Python</TabsTrigger>
+    <TabsTrigger value="javascript-typescript">JavaScript/TypeScript</TabsTrigger>
   </TabsList>
 
-<TabsContent value="rust">
+<TabsContent value="javascript-typescript">
 
-TODO: Rust client library
+This guide will begin with you creating a new directory for your client code
+and initializing a npm package in that directory (e.g. `npm init -y` or
+equivalent).
 
-</TabsContent>
+Currently, the package should be installed using the workspace feature of your
+package manager. This allows you to link directories as packages in your code.
 
-<TabsContent value="javascript">
+Refer to the documentation of your package manager for more information on
+workspaces:
 
-TODO: JavaScript client library
+- **npm**: [https://docs.npmjs.com/cli/v8/using-npm/workspaces](https://docs.npmjs.com/cli/v8/using-npm/workspaces)
+- **Yarn (v4)**: [https://yarnpkg.com/features/workspaces](https://yarnpkg.com/features/workspaces)
+- **pnpm**: [https://pnpm.io/workspaces](https://pnpm.io/workspaces)
+- **Bun**: [https://bun.sh/docs/install/workspaces](https://bun.sh/docs/install/workspaces)
+
+1\. Add `maf/packages/client` as a workspace and `@maf/client` as a dependency
+in your `package.json`.
+
+Using pnpm, you can do this by creating a `pnpm-workspace.yaml` file in the
+client directory with the following content:
+
+```yaml
+packages:
+  # Adjust the path if you installed MAF in a different directory
+  - ../maf/packages/client
+```
+
+... adding the following to your `package.json`:
+
+```json
+{
+  "name": "your-client-name",
+  "version": "0.1.0",
+  "dependencies": {
+    "@maf/client": "workspace:*"
+  }
+}
+```
+
+and running `pnpm install` in the client directory.
+
+2\. Install additional dependencies to build/run your code. If you're building
+a website, you will need a bundler like [Vite](https://vite.dev/),
+[Parcel](https://parceljs.org/), or [Webpack](https://webpack.js.org/).
+
+3\. Write the following code:
 
 ```typescript
 import { MafClient } from "@maf/client";
 
 const client = new MafClient({
   url: "http://localhost:3000",
-  app: "your/name",
+  // Use the same name as in `maf-project.toml`
+  app: "your-organization/your-project-name",
+});
+
+// Use the same name as in `StoreData`
+const store = client.store("counter");
+
+store.on("change", (data) => {
+  console.log("Counter value changed:", data);
 });
 
 async function run() {
   await client.connect();
 
-  console.log("client connected!");
+  console.log("Connected to the server!");
 
+  // Call the RPC function to increment the counter every second
   while (true) {
-    const result = await client.rpc<number>("increment_counter", 2);
-    console.log("incremented counter! new value: ", result);
-    // console.log("client rpc test");
+    const _result = await client.rpc<number>("increment_counter", 1);
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 }
 
 run();
 ```
-
-</TabsContent>
-
-<TabsContent value="python">
-
-TODO: Python client library
 
 </TabsContent>
 
