@@ -20,7 +20,7 @@ export const mdxComponents: MDXComponents = {
   },
   pre: (props) => {
     return (
-      <pre className="border px-4 py-3 overflow-x-scroll text-sm">
+      <pre className="border px-4 py-3 overflow-x-auto text-xs md:text-sm w-full">
         {props.children}
       </pre>
     );
