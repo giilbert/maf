@@ -14,7 +14,7 @@ pub struct GlobalConfig {
 
 impl GlobalConfig {
     pub fn config_directory() -> anyhow::Result<PathBuf> {
-        let directory = if let Some(proj_dirs) = ProjectDirs::from("com", "Foo Corp", "Bar App") {
+        let directory = if let Some(proj_dirs) = ProjectDirs::from("com", "giilbert", "maf") {
             proj_dirs.config_dir().to_path_buf()
         } else {
             return Err(anyhow::anyhow!("Unsupported operating system"));
