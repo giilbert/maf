@@ -9,9 +9,6 @@ import { Logo } from "@/components/logo";
 export const SideNav: React.FC<{
   categories: Awaited<ReturnType<typeof getDocsCategory>>;
 }> = ({ categories }) => {
-  const pathname = usePathname();
-  const docsSlug = pathname.replace("/docs/", "");
-
   return (
     <nav className="flex flex-col gap-2 fixed top-8 w-max">
       <div className="mb-2">
@@ -21,6 +18,19 @@ export const SideNav: React.FC<{
         </Link>
       </div>
 
+      <CategoriesRenderer categories={categories} />
+    </nav>
+  );
+};
+
+export const CategoriesRenderer: React.FC<{
+  categories: Awaited<ReturnType<typeof getDocsCategory>>;
+}> = ({ categories }) => {
+  const pathname = usePathname();
+  const docsSlug = pathname.replace("/docs/", "");
+
+  return (
+    <div className="flex flex-col gap-2">
       {categories.map((category) => (
         <div key={category.name} className="space-y-1">
           <h2 className="text font-semibold">{category.name}</h2>
@@ -43,6 +53,6 @@ export const SideNav: React.FC<{
           </ul>
         </div>
       ))}
-    </nav>
+    </div>
   );
 };
