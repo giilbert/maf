@@ -22,13 +22,13 @@ export default async function Page({
 
   return (
     <>
-      <div className="space-y-4 col-span-3 mt-4">
+      <div className="space-y-4 lg:col-span-3 mt-4 w-full min-w-0">
         <p className="text-muted-foreground">{meta.category}</p>
 
         <MdxContentWrapper>{content}</MdxContentWrapper>
       </div>
 
-      <div className="col-span-1">
+      <div className="col-span-1 hidden xl:block">
         {headings.length > 0 && <TableOfContents headings={headings} />}
       </div>
     </>

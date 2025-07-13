@@ -33,7 +33,7 @@ export const MdxContentWrapper: React.FC<{
 }> = (props) => {
   return (
     <Suspense fallback={<></>}>
-      <div className="flex flex-col gap-5" suppressHydrationWarning>
+      <div className="flex flex-col gap-5 w-full" suppressHydrationWarning>
         {props.children}
       </div>
     </Suspense>
