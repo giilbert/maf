@@ -1,16 +1,27 @@
-use std::fs::File;
-use std::io::prelude::*;
+use anyhow::Context;
+use dialoguer::Select;
+use include_dir::{include_dir, Dir, DirEntry};
+
+use std::{collections::HashMap, path::PathBuf};
 
 use crate::{input::input, pretty};
 
-pub async fn handle_init(project_name: Option<String>) -> anyhow::Result<()> {
-    match project_name {
+static TEMPLATES: Dir = include_dir!("$CARGO_MANIFEST_DIR/src/init/templates");
+
+#[derive(Debug, Clone, clap::Args)]
+pub struct InitOptions {
+    #[arg(value_name = "PROJECT_NAME")]
+    project_name: Option<String>,
+    template: Option<String>,
+}
+
+pub async fn handle_init(mut options: InitOptions) -> anyhow::Result<()> {
+    match options.project_name.clone() {
         Some(name) => {
             pretty::info!("Creating new project: {}", name.bold());
-            run_setup_commands(name).await
+            run_setup_commands(options).await
         }
         None => {
-            pretty::info!("Creating new project with a random name");
             let name = input!(
                 transform: |name: String| {
                     if name.is_empty() {
@@ -32,115 +43,169 @@ pub async fn handle_init(project_name: Option<String>) -> anyhow::Result<()> {
                 "Name".bold(),
                 "(Lowercase alphanumeric characters and hyphens)".dimmed()
             );
-            run_setup_commands(name).await
+
+            options.project_name = Some(name.clone());
+            run_setup_commands(options).await
         }
     }
 }
 
-pub async fn run_setup_commands(project_name: String) -> anyhow::Result<()> {
+async fn run_setup_commands(options: InitOptions) -> anyhow::Result<()> {
+    let project_name = options
+        .project_name
+        .expect("Project name should be set by now");
+
+    let (template, template_name) = match options.template {
+        Some(template) => (
+            TEMPLATES
+                .get_dir(&template)
+                .ok_or_else(|| anyhow::anyhow!("Template '{}' not found.", template))?,
+            template.clone(),
+        ),
+        None => {
+            let template_names = TEMPLATES
+                .dirs()
+                .map(|entry: &Dir| {
+                    entry
+                        .path()
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                })
+                .collect::<Vec<_>>();
+
+            let selected_index = Select::new()
+                .items(&template_names)
+                .with_prompt(format!(
+                    "{} {}",
+                    "?".bold().purple(),
+                    "Select a template".bold()
+                ))
+                .default(0)
+                .interact()
+                .map_err(|e| anyhow::anyhow!("Failed to select template: {}", e))?;
+
+            let template_name = template_names
+                .get(selected_index)
+                .ok_or_else(|| anyhow::anyhow!("Invalid template selection."))?;
+
+            (
+                TEMPLATES
+                    .get_dir(&PathBuf::from(template_name.to_string()))
+                    .ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "Template '{}' not found in the included templates.",
+                            template_name
+                        )
+                    })?,
+                template_name.to_string(),
+            )
+        }
+    };
+
+    println!();
+
     pretty::info!(
-        "running setup command for project `{}`",
-        project_name.bold()
+        "Setting up project '{}' using template '{}' in {}",
+        project_name.bold(),
+        template.path().display().to_string().bold(),
+        std::env::current_dir()
+            .unwrap_or_else(|_| PathBuf::from("."))
+            .display()
+            .to_string()
+            .bold()
     );
 
-    println!("\n----------\n");
+    println!();
 
-    let start = std::time::Instant::now();
+    // Check if the project directory contains any files that would be overwritten
+    fn check_entry_recurse(prefix: &str, entry: &DirEntry) -> anyhow::Result<()> {
+        match entry {
+            DirEntry::Dir(dir) => {
+                for sub_entry in dir.entries() {
+                    check_entry_recurse(prefix, sub_entry)?;
+                }
+            }
+            DirEntry::File(file) => {
+                let path = file.path().strip_prefix(prefix)?;
+                if std::fs::exists(path)
+                    .map_err(|e| anyhow::anyhow!("Failed to check if path exists: {}", e))?
+                {
+                    pretty::error!(
+                        "File {} already exists. Please remove it before proceeding.",
+                        path.display().to_string().bold(),
+                    );
 
-    let mut rustup_target_process = tokio::process::Command::new("rustup")
-        .arg("rustup target add wasm32-wasip2")
-        .spawn()?;
-    rustup_target_process.wait().await?;
+                    std::process::exit(1);
+                }
+            }
+        }
 
-    let mut cargo_new_process = tokio::process::Command::new("cargo")
-        .arg("new --lib server")
-        .spawn()?;
-    cargo_new_process.wait().await?;
-
-    let mut maf_project_toml = File::create("server/maf-project.toml")?;
-    maf_project_toml.write_all(
-        format!(
-            "name = \"{project_name}\" # Edit this to your application name
-rooms = \"AutoCreate\" # This will make MAF put all users in a single *room*
-
-# If your build output path is different, adjust the paths accordingly.
-[debug]
-command = \"cargo build --target wasm32-wasip2\"
-output = \"./target/wasm32-wasip2/debug/server.wasm\"
-
-[release]
-command = \"cargo build --target wasm32-wasip2 --release\"
-output = \"./target/wasm32-wasip2/release/server.wasm\"",
-        )
-        .as_bytes(),
-    )?;
-
-    let mut cargo_toml = File::options().append(true).open("server/Cargo.toml")?;
-    cargo_toml.write_all(
-        b"maf = \"0.1.0\"
-# To use the latest version, you can use the following instead:
-# maf = { repository = \"https://github.com/giilbert/maf\" }
-# serde is a library for serializing and deserializing data
-serde = { version = \"^1\", features = [\"derive\"] }
-
-[lib]
-crate-type = [\"cdylib\"] # This is required for Cargo to build the library",
-    )?;
-
-    let mut lib_rs = File::create("server/src/lib.rs")?;
-    lib_rs.write_all(
-        b"use maf::*;
-
-struct CounterStore;
-
-impl StoreData for CounterStore {
-    type Data = i32;
-
-    fn init() -> Self::Data {
-        0
+        Ok(())
     }
 
-    // Determines what data to send to the client when the store is serialized
-    fn select(data: &Self::Data, _user: &User) -> impl serde::Serialize {
-        data
+    check_entry_recurse(&template_name, &DirEntry::Dir(template.clone()))
+        .context("Failed to check for existing files")?;
+
+    // Replaces {{<name>}} placeholders in the template files
+    let mut templates = HashMap::new();
+    templates.insert("name", project_name.clone());
+
+    fn extract_template_recurse(
+        prefix: &str,
+        templates: &HashMap<String, String>,
+        entry: &DirEntry,
+    ) -> anyhow::Result<()> {
+        match entry {
+            DirEntry::Dir(dir) => {
+                let dir_path = dir.path().strip_prefix(prefix)?;
+
+                std::fs::create_dir_all(dir_path).context(format!(
+                    "Failed to create directory '{}'",
+                    dir.path().display()
+                ))?;
+
+                for sub_entry in dir.entries() {
+                    extract_template_recurse(prefix, templates, sub_entry)?;
+                }
+            }
+            DirEntry::File(file) => {
+                let file_path = file.path().strip_prefix(prefix)?;
+
+                let content = file
+                    .contents_utf8()
+                    .context(format!("Failed to read file '{}'", file_path.display()))?;
+
+                // Replace placeholders in the content
+                let content = templates
+                    .iter()
+                    .fold(content.to_string(), |acc, (key, value)| {
+                        acc.replace(key, value)
+                    });
+
+                std::fs::write(file_path, content)
+                    .context(format!("Failed to write file '{}'", file_path.display()))?;
+            }
+        }
+
+        Ok(())
     }
 
-    // This name will be used to identify the store
-    fn name() -> impl AsRef<str> {
-        \"count\"
-    }
-}
+    extract_template_recurse(
+        &template_name,
+        &templates
+            .into_iter()
+            .map(|(k, v)| (format!("{{{{{}}}}}", k), v))
+            .collect(),
+        &DirEntry::Dir(template.clone()),
+    )
+    .context("Failed to extract template files")?;
 
-// RPC functions can be used to perform actions on the server
-async fn increment_counter(
-    // Special types for extracting parameters, data, and context
-    Params(counter): Params<i32>,
-    test: Store<CounterStore>
-) -> i32 {
-    let mut data = test.write().await;
-    *data += counter;
-    println!(\"incremented counter by {counter}. new value: {}\", &*data);
-    *data
-}
-
-async fn on_connect(user: User) {
-    println!(\"user connected! id: {}\", user.meta.id());
-}
-
-// Declare what the MAF application should do
-fn build() -> App {
-    App::builder()
-        .on_connect(on_connect)
-        .rpc(\"increment_counter\", increment_counter)
-        .build()
-}
-
-maf::register!(build);",
-    )?;
-
-    println!("\n----------\n");
-
-    pretty::info!("build completed in {:.2?}", start.elapsed());
+    pretty::info!(
+        "Done! Your project '{}' has been initialized using the '{}' template.",
+        project_name.bold(),
+        template_name.bold()
+    );
 
     Ok(())
 }

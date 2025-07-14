@@ -15,7 +15,7 @@ use clap::{Parser, Subcommand};
 pub use context::Context;
 use dev::DevCommands;
 
-use crate::{auth::AuthCommands, config::ConfigCommands};
+use crate::{auth::AuthCommands, config::ConfigCommands, init::InitOptions};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -54,10 +54,7 @@ enum Commands {
         subcommand: Option<DevCommands>,
     },
 
-    Init {
-        #[arg(value_name = "PROJECT_NAME")]
-        project_name: Option<String>,
-    },
+    Init(InitOptions),
 }
 
 async fn try_main() -> anyhow::Result<()> {
@@ -79,9 +76,7 @@ async fn try_main() -> anyhow::Result<()> {
             subcommand,
             port,
         } => dev::handle_commands(&mut context, file_path, subcommand, port).await?,
-        Commands::Init { project_name } => {
-            init::handle_init(project_name).await?;
-        }
+        Commands::Init(options) => init::handle_init(options).await?,
     }
 
     Ok(())

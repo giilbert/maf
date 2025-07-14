@@ -15,9 +15,7 @@ use maf_container::{
     ContainerRuntime,
 };
 use notify::RecommendedWatcher;
-use notify_debouncer_full::{
-    new_debouncer_opt, DebounceEventResult, Debouncer, NoCache, RecommendedCache,
-};
+use notify_debouncer_full::{new_debouncer_opt, DebounceEventResult, Debouncer, RecommendedCache};
 use tokio::sync::RwLock;
 
 use crate::pretty;
