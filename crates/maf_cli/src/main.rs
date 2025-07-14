@@ -4,6 +4,7 @@ mod auth;
 mod config;
 mod context;
 mod dev;
+mod init;
 mod input;
 mod pretty;
 
@@ -52,6 +53,11 @@ enum Commands {
         #[command(subcommand)]
         subcommand: Option<DevCommands>,
     },
+
+    Init {
+        #[arg(value_name = "PROJECT_NAME")]
+        project_name: Option<String>,
+    },
 }
 
 async fn try_main() -> anyhow::Result<()> {
@@ -73,6 +79,9 @@ async fn try_main() -> anyhow::Result<()> {
             subcommand,
             port,
         } => dev::handle_commands(&mut context, file_path, subcommand, port).await?,
+        Commands::Init { project_name } => {
+            init::handle_init(project_name).await?;
+        }
     }
 
     Ok(())

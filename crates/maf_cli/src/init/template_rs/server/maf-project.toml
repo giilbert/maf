@@ -1,0 +1,11 @@
+name = "PACKAGE_NAME_CHANGEME" # Edit this to your application name
+rooms = "AutoCreate" # This will make MAF put all users in a single *room*
+
+# If your build output path is different, adjust the paths accordingly.
+[debug]
+command = "cargo build --target wasm32-wasip2"
+output = "./target/wasm32-wasip2/debug/server.wasm"
+
+[release]
+command = "cargo build --target wasm32-wasip2 --release"
+output = "./target/wasm32-wasip2/release/server.wasm"
