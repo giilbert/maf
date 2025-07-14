@@ -18,6 +18,7 @@ export const MobileNav: React.FC<{
   categories: Awaited<ReturnType<typeof getDocsCategory>>;
 }> = ({ categories }) => {
   const [isTop, setIsTop] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => {
@@ -25,6 +26,7 @@ export const MobileNav: React.FC<{
     };
 
     window.addEventListener("scroll", onScroll);
+
     return () => {
       window.removeEventListener("scroll", onScroll);
     };
@@ -40,7 +42,7 @@ export const MobileNav: React.FC<{
       <Logo size={24} className="mr-2" />
       <p className="font-bold">MAF</p>
 
-      <Sheet>
+      <Sheet open={isOpen} onOpenChange={setIsOpen}>
         <SheetTrigger className="ml-auto p-1 hover:bg-muted rounded-sm transition-all cursor-pointer">
           <MenuIcon className="h-6 w-6" />
         </SheetTrigger>
@@ -63,7 +65,12 @@ export const MobileNav: React.FC<{
           </div>
 
           <div className="mx-2">
-            <CategoriesRenderer categories={categories} />
+            <CategoriesRenderer
+              categories={categories}
+              onNavigate={async () => {
+                setIsOpen(false);
+              }}
+            />
           </div>
         </SheetContent>
       </Sheet>

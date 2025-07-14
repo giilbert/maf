@@ -30,16 +30,18 @@ export default async function Page({
       <div className="space-y-4 lg:col-span-3 mt-4 w-full min-w-0">
         <p className="text-muted-foreground">{meta.category}</p>
 
-        <Accordion type="single" collapsible className="xl:hidden">
-          <AccordionItem value="on-this-page">
-            <AccordionTrigger className="bg-muted py-1.5 px-2.5 -mx-2.5">
-              On This Page
-            </AccordionTrigger>
-            <AccordionContent className="mt-2">
-              <TableOfContents headings={headings} hideTitle />
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+        {headings.length !== 0 && (
+          <Accordion type="single" collapsible className="xl:hidden">
+            <AccordionItem value="on-this-page">
+              <AccordionTrigger className="bg-muted py-1.5 px-2.5 -mx-2.5">
+                On This Page
+              </AccordionTrigger>
+              <AccordionContent className="mt-2">
+                <TableOfContents headings={headings} hideTitle />
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        )}
 
         <MdxContentWrapper>{content}</MdxContentWrapper>
       </div>

@@ -25,7 +25,8 @@ export const SideNav: React.FC<{
 
 export const CategoriesRenderer: React.FC<{
   categories: Awaited<ReturnType<typeof getDocsCategory>>;
-}> = ({ categories }) => {
+  onNavigate?: () => void;
+}> = ({ categories, onNavigate }) => {
   const pathname = usePathname();
   const docsSlug = pathname.replace("/docs/", "");
 
@@ -39,6 +40,7 @@ export const CategoriesRenderer: React.FC<{
               <li key={doc.slug}>
                 <Link
                   href={`/docs/${doc.slug}`}
+                  onClick={() => onNavigate?.()}
                   className={cn(
                     "text-sm",
                     docsSlug === doc.slug
