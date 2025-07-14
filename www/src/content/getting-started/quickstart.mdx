@@ -8,48 +8,27 @@ category: Getting Started
 This guide will help set up a simple MAF application (both server and client)
 that synchronizes a counter between multiple clients.
 
-⚠️ **NOTE**: MAF is still in very early development, so APIs and features are
-subject to change. Given that MAF does not have a stable release yet, so you
-will need to use the library by referencing the GitHub repository directly and
-install the CLI from source. The following instructions will help you get
-started with MAF and use the libraries via Git submodules.
+⚠️ **NOTE**: MAF is still in very early development: things are not easy to do,
+APIs and features are subject to change, and things will break!
 
 ## Recommended File Structure
 
-Since MAF does not have any packages published yet, it is recommended to install
-MAF as a [Git submodule](https://www.atlassian.com/git/tutorials/git-submodule)
-in your project.
-
-Create a new directory for your project, create a Git repository (`git init`) in
-that directory, and install MAF as a Git submodule:
-
-```bash
-$ git submodule add https://github.com/giilbert/maf.git
-```
-
-Your file structure after running the command should look like this:
+MAF is a full-stack framework, helping you build both server and client code.
+This guide guides you through setting up a project with **both** server and
+client code, so it is recommended to use the following file structure:
 
 ```
 project-root/
-|-- .git                # Git repository metadata
-|-- .gitmodules         # Git submodule configuration
-|-- maf/                # MAF submodule
-```
-
-This guide will place server code in a `server` directory and client code in a
-`client` directory in the root of your project. The final file structure
-should look like this:
-
-```
-project-root/
-|-- .git                # Git repository metadata
-|-- .gitmodules         # Git submodule configuration
-|-- maf/                # MAF submodule, managed by Git
-|-- server/             # MAF server code
+|-- server/             # Your server code
 |--   ...               # ... other server files (with your code)
-|-- client/             # MAF client code
+|-- client/             # Your client code
 |--   ...               # ... other client files (with your code)
 ```
+
+Sometimes, you may want to use a different file structure, such as having
+pre-made server code and you want to add client code to it, or vice versa.
+Decide what works best for you, but keep in mind that the guide will assume
+the above structure.
 
 ## Install MAF CLI
 
@@ -62,12 +41,16 @@ MAF CLI is a command-line tool that helps you run, test, and deploy MAF servers.
 
 <TabsContent value="macos-linux">
 
-You will need to install a Rust toolchain to build MAF CLI. See
-[https://www.rust-lang.org/tools/install](https://www.rust-lang.org/tools/install)
-for installation instructions.
+You will need to have [Git](https://git-scm.com/) and a Rust toolchain installed
+to build MAF CLI from Scratch. See [https://www.rust-lang.org/tools/install](https://www.rust-lang.org/tools/install)
+for Rust installation instructions.
+
+To install MAF CLI, run the following commands in your terminal:
 
 ```bash
 # While in the root of your project directory,
+$ cd /tmp # or any other temporary directory
+$ git clone https://github.com/giilbert/maf.git
 $ cd maf/crates/maf_cli
 $ cargo install --path .
 ```
@@ -131,10 +114,8 @@ output = "./target/wasm32-wasip2/release/server.wasm"
 
 ```toml
 [dependencies]
-# If you installed MAF in a different directory, adjust the path accordingly.
-# The path should point the directory containing the `Cargo.toml` file with
-# a `maf` library.
-maf = { path = "../maf/crates/maf" }
+# Adds maf as a Git repository dependency
+maf = { repository = "https://github.com/giilbert/maf" }
 # serde is a library for serializing and deserializing data
 serde = { version = "^1", features = ["derive"] }
 

@@ -11,7 +11,7 @@ use errors::ListenError;
 
 mod generated {
     wasmtime::component::bindgen!({
-        path: "../../wit",
+        path: "../maf/wit",
         async: true,
         with: {
             "wasi:io/poll": wasmtime_wasi_io::bindings::wasi::io::poll,

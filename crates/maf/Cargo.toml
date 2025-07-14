@@ -5,9 +5,10 @@ edition = "2021"
 
 license = "MIT"
 description = "MAF is an authoritative realtime framework for writing simple, secure, and scalable apps."
-homepage = "maf.gilbertz.me"
+homepage = "https://maf.gilbertz.me"
 repository = "https://github.com/giilbert/maf"
 readme = "../../README.md"
+include = ["src", "wit"]
 
 [dependencies]
 anyhow = "^1.0.96"
