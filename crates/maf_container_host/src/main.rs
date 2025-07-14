@@ -28,7 +28,7 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn try_main() -> anyhow::Result<()> {
-    let address = "0.0.0.0:3000";
+    let address = "0.0.0.0:1147";
 
     tracing::info!("Initializing server...");
     let (state, app) = api::create_app().await?;

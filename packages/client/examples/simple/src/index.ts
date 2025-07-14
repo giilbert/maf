@@ -1,7 +1,7 @@
 import { MafClient } from "@usemaf/client";
 
 const client = new MafClient({
-  url: "http://localhost:3000",
+  url: "http://localhost:1147",
   app: "gilbert/test-2",
 });
 

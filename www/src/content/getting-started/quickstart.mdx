@@ -45,14 +45,10 @@ You will need to have [Git](https://git-scm.com/) and a Rust toolchain installed
 to build MAF CLI from Scratch. See [https://www.rust-lang.org/tools/install](https://www.rust-lang.org/tools/install)
 for Rust installation instructions.
 
-To install MAF CLI, run the following commands in your terminal:
+To install MAF CLI:
 
 ```bash
-# While in the root of your project directory,
-$ cd /tmp # or any other temporary directory
-$ git clone https://github.com/giilbert/maf.git
-$ cd maf/crates/maf_cli
-$ cargo install --path .
+$ cargo install --git https://github.com/giilbert/maf.git maf_cli
 ```
 
 If the installation is successful, you should be able to run the `maf_cli`
@@ -210,8 +206,11 @@ INFO: running build command `cargo build --target wasm32-wasip2` in ...
 
 INFO: build completed in 12.34s
 INFO: loaded room from <output path>
-INFO: dev server listening on 3000
+INFO: dev server listening on 1147
 ```
+
+❗ _The development server will listen on port `1147` by default. You can change
+this by passing the `--port` flag to the `maf run` command._
 
 ## Use a MAF Client
 
@@ -236,7 +235,7 @@ a website, you will need a bundler like [Vite](https://vite.dev/),
 import { MafClient } from "@usemaf/client";
 
 const client = new MafClient({
-  url: "http://localhost:3000",
+  url: "http://localhost:1147",
   // Use the same name as in `maf-project.toml`
   app: "your-organization/your-project-name",
 });

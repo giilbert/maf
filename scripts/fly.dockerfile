@@ -42,7 +42,7 @@ RUN apt-get update && \
 
 COPY --from=builder /app/target/release/maf_container_host /app/maf_container_host
 
-EXPOSE 3000
+EXPOSE 1147
 USER maf_container_host
 VOLUME /app/bundle
 

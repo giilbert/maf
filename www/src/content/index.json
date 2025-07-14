@@ -11,6 +11,12 @@
   },
   {
     "name": "Build Your App",
-    "docs": ["build/channel", "build/store", "build/state", "build/rpc"]
+    "docs": [
+      "build/channel",
+      "build/store",
+      "build/state",
+      "build/rpc",
+      "build/rooms"
+    ]
   }
 ]

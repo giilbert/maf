@@ -16,14 +16,15 @@ pub async fn handle_commands(
     context: &mut Context,
     file_path: Option<String>,
     command: Option<DevCommands>,
+    port: Option<u16>,
 ) -> anyhow::Result<()> {
     match command {
-        Some(DevCommands::Run { file_path }) => handle_run(context, Some(file_path)).await,
+        Some(DevCommands::Run { file_path }) => handle_run(context, Some(file_path), port).await,
         None => {
             let file_path = file_path.expect("FILE_PATH argument is required");
 
             dev_server::start_dev_server(DevServerConfig {
-                port: 3000,
+                port: port.unwrap_or(DEFAULT_PORT),
                 wasm_module_path: file_path,
                 watch: true,
             })
@@ -32,9 +33,15 @@ pub async fn handle_commands(
     }
 }
 
-pub async fn handle_run(context: &mut Context, file_path: Option<String>) -> anyhow::Result<()> {
+const DEFAULT_PORT: u16 = 1147; // Looks vaguely like MAF
+
+pub async fn handle_run(
+    context: &mut Context,
+    file_path: Option<String>,
+    port: Option<u16>,
+) -> anyhow::Result<()> {
     dev_server::start_dev_server(DevServerConfig {
-        port: 3000,
+        port: port.unwrap_or(DEFAULT_PORT),
         wasm_module_path: match file_path {
             Some(path) => path,
             None => {

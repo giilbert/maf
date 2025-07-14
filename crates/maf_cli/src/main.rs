@@ -28,6 +28,8 @@ enum Commands {
     Run {
         /// Path to the WASM file to run
         file_path: Option<String>,
+        /// Port to run the dev server on
+        port: Option<u16>,
     },
 
     /// Server management commands
@@ -44,6 +46,9 @@ enum Commands {
         #[arg(value_name = "FILE_PATH")]
         file_path: Option<String>,
 
+        #[arg(long, short, value_name = "PORT")]
+        port: Option<u16>,
+
         #[command(subcommand)]
         subcommand: Option<DevCommands>,
     },
@@ -55,8 +60,8 @@ async fn try_main() -> anyhow::Result<()> {
     let mut context = Context::new().await?;
 
     match Cli::parse().commands {
-        Commands::Run { file_path } => {
-            dev::handle_run(&mut context, file_path).await?;
+        Commands::Run { file_path, port } => {
+            dev::handle_run(&mut context, file_path, port).await?;
             return Ok(());
         }
         Commands::Admin(admin) => admin::handle_commands(&mut context, admin).await?,
@@ -66,7 +71,8 @@ async fn try_main() -> anyhow::Result<()> {
         Commands::Dev {
             file_path,
             subcommand,
-        } => dev::handle_commands(&mut context, file_path, subcommand).await?,
+            port,
+        } => dev::handle_commands(&mut context, file_path, subcommand, port).await?,
     }
 
     Ok(())

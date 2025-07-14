@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { MafServiceClient } from "@usemaf/server";
 
 const server = new MafServiceClient({
-  url: "http://localhost:3000",
+  url: "http://localhost:1147",
   // Replace with your actual app name
   app: "gilbert/example-basic",
   // Fake credentials for testing purposes

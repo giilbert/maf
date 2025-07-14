@@ -20,7 +20,7 @@ export const DemoApp: React.FC = () => {
     const maf = new MafClient({
       url:
         process.env.NODE_ENV === "development"
-          ? "http://localhost:3000"
+          ? "http://localhost:1147"
           : "https://maf-server.fly.dev",
       app: "gilbert/maf-demo",
     });
