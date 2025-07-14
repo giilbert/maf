@@ -10,12 +10,7 @@
     ]
   },
   {
-    "name": "Primitives",
-    "docs": [
-      "primitives/channel",
-      "primitives/store",
-      "primitives/state",
-      "primitives/rpc"
-    ]
+    "name": "Build Your App",
+    "docs": ["build/channel", "build/store", "build/state", "build/rpc"]
   }
 ]

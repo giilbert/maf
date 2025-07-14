@@ -86,19 +86,25 @@ the documentation will refer to the `maf` command.
 
 <TabsContent value="rust">
 
-1\. Create a new Rust project use Cargo:
+1\. Install the `wasm32-wasip2` target for Rust:
 
 ```bash
-$ cargo --lib new server # MAF applications compile as Rust libraries
+$ rustup target add wasm32-wasip2
+```
+
+2\. Create a new Rust project use Cargo:
+
+```bash
+$ cargo new --lib server # MAF applications compile as Rust libraries
 $ cd server
 ```
 
-2\. Create a `maf-project.toml` file in the `server` directory with the
+3\. Create a `maf-project.toml` file in the `server` directory with the
 following content:
 
 ```toml
 name = "your-project-name" # Edit this to your application name
-rooms = "AutoCreate" # This will make MAF put all users in a single room
+rooms = "AutoCreate" # This will make MAF put all users in a single *room*
 
 # If your build output path is different, adjust the paths accordingly.
 [debug]
@@ -110,12 +116,17 @@ command = "cargo build --target wasm32-wasip2 --release"
 output = "./target/wasm32-wasip2/release/server.wasm"
 ```
 
-3\. Add the following to the `Cargo.toml` file:
+🧠 _Rooms group users together and are highly flexible in terms of user
+management. In this case, a room is analogous to your code running on a single
+server. [Read more on rooms](/docs/build/rooms)._
+
+4\. Add the following to the `Cargo.toml` file:
 
 ```toml
 [dependencies]
-# Adds maf as a Git repository dependency
-maf = { repository = "https://github.com/giilbert/maf" }
+maf = "0.1.0"
+# To use the latest version, you can use the following instead:
+# maf = { repository = "https://github.com/giilbert/maf" }
 # serde is a library for serializing and deserializing data
 serde = { version = "^1", features = ["derive"] }
 
@@ -123,7 +134,7 @@ serde = { version = "^1", features = ["derive"] }
 crate-type = ["cdylib"] # This is required for Cargo to build the library
 ```
 
-4\. Edit the `src/lib.rs` file to include the following code:
+5\. Edit the `src/lib.rs` file to include the following code:
 
 ```rust
 use maf::*;
@@ -180,7 +191,7 @@ maf::register!(build);
 
 </Tabs>
 
-5\. Finally, build and run the server:
+6\. Finally, build and run the server:
 
 ```bash
 $ maf run
@@ -197,7 +208,7 @@ INFO: running build command `cargo build --target wasm32-wasip2` in ...
 
 -----------
 
-INFO: build completed in 16.69s
+INFO: build completed in 12.34s
 INFO: loaded room from <output path>
 INFO: dev server listening on 3000
 ```
@@ -213,46 +224,7 @@ The client library allows you to connect to a MAF server and interact with it.
 
 <TabsContent value="javascript-typescript">
 
-This guide will begin with you creating a new directory for your client code
-and initializing a npm package in that directory (e.g. `npm init -y` or
-equivalent).
-
-Currently, the package should be installed using the workspace feature of your
-package manager. This allows you to link directories as packages in your code.
-
-Refer to the documentation of your package manager for more information on
-workspaces:
-
-- **npm**: [https://docs.npmjs.com/cli/v8/using-npm/workspaces](https://docs.npmjs.com/cli/v8/using-npm/workspaces)
-- **Yarn (v4)**: [https://yarnpkg.com/features/workspaces](https://yarnpkg.com/features/workspaces)
-- **pnpm**: [https://pnpm.io/workspaces](https://pnpm.io/workspaces)
-- **Bun**: [https://bun.sh/docs/install/workspaces](https://bun.sh/docs/install/workspaces)
-
-1\. Add `maf/packages/client` as a workspace and `@maf/client` as a dependency
-in your `package.json`.
-
-Using pnpm, you can do this by creating a `pnpm-workspace.yaml` file in the
-client directory with the following content:
-
-```yaml
-packages:
-  # Adjust the path if you installed MAF in a different directory
-  - ../maf/packages/client
-```
-
-... adding the following to your `package.json`:
-
-```json
-{
-  "name": "your-client-name",
-  "version": "0.1.0",
-  "dependencies": {
-    "@maf/client": "workspace:*"
-  }
-}
-```
-
-and running `pnpm install` in the client directory.
+1\. Install the `@usemaf/client` package.
 
 2\. Install additional dependencies to build/run your code. If you're building
 a website, you will need a bundler like [Vite](https://vite.dev/),
@@ -261,7 +233,7 @@ a website, you will need a bundler like [Vite](https://vite.dev/),
 3\. Write the following code:
 
 ```typescript
-import { MafClient } from "@maf/client";
+import { MafClient } from "@usemaf/client";
 
 const client = new MafClient({
   url: "http://localhost:3000",
