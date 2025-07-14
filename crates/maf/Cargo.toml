@@ -3,6 +3,12 @@ name = "maf"
 version = "0.1.0"
 edition = "2021"
 
+license = "MIT"
+description = "MAF is an authoritative realtime framework for writing simple, secure, and scalable apps."
+homepage = "maf.gilbertz.me"
+repository = "https://github.com/giilbert/maf"
+readme = "../../README.md"
+
 [dependencies]
 anyhow = "^1.0.96"
 futures-util = "0.3.31"
