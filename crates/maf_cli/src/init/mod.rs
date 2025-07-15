@@ -10,34 +10,40 @@ static TEMPLATES: Dir = include_dir!("$CARGO_MANIFEST_DIR/src/init/templates");
 
 #[derive(Debug, Clone, clap::Args)]
 pub struct InitOptions {
-    #[arg(value_name = "PROJECT_NAME")]
+    /// The name of the project to create. If not provided, you will be prompted to enter one.
     project_name: Option<String>,
+    #[arg(short, long)]
+    /// The template to use for the project. If not provided, you will be prompted to select one.
     template: Option<String>,
+}
+
+fn transform_project_name(name: &str) -> anyhow::Result<String> {
+    if name.is_empty() {
+        anyhow::bail!("Name cannot be empty.")
+    }
+    if name.len() > 100 {
+        anyhow::bail!("Name cannot be longer than 100 characters.")
+    }
+    if !name.chars().all(|c| {
+        (c.is_ascii_alphanumeric() && (c.is_ascii_lowercase() || c.is_numeric())) || c == '-'
+    }) {
+        anyhow::bail!("Name can only contain lowercase alphanumeric characters and hyphens.")
+    }
+
+    Ok(name.to_string())
 }
 
 pub async fn handle_init(mut options: InitOptions) -> anyhow::Result<()> {
     match options.project_name.clone() {
         Some(name) => {
+            transform_project_name(&name)?; // Validate the provided project name
             pretty::info!("Creating new project: {}", name.bold());
             run_setup_commands(options).await
         }
         None => {
             let name = input!(
                 transform: |name: String| {
-                    if name.is_empty() {
-                        anyhow::bail!("Name cannot be empty.")
-                    }
-                    if name.len() > 100 {
-                        anyhow::bail!("Name cannot be longer than 100 characters.")
-                    }
-                    if !name
-                        .chars()
-                        .all(|c| (c.is_ascii_alphanumeric() && (c.is_ascii_lowercase() || c.is_numeric())) || c == '-')
-                    {
-                        anyhow::bail!("Name can only contain lowercase alphanumeric characters and hyphens.")
-                    }
-
-                    Ok(name)
+                    transform_project_name(&name)
                 },
                 "{} {}:",
                 "Name".bold(),
@@ -150,6 +156,8 @@ async fn run_setup_commands(options: InitOptions) -> anyhow::Result<()> {
     // Replaces {{<name>}} placeholders in the template files
     let mut templates = HashMap::new();
     templates.insert("name", project_name.clone());
+    // Rust crate names cannot contain hyphens, so they need to be replaced with underscores
+    templates.insert("crate_name", project_name.replace('-', "_"));
 
     fn extract_template_recurse(
         prefix: &str,
