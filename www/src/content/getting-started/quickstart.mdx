@@ -82,24 +82,18 @@ the documentation will refer to the `maf` command.
 
 <TabsContent value="rust">
 
-1\. Create a new directory and navigate into it:
+1\. Initialize a new MAF project:
 
 ```bash
-$ mkdir server
-$ cd server
-```
+$ maf create --template rust
 
-2\. Initialize a new MAF project:
-
-```bash
-$ maf init --template rust
-
+? Server path (Defaults to './server'):
 ? Name (Lowercase alphanumeric characters and hyphens): enter-project-name
 
 INFO: Setting up project 'enter-project-name' using template 'rust' in ...
 ```
 
-3\. `src/lib.rs` should include the following code:
+2\. `src/lib.rs` should include the following code:
 
 ```rust
 use maf::*;
