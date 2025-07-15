@@ -109,6 +109,21 @@ async fn run_setup_commands(options: InitOptions) -> anyhow::Result<()> {
         }
     };
 
+    let confirmation = dialoguer::Confirm::new()
+        .with_prompt(format!(
+            "{} {}",
+            "?".bold().purple(),
+            "This will create a new project in the current directory. Continue?"
+        ))
+        .default(false)
+        .interact()
+        .map_err(|e| anyhow::anyhow!("Failed to confirm project creation: {}", e))?;
+
+    if !confirmation {
+        pretty::info!("Project creation cancelled.");
+        return Ok(());
+    }
+
     println!();
 
     pretty::info!(
