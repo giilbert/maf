@@ -27,9 +27,9 @@ async fn handle_login(context: &mut Context, _command: AuthCommands) -> anyhow::
         dialoguer::Password::new()
             .with_prompt(
                 format!(
-                    "{} {} ",
+                    "{} {}",
                     "?".bold().purple(),
-                    "Enter your authentication token:".bold()
+                    "Enter your authentication token".bold()
                 )
                 .as_str(),
             )
