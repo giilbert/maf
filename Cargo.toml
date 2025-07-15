@@ -7,4 +7,4 @@ members = [
     "www/demo",
 ]
 
-exclude = ["crates/maf_cli/src/init/templates/*"]
+exclude = ["crates/maf_cli/src/init/templates/**"]
