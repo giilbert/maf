@@ -55,6 +55,7 @@ enum Commands {
     },
 
     Init(InitOptions),
+    Create(InitOptions),
 }
 
 async fn try_main() -> anyhow::Result<()> {
@@ -77,6 +78,7 @@ async fn try_main() -> anyhow::Result<()> {
             port,
         } => dev::handle_commands(&mut context, file_path, subcommand, port).await?,
         Commands::Init(options) => init::handle_init(options).await?,
+        Commands::Create(options) => init::handle_create(options).await?,
     }
 
     Ok(())

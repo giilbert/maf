@@ -2,7 +2,10 @@ use anyhow::Context;
 use dialoguer::Select;
 use include_dir::{include_dir, Dir, DirEntry};
 
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use crate::{input::input, pretty};
 
@@ -15,6 +18,9 @@ pub struct InitOptions {
     #[arg(short, long)]
     /// The template to use for the project. If not provided, you will be prompted to select one.
     template: Option<String>,
+    /// The path to the directory where the project will be created. Defaults to the current directory.
+    #[arg(short, long, default_value = ".")]
+    path: PathBuf,
 }
 
 fn transform_project_name(name: &str) -> anyhow::Result<String> {
@@ -54,6 +60,27 @@ pub async fn handle_init(mut options: InitOptions) -> anyhow::Result<()> {
             run_setup_commands(options).await
         }
     }
+}
+
+pub async fn handle_create(mut options: InitOptions) -> anyhow::Result<()> {
+    let server_path = input!(
+        transform: |path: String| {
+            if path.is_empty() {
+                Ok("server".to_string())
+            } else {
+                Ok(path)
+            }
+        },
+        "{} {}:",
+        "Server path".bold(),
+        "(Defaults to './server')".dimmed()
+    );
+
+    options.path = PathBuf::from(server_path);
+
+    handle_init(options).await?;
+
+    Ok(())
 }
 
 async fn run_setup_commands(options: InitOptions) -> anyhow::Result<()> {
@@ -111,9 +138,9 @@ async fn run_setup_commands(options: InitOptions) -> anyhow::Result<()> {
 
     let confirmation = dialoguer::Confirm::new()
         .with_prompt(format!(
-            "{} {}",
+            "{} This will create a new project in '{}'. Do you want to continue?",
             "?".bold().purple(),
-            "This will create a new project in the current directory. Continue?"
+            options.path.display().to_string().bold()
         ))
         .default(false)
         .interact()
@@ -130,26 +157,25 @@ async fn run_setup_commands(options: InitOptions) -> anyhow::Result<()> {
         "Setting up project '{}' using template '{}' in {}",
         project_name.bold(),
         template.path().display().to_string().bold(),
-        std::env::current_dir()
-            .unwrap_or_else(|_| PathBuf::from("."))
-            .display()
-            .to_string()
-            .bold()
+        options.path.display().to_string().bold()
     );
 
     println!();
 
     // Check if the project directory contains any files that would be overwritten
-    fn check_entry_recurse(prefix: &str, entry: &DirEntry) -> anyhow::Result<()> {
+    fn check_entry_recurse(prefix: &str, base_path: &Path, entry: &DirEntry) -> anyhow::Result<()> {
         match entry {
             DirEntry::Dir(dir) => {
                 for sub_entry in dir.entries() {
-                    check_entry_recurse(prefix, sub_entry)?;
+                    check_entry_recurse(prefix, base_path, sub_entry)?;
                 }
             }
             DirEntry::File(file) => {
-                let path = file.path().strip_prefix(prefix)?;
-                if std::fs::exists(path)
+                let mut path = file.path().strip_prefix(prefix)?.to_path_buf();
+                // Add the project path to the file path
+                path = base_path.join(path);
+
+                if std::fs::exists(&path)
                     .map_err(|e| anyhow::anyhow!("Failed to check if path exists: {}", e))?
                 {
                     pretty::error!(
@@ -165,8 +191,12 @@ async fn run_setup_commands(options: InitOptions) -> anyhow::Result<()> {
         Ok(())
     }
 
-    check_entry_recurse(&template_name, &DirEntry::Dir(template.clone()))
-        .context("Failed to check for existing files")?;
+    check_entry_recurse(
+        &template_name,
+        &options.path,
+        &DirEntry::Dir(template.clone()),
+    )
+    .context("Failed to check for existing files")?;
 
     // Replaces {{<name>}} placeholders in the template files
     let mut templates = HashMap::new();
@@ -176,12 +206,13 @@ async fn run_setup_commands(options: InitOptions) -> anyhow::Result<()> {
 
     fn extract_template_recurse(
         prefix: &str,
+        base_path: &Path,
         templates: &HashMap<String, String>,
         entry: &DirEntry,
     ) -> anyhow::Result<()> {
         match entry {
             DirEntry::Dir(dir) => {
-                let dir_path = dir.path().strip_prefix(prefix)?;
+                let dir_path = base_path.join(dir.path().strip_prefix(prefix)?);
 
                 std::fs::create_dir_all(dir_path).context(format!(
                     "Failed to create directory '{}'",
@@ -189,11 +220,11 @@ async fn run_setup_commands(options: InitOptions) -> anyhow::Result<()> {
                 ))?;
 
                 for sub_entry in dir.entries() {
-                    extract_template_recurse(prefix, templates, sub_entry)?;
+                    extract_template_recurse(prefix, base_path, templates, sub_entry)?;
                 }
             }
             DirEntry::File(file) => {
-                let file_path = file.path().strip_prefix(prefix)?;
+                let file_path = base_path.join(file.path().strip_prefix(prefix)?);
 
                 let content = file
                     .contents_utf8()
@@ -206,7 +237,7 @@ async fn run_setup_commands(options: InitOptions) -> anyhow::Result<()> {
                         acc.replace(key, value)
                     });
 
-                std::fs::write(file_path, content)
+                std::fs::write(&file_path, content)
                     .context(format!("Failed to write file '{}'", file_path.display()))?;
             }
         }
@@ -216,6 +247,7 @@ async fn run_setup_commands(options: InitOptions) -> anyhow::Result<()> {
 
     extract_template_recurse(
         &template_name,
+        &options.path,
         &templates
             .into_iter()
             .map(|(k, v)| (format!("{{{{{}}}}}", k), v))
@@ -252,6 +284,8 @@ async fn additional_rust_setup() -> anyhow::Result<()> {
     if status.code().unwrap_or(1) != 0 {
         pretty::warn!("Failed to install `wasm32-wasip2` target. Please install it manually.");
     }
+
+    println!();
 
     Ok(())
 }
