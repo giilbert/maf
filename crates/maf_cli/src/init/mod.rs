@@ -224,11 +224,34 @@ async fn run_setup_commands(options: InitOptions) -> anyhow::Result<()> {
     )
     .context("Failed to extract template files")?;
 
+    // Perform additional setup based on the selected template
+    // e.g. installing tools and dependencies
+    match template_name.as_str() {
+        "rust" => additional_rust_setup().await?,
+        _ => (),
+    }
+
     pretty::info!(
         "Done! Your project '{}' has been initialized using the '{}' template.",
         project_name.bold(),
         template_name.bold()
     );
+
+    Ok(())
+}
+
+async fn additional_rust_setup() -> anyhow::Result<()> {
+    pretty::info!("Installing `wasm32-wasip2` target for Rust...");
+
+    println!("{} rustup target add wasm32-wasip2", "$".bold().purple());
+    let status = tokio::process::Command::new("rustup")
+        .args(&["target", "add", "wasm32-wasip2"])
+        .status()
+        .await?;
+
+    if status.code().unwrap_or(1) != 0 {
+        pretty::warn!("Failed to install `wasm32-wasip2` target. Please install it manually.");
+    }
 
     Ok(())
 }
