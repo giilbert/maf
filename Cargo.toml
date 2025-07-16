@@ -6,3 +6,5 @@ members = [
     "crates/maf_container_host/migrations",
     "www/demo",
 ]
+
+exclude = ["crates/maf_cli/src/init/templates/**"]

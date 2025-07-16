@@ -224,11 +224,16 @@ async fn run_setup_commands(options: InitOptions) -> anyhow::Result<()> {
                 }
             }
             DirEntry::File(file) => {
-                let file_path = base_path.join(file.path().strip_prefix(prefix)?);
+                let file_path = base_path
+                    .join(file.path().strip_prefix(prefix)?)
+                    .to_string_lossy()
+                    // Remove any `$` characters from the path, which are used to prevent
+                    // language servers from trying to resolve the file where they're not needed
+                    .replace("$", "");
 
                 let content = file
                     .contents_utf8()
-                    .context(format!("Failed to read file '{}'", file_path.display()))?;
+                    .context(format!("Failed to read file '{}'", file_path))?;
 
                 // Replace placeholders in the content
                 let content = templates
@@ -238,7 +243,7 @@ async fn run_setup_commands(options: InitOptions) -> anyhow::Result<()> {
                     });
 
                 std::fs::write(&file_path, content)
-                    .context(format!("Failed to write file '{}'", file_path.display()))?;
+                    .context(format!("Failed to write file '{}'", file_path))?;
             }
         }
 
