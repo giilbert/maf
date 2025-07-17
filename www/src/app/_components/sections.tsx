@@ -5,11 +5,20 @@ import { useGSAP } from "@gsap/react";
 import { RefObject, useRef, useState } from "react";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { cn } from "@/lib/cn";
-import { XIcon } from "lucide-react";
+import {
+  ArchiveIcon,
+  ArrowLeftRightIcon,
+  HardDriveIcon,
+  LockIcon,
+  SquareFunctionIcon,
+  XIcon,
+} from "lucide-react";
 import {
   ClientScaffoldExamples,
   ServerScaffoldExamples,
 } from "./scaffold-examples";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 gsap.registerPlugin(useGSAP);
 gsap.registerPlugin(ScrollTrigger);
@@ -17,13 +26,13 @@ gsap.registerPlugin(ScrollTrigger);
 const Wrapper: React.FC<{
   ref?: RefObject<HTMLElement | null>;
   children: React.ReactNode;
-  className: string | null;
+  className?: string;
 }> = ({ ref, className, children }) => {
   return (
     <section
       ref={ref}
       className={cn(
-        "px-6 md:px-16 xl:px-24 min-h-screen w-full py-12",
+        "px-6 md:px-16 xl:px-24 min-h-screen w-full py-12 space-y-4",
         className
       )}
     >
@@ -50,7 +59,7 @@ export const SetupSection: React.FC<{
           pin: gsap.utils.selector(leftRef.current)("#stick"),
           scrub: 0.5,
           toggleActions: "play none none reverse",
-          end: window.innerWidth > 1280 ? "bottom bottom" : undefined,
+          end: window.innerWidth > 1280 ? "bottom+=550px bottom" : undefined,
           // markers: true,
         },
       });
@@ -240,6 +249,87 @@ const StepDisplay: React.FC<{
         {number}
       </div>
       <p className="text-lg">{children}</p>
+    </div>
+  );
+};
+
+export const PrimitivesSection: React.FC = () => {
+  return (
+    <Wrapper>
+      <h2 className="text-4xl xl:text-6xl font-bold">Goodbye Boilerplate!</h2>
+      <p className="xl:text-lg">
+        MAF comes with powerful pre-made building blocks to build your app.
+      </p>
+
+      <hr className="my-4" />
+
+      <div className="flex gap-2 flex-wrap">
+        <div className="border-4 border-green-700 px-6 py-4 space-y-2">
+          <div className="flex gap-2 items-center">
+            <ArchiveIcon size={32} />
+            <h3 className="font-bold text-3xl">Stores</h3>
+          </div>
+          <p>
+            Persistent, synchronized, and shared state with fine-grained
+            controls.
+          </p>
+        </div>
+
+        <div className="border-4 border-purple-700 px-6 py-4 space-y-2">
+          <div className="flex gap-2 items-center">
+            <SquareFunctionIcon size={32} />
+            <h3 className="font-bold text-3xl">
+              Remote Procedure Calls (RPCs)
+            </h3>
+          </div>
+          <p>Realtime transactions that feel like local invocations.</p>
+        </div>
+
+        <div className="border-4 border-amber-600 px-6 py-4 space-y-2">
+          <div className="flex gap-2 items-center">
+            <ArrowLeftRightIcon size={32} />
+            <h3 className="font-bold text-3xl">Channels</h3>
+          </div>
+          <p>Anyhow back and forth message passing.</p>
+        </div>
+
+        <div className="border-4 border-blue-500 px-6 py-4 space-y-2">
+          <div className="flex gap-2 items-center">
+            <HardDriveIcon size={32} />
+            <h3 className="font-bold text-3xl">Rooms</h3>
+          </div>
+          <p>Easily manage users and keep state separated.</p>
+        </div>
+
+        <div className="border-4 border-red-500 px-6 py-4 space-y-2">
+          <div className="flex gap-2 items-center">
+            <LockIcon size={32} />
+            <h3 className="font-bold text-3xl">Authentication</h3>
+          </div>
+          <p>
+            Secure your app with built-in authentication and authorization
+            patterns.
+          </p>
+        </div>
+      </div>
+    </Wrapper>
+  );
+};
+
+export const DeploySection: React.FC = () => {
+  return (
+    <Wrapper>
+      <h2 className="text-4xl xl:text-6xl font-bold">MAF Platform</h2>
+    </Wrapper>
+  );
+};
+
+export const GetStartedSection: React.FC = () => {
+  return (
+    <div className="w-full flex justify-center">
+      <Link href="/docs/getting-started/quickstart">
+        <Button>Get Started</Button>
+      </Link>
     </div>
   );
 };

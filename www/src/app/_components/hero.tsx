@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { DemoApp } from "./demo-app";
 import { Navbar } from "./nav-bar";
+import Link from "next/link";
 
 export const Hero: React.FC = () => {
   return (
@@ -63,9 +64,11 @@ export const Hero: React.FC = () => {
           </div>
 
           <div className="flex gap-2 items-center flex-col sm:flex-row">
-            <Button size="lg" className="w-full">
-              Get Started
-            </Button>
+            <Link href="/docs/getting-started/quickstart">
+              <Button size="lg" className="w-full">
+                Get Started
+              </Button>
+            </Link>
           </div>
         </div>
 

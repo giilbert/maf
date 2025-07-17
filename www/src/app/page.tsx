@@ -1,15 +1,19 @@
 import { BundledLanguage } from "shiki";
 import { Hero } from "./_components/hero";
-import { SetupSection } from "./_components/sections";
+import {
+  // DeploySection,
+  GetStartedSection,
+  PrimitivesSection,
+  SetupSection,
+} from "./_components/sections";
 import { CodeBlock } from "./docs/_components/mdx-components";
 import { CODE_BLOCKS } from "./_components/scaffold-content";
+import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="space-y-16">
+    <div className="space-y-[40rem]">
       <Hero />
-
-      <p className="my-[32rem]"></p>
 
       <SetupSection
         codeBlocks={Object.fromEntries(
@@ -27,7 +31,19 @@ export default function Home() {
         )}
       />
 
-      <p className="mt-[80rem]">bottom</p>
+      <PrimitivesSection />
+      {/* <DeploySection /> */}
+      <GetStartedSection />
+
+      <footer className="px-6 md:px-16 xl:px-24 space-y-4 pt-10 pb-40 border-t">
+        <p className="text-3xl font-bold">mutation authority framework</p>
+        <Link
+          href="https://github.com/giilbert/maf"
+          className="hover:underline underline-offset-2"
+        >
+          https://github.com/giilbert/maf
+        </Link>
+      </footer>
     </div>
   );
 }
