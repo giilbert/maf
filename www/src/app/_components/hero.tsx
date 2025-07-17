@@ -18,7 +18,7 @@ export const Hero: React.FC = () => {
 
       <div className="space-y-8 xl:space-y-0 lg:grid grid-cols-4 xl:grid-cols-5 gap-2 md:gap-8 h-fit lg:h-[calc(100vh-9rem)] flex flex-col">
         <div className="col-span-2 space-y-12 flex flex-col h-full">
-          <div className="space-y-6 bg-background-300 px-8 pt-6 pb-8 relative h-fit lg:h-full -ml-8 -mr-6 md:mr-0 flex flex-col justify-center">
+          <div className="space-y-6 bg-background-300 px-8 pt-12 pb-16 relative h-fit lg:h-full -ml-8 -mr-6 md:mr-0 flex flex-col justify-center">
             <div className="hidden md:block w-full h-full absolute bg-background-500 -z-10 top-4 left-4"></div>
 
             <div className="space-y-2">

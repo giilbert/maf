@@ -13,7 +13,14 @@ interface StoreData {
 export const DemoApp: React.FC = () => {
   const [tiles, setTiles] = useState<boolean[]>(Array(64).fill(false));
   const [people, setPeople] = useState<number | null>(null);
-  const [connected, setConnected] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<
+    | { type: "connecting" }
+    | { type: "connected" }
+    | {
+        type: "disconnected";
+        reason?: string;
+      }
+  >({ type: "connecting" });
   const mafRef = useRef<MafClient>(null);
 
   useEffect(() => {
@@ -37,14 +44,24 @@ export const DemoApp: React.FC = () => {
       setPeople(store.data.people);
     });
 
-    maf.connect().then(() => setConnected(true));
+    maf
+      .connect()
+      .then(() => setConnectionStatus({ type: "connected" }))
+      .catch(() =>
+        setConnectionStatus({
+          type: "disconnected",
+          reason: "Failed to connect",
+        })
+      );
 
     return () => {
       if (maf.ws.readyState === WebSocket.OPEN) {
         maf.ws.close();
+        mafRef.current = null;
       } else if (maf.ws.readyState === WebSocket.CONNECTING) {
         maf.ws.onopen = () => {
           maf.ws.close();
+          mafRef.current = null;
         };
       }
     };
@@ -54,7 +71,7 @@ export const DemoApp: React.FC = () => {
     <div className="w-full h-full flex flex-col">
       <div className="text-sm z-10 p-4">
         <div className="flex items-center gap-2 font-mono w-full text-sm">
-          {connected ? (
+          {connectionStatus.type === "connected" ? (
             <>
               <CircleIcon
                 size={16}
@@ -70,6 +87,12 @@ export const DemoApp: React.FC = () => {
                 <p>...</p>
               )}
             </>
+          ) : connectionStatus.type === "disconnected" ? (
+            <p>
+              {connectionStatus.reason && (
+                <span className="text-red-500">{connectionStatus.reason}</span>
+              )}
+            </p>
           ) : (
             <p className="text-muted-foreground">Connecting...</p>
           )}

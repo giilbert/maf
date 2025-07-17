@@ -6,12 +6,11 @@ export const Navbar: React.FC = () => {
     <nav className="flex items-center gap-4">
       <Logo hasText />
 
-      <Link href="/docs" className="underline-offset-4 hover:underline ml-4">
+      <Link
+        href="/docs/getting-started/introduction"
+        className="underline-offset-4 hover:underline ml-4"
+      >
         Docs
-      </Link>
-
-      <Link href="/docs" className="underline-offset-4 hover:underline">
-        Examples
       </Link>
     </nav>
   );

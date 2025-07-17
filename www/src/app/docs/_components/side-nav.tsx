@@ -12,7 +12,10 @@ export const SideNav: React.FC<{
   return (
     <nav className="flex flex-col gap-2 fixed top-8 w-max">
       <div className="mb-2">
-        <Link href="/docs" className="flex gap-2 items-center">
+        <Link
+          href="/docs/getting-started/introduction"
+          className="flex gap-2 items-center"
+        >
           <Logo size={24} />
           <h1 className="text-lg font-bold">MAF</h1>
         </Link>
