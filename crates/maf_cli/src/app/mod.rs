@@ -72,13 +72,12 @@ pub async fn handle_commands(context: &mut Context, command: AppCommands) -> any
                 let project = context.assert_project();
                 let name = project.data.name.clone();
 
-                run_build_command(&project.base_path, &project.data.release.command).await?;
+                run_build_command(&project.base, &project.data.release.command)?;
 
-                let output_path = tokio::fs::canonicalize(
-                    project.base_path.join(project.data.release.output.clone()),
-                )
-                .await
-                .context("Unable to find output file")?;
+                let output_path =
+                    tokio::fs::canonicalize(project.base.join(project.data.release.output.clone()))
+                        .await
+                        .context("Unable to find output file")?;
                 deploy_bundle(context, name, &output_path).await
             }
         },

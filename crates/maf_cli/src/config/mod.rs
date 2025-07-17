@@ -26,15 +26,15 @@ pub enum ConfigCommands {
     },
 }
 
-pub async fn handle_commands(context: &mut Context, command: ConfigCommands) -> anyhow::Result<()> {
+pub fn handle_commands(context: &mut Context, command: ConfigCommands) -> anyhow::Result<()> {
     match command {
-        ConfigCommands::Show => handle_show(context).await,
-        ConfigCommands::Set { key, value } => handle_set(context, key, value).await,
-        ConfigCommands::Reset { key } => handle_reset(context, key).await,
+        ConfigCommands::Show => handle_show(context),
+        ConfigCommands::Set { key, value } => handle_set(context, key, value),
+        ConfigCommands::Reset { key } => handle_reset(context, key),
     }
 }
 
-async fn handle_show(context: &mut Context) -> anyhow::Result<()> {
+fn handle_show(context: &mut Context) -> anyhow::Result<()> {
     let config = context.global_config.clone();
     println!("{}", "Current configuration:".bold());
 
@@ -60,7 +60,7 @@ async fn handle_show(context: &mut Context) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn handle_set(context: &mut Context, key: String, value: String) -> anyhow::Result<()> {
+fn handle_set(context: &mut Context, key: String, value: String) -> anyhow::Result<()> {
     match key.as_str() {
         "server_url" => {
             if !value.starts_with("http://") && !value.starts_with("https://") {
@@ -78,12 +78,13 @@ async fn handle_set(context: &mut Context, key: String, value: String) -> anyhow
         }
     }
 
-    context.global_config.save().await?;
+    context.global_config.save()?;
     pretty::info!("Configuration updated successfully.");
+
     Ok(())
 }
 
-async fn handle_reset(context: &mut Context, key: String) -> anyhow::Result<()> {
+fn handle_reset(context: &mut Context, key: String) -> anyhow::Result<()> {
     match key.as_str() {
         "server_url" => {
             context.global_config.server_url = None;
@@ -96,7 +97,8 @@ async fn handle_reset(context: &mut Context, key: String) -> anyhow::Result<()> 
         }
     }
 
-    context.global_config.save().await?;
+    context.global_config.save()?;
     pretty::info!("Configuration reset successfully.");
+
     Ok(())
 }

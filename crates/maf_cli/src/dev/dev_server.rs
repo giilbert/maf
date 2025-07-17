@@ -38,12 +38,17 @@ struct StateInner {
     container_runtime: ContainerRuntime,
 }
 
-pub async fn start_dev_server(config: DevServerConfig) -> anyhow::Result<()> {
+pub async fn start_local_server(config: DevServerConfig) -> anyhow::Result<()> {
     let address = format!("0.0.0.0:{}", config.port);
 
     let runtime = ContainerRuntime::init(Box::leak(Box::new(AtomicU64::new(0))))?;
 
     // This is so jank
+
+    // If the file watcher is enabled, we create a notify watcher that will trigger a reload
+    // when the WASM file changes.
+    //
+    // If not, we just create a notify that will never trigger.
     let reload_notify = if config.watch {
         let (reload_notify, _watcher) = create_file_watcher(&std::fs::canonicalize(
             std::path::Path::new(&config.wasm_module_path),
@@ -67,7 +72,7 @@ pub async fn start_dev_server(config: DevServerConfig) -> anyhow::Result<()> {
     let reload_room = async move {
         loop {
             reload_notify.notified().await;
-            pretty::info!("reloading room...");
+            pretty::info!("[dev] Reloading room...");
 
             let room = load_room(
                 reload_notify.clone(),
@@ -92,6 +97,7 @@ pub async fn start_dev_server(config: DevServerConfig) -> anyhow::Result<()> {
         tokio::spawn(reload_room);
     }
 
+    // Implement a subset of Platform APIs for the developer server
     let app = axum::Router::new()
         .route(
             "/@/{org_slug}/{app_slug}/{room_id}/connect",
@@ -105,7 +111,7 @@ pub async fn start_dev_server(config: DevServerConfig) -> anyhow::Result<()> {
 
     let listener = tokio::net::TcpListener::bind(address).await?;
 
-    pretty::info!("dev server listening on {}", config.port);
+    pretty::info!("Development server listening on {}", config.port);
     axum::serve(listener, app).await?;
 
     Ok(())
@@ -119,34 +125,32 @@ async fn load_room(
     let bundle = Bundle::load_wasm_module_from_file(path)?;
     let (room, mut container) = Room::new(&runtime, bundle).await?;
 
+    // Task to forward container output to the console
     let mut output = container.take_output().expect("failed to take output");
-    let forward_output = async move {
+    let _forward_output = tokio::spawn(async move {
         while let Some(line) = output.recv().await {
             let line = line.trim_end_matches(|s| s == '\n' || s == '\r' as char);
             println!("{} {}", ">".blue(), &line);
         }
-    };
+    });
 
+    // When the reload notify is triggered, tell the container to stop
     let cancel_token = container.cancel_token.clone();
-    let cancel_on_signal = async move {
+    let _cancel_on_signal = tokio::spawn(async move {
         reload_notify.notified().await;
         cancel_token.cancel();
-    };
+    });
 
-    let run_container = async move {
+    let _run_container = tokio::spawn(async move {
         if let Err(e) = container.run().await {
-            pretty::error!("failed to run container: {}", e);
+            pretty::error!("[dev] Failed to run container: {}", e);
             return;
         }
 
-        pretty::info!("container exited");
-    };
+        pretty::info!("[dev] Container exited");
+    });
 
-    tokio::spawn(forward_output);
-    tokio::spawn(cancel_on_signal);
-    tokio::spawn(run_container);
-
-    pretty::info!("loaded room from {}", path);
+    pretty::info!("[dev] Loaded room from {}", path);
 
     Ok(room)
 }
@@ -170,7 +174,7 @@ fn create_file_watcher(
         notify::Config::default().with_compare_contents(true),
     )?;
 
-    pretty::info!("watching for changes in {}", path.display());
+    pretty::info!("[dev] Watching for changes in {}", path.display());
     debouncer.watch(path, notify::RecursiveMode::NonRecursive)?;
 
     Ok((notify, debouncer))

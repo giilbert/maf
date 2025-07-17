@@ -1,5 +1,6 @@
 use uuid::Uuid;
 
+/// An instance of an application returned from the Platform API.
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct App {
     pub id: Uuid,

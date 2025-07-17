@@ -1,8 +1,7 @@
-use std::path::PathBuf;
+use std::{fs, path::PathBuf};
 
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
-use tokio::fs;
 
 use directories::ProjectDirs;
 
@@ -33,15 +32,13 @@ impl GlobalConfig {
         Ok(config_dir.join("config.toml"))
     }
 
-    pub async fn load() -> anyhow::Result<Self> {
-        if !fs::try_exists(Self::get_config_file()?).await? {
+    pub fn load() -> anyhow::Result<Self> {
+        if !fs::exists(Self::get_config_file()?)? {
             return Ok(Self::default());
         }
 
         let mut config_data = toml::from_str::<GlobalConfig>(
-            &fs::read_to_string(Self::get_config_file()?)
-                .await
-                .context("Failed to read config file")?,
+            &fs::read_to_string(Self::get_config_file()?).context("Failed to read config file")?,
         )
         .context("Failed to parse config file")?;
 
@@ -64,13 +61,11 @@ impl GlobalConfig {
         Ok(config_data)
     }
 
-    pub async fn save(&self) -> anyhow::Result<()> {
+    pub fn save(&self) -> anyhow::Result<()> {
         let config_file = Self::get_config_file()?;
         let config_data = toml::to_string(self).context("Failed to serialize config data")?;
 
-        fs::write(config_file, config_data)
-            .await
-            .context("Failed to write config file")?;
+        fs::write(config_file, config_data).context("Failed to write config file")?;
 
         Ok(())
     }
