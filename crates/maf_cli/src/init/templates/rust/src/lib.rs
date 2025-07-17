@@ -16,7 +16,7 @@ impl StoreData for CounterStore {
 
     // This name will be used to identify the store
     fn name() -> impl AsRef<str> {
-        "count"
+        "counter"
     }
 }
 
