@@ -77,4 +77,8 @@ export class Store<T> extends Emittery<StoreEvents<T>> {
   get(): T | null {
     return this._data;
   }
+
+  get hasInit(): boolean {
+    return this._hasInit;
+  }
 }
