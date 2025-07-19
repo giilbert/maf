@@ -52,4 +52,19 @@ crate-type = ["cdylib"]
 
 `,
   },
+  "JavaScript/TypeScript:client.ts": {
+    language: "typescript",
+    content: `
+// [1] Import MAF client library
+import { MafClient } from "@usemaf/client";
+
+// [2] Connect to the MAF server
+const client = new MafClient(/* options */);
+await client.connect();
+
+// [3] Call the RPC method
+const greeting = await client.rpc("greet", "World");
+console.log(greeting); // Outputs: Hello, World!
+`,
+  },
 } as const;

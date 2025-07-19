@@ -61,24 +61,21 @@ enum Commands {
 async fn try_main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
 
-    let mut context = Context::new().await?;
+    let mut context = Context::new()?;
 
     match Cli::parse().commands {
-        Commands::Run { file_path, port } => {
-            dev::handle_run(&mut context, file_path, port).await?;
-            return Ok(());
-        }
+        Commands::Run { file_path, port } => dev::handle_run(&mut context, file_path, port).await?,
         Commands::Admin(admin) => admin::handle_commands(&mut context, admin).await?,
         Commands::App(app) => app::handle_commands(&mut context, app).await?,
-        Commands::Auth(auth) => auth::handle_commands(&mut context, auth).await?,
-        Commands::Config(config) => config::handle_commands(&mut context, config).await?,
+        Commands::Auth(auth) => auth::handle_commands(&mut context, auth)?,
+        Commands::Config(config) => config::handle_commands(&mut context, config)?,
         Commands::Dev {
             file_path,
             subcommand,
             port,
         } => dev::handle_commands(&mut context, file_path, subcommand, port).await?,
-        Commands::Init(options) => init::handle_init(options).await?,
-        Commands::Create(options) => init::handle_create(options).await?,
+        Commands::Init(options) => init::handle_init(options)?,
+        Commands::Create(options) => init::handle_create(options)?,
     }
 
     Ok(())

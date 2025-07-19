@@ -4,7 +4,14 @@ import { Provider } from "react-wrap-balancer";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "mutation authority framework",
+  title: "Mutation Authority Framework",
+  openGraph: {
+    type: "website",
+    title: "Mutation Authority Framework",
+    description:
+      "MAF is a framework for building, deploying, and testing authoritative real-time applications.",
+    images: ["https://maf.gilbertz.me/cover.png"],
+  },
 };
 
 const inter = Inter({ subsets: ["latin"] });

@@ -17,8 +17,9 @@ pub struct Context {
 }
 
 impl Context {
-    pub async fn new() -> anyhow::Result<Self> {
-        let global_config = GlobalConfig::load().await?;
+    pub fn new() -> anyhow::Result<Self> {
+        let global_config = GlobalConfig::load()?;
+
         let mut headers = HeaderMap::new();
         headers.insert(
             "Authorization",
@@ -42,7 +43,7 @@ impl Context {
             client,
             server_url,
             global_config,
-            project_config: ProjectConfig::load().await?,
+            project_config: ProjectConfig::load()?,
         })
     }
 

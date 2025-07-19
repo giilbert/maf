@@ -2,7 +2,17 @@ use std::{fmt::Debug, io::Write, str::FromStr};
 
 use colored::Colorize;
 
-pub fn input_string_blocking<T, V>(prompt: impl Into<String>, transform: V) -> anyhow::Result<T>
+/// Get a string input from user, optionally validating or transforming it using a closure.
+///
+/// ## Arguments
+/// * `prompt` - The prompt to display to the user. A purple question mark will be prefixed and a
+///   space will be appended.
+/// * `transform` - A closure that takes the input and returns a `Result<T, anyhow::Result>`. This
+///   function should return Ok(T) where T is the desired input type if the input is valid, or an
+///   error (made with anyhow::bail or similar) if the input is invalid.
+///
+/// This function blocks until the user provides valid input.
+pub fn input_string<T, V>(prompt: impl Into<String>, transform: V) -> anyhow::Result<T>
 where
     T: FromStr + Debug,
     T::Err: std::fmt::Debug,
@@ -35,17 +45,19 @@ where
     }
 }
 
-pub async fn input_string<T, V>(prompt: impl Into<String>, validate: V) -> anyhow::Result<T>
-where
-    T: FromStr + Debug + Send + 'static,
-    T::Err: std::fmt::Debug,
-    V: Fn(T) -> anyhow::Result<T> + Send + 'static,
-{
-    let prompt = prompt.into();
-    let result = tokio::task::spawn_blocking(|| input_string_blocking::<T, V>(prompt, validate));
-    result.await?
-}
-
+/// A macro that wraps the `input_string` function to simplify input handling.
+///
+/// Prompts are formatted using `format!`, and an optional closure can be provided to transform
+/// the input. If no closure is provided, inputs are considered valid as is.
+///
+/// ## Examples
+///
+/// ```rust
+/// // A type is needed to specify what type to parse the input into:
+/// let age: u32 = input!("Enter your age:");
+/// // Specify a prompt with a transformation function:
+/// let name: String = input!(transform: |s: String| Ok(s.trim().to_string()), "Enter your name:");
+/// ```
 macro_rules! input {
     (transform: $transform:expr, $($arg:tt)*) => {
         {
@@ -55,7 +67,6 @@ macro_rules! input {
             use anyhow::Context as _;
 
             input_string(format!($($arg)*), $transform)
-                .await
                 .context(format!("failed to read input: {}", format!($($arg)*)))?
         }
     };
@@ -67,7 +78,6 @@ macro_rules! input {
             use anyhow::Context as _;
 
             input_string(format!($($arg)*), |t| Ok(t))
-                .await
                 .context(format!("failed to read input: {}", format!($($arg)*)))?
         }
     };

@@ -5,8 +5,20 @@ import { useGSAP } from "@gsap/react";
 import { RefObject, useRef, useState } from "react";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { cn } from "@/lib/cn";
-import { XIcon } from "lucide-react";
-import { ScaffoldExamples } from "./scaffold-examples";
+import {
+  ArchiveIcon,
+  ArrowLeftRightIcon,
+  HardDriveIcon,
+  LockIcon,
+  SquareFunctionIcon,
+  XIcon,
+} from "lucide-react";
+import {
+  ClientScaffoldExamples,
+  ServerScaffoldExamples,
+} from "./scaffold-examples";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 gsap.registerPlugin(useGSAP);
 gsap.registerPlugin(ScrollTrigger);
@@ -14,13 +26,13 @@ gsap.registerPlugin(ScrollTrigger);
 const Wrapper: React.FC<{
   ref?: RefObject<HTMLElement | null>;
   children: React.ReactNode;
-  className: string | null;
+  className?: string;
 }> = ({ ref, className, children }) => {
   return (
     <section
       ref={ref}
       className={cn(
-        "px-6 md:px-16 xl:px-24 min-h-screen w-full py-12",
+        "px-6 md:px-16 xl:px-24 min-h-screen w-full py-12 space-y-4",
         className
       )}
     >
@@ -32,19 +44,23 @@ const Wrapper: React.FC<{
 export const SetupSection: React.FC<{
   codeBlocks: Record<string, React.ReactNode>;
 }> = ({ codeBlocks }) => {
-  const ref = useRef<HTMLDivElement>(null);
+  const leftRef = useRef<HTMLDivElement>(null);
+  const rightRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLParagraphElement>(null);
   const [shouldBlink, setShouldBlink] = useState(false);
 
   useGSAP(
     () => {
+      const media = gsap.matchMedia();
+
       const tl = gsap.timeline({
         scrollTrigger: {
-          trigger: ref.current,
-          pin: gsap.utils.selector(ref.current)("#stick"),
-          scrub: true,
+          trigger: leftRef.current,
+          pin: gsap.utils.selector(leftRef.current)("#stick"),
+          scrub: 0.5,
           toggleActions: "play none none reverse",
-          markers: true,
+          end: window.innerWidth > 1280 ? "bottom+=550px bottom" : undefined,
+          // markers: true,
         },
       });
 
@@ -75,24 +91,39 @@ export const SetupSection: React.FC<{
         { y: 0, opacity: 1, duration: 1, ease: "power2.out" }
       );
 
-      for (const el of gsap.utils.selector(ref.current)("#no-doing > *")) {
-        tl.fromTo(
-          el,
-          { opacity: 0 },
-          { opacity: 1, ease: "power2.out", duration: 8, delay: 1 }
-        );
-      }
-
-      tl.fromTo("#languages", { opacity: 0 }, { opacity: 1, duration: 3 });
-
-      tl.eventCallback("onComplete", () => console.log("animation complete"));
+      media.add(
+        {
+          isMobile: "(min-width: 1280px)",
+        },
+        (ctx) => {
+          if (!ctx.isMobile) {
+            for (const el of gsap.utils.selector(leftRef.current)(
+              "#no-doing > *"
+            )) {
+              tl.fromTo(
+                el,
+                { opacity: 0 },
+                { opacity: 1, ease: "power2.out", duration: 8, delay: 1 }
+              );
+            }
+          } else {
+            tl.fromTo(
+              "#no-doing",
+              { opacity: 0, y: 50 },
+              { opacity: 1, y: 0, ease: "power2.out", duration: 0.5 }
+            );
+          }
+        }
+      );
     },
-    { scope: ref }
+    { scope: leftRef }
   );
 
+  useGSAP(() => {}, { scope: rightRef });
+
   return (
-    <Wrapper ref={ref} className="xl:pb-[60rem] xl:flex xl:gap-4">
-      <div className="pb-96 xl:h-full xl:w-1/2" id="stick">
+    <Wrapper ref={leftRef} className="xl:flex xl:gap-4">
+      <div className="pb-20 xl:pb-96 xl:h-full xl:w-1/2" id="stick">
         <div id="command" className="font-mono flex gap-1 items-center mb-8">
           <p ref={textRef} className="text-lg h-6" />
           <div
@@ -143,77 +174,65 @@ export const SetupSection: React.FC<{
               No need to reinvent the wheel.
             </p>
           </div>
-
-          <div className="flex gap-1 flex-wrap" id="languages">
-            <svg viewBox="0 0 128 128" className="w-10 h-10">
-              <path
-                fill="var(--foreground)"
-                d="M1.408 1.408h125.184v125.185H1.408z"
-              ></path>
-              <path
-                fill="var(--background)"
-                d="M116.347 96.736c-.917-5.711-4.641-10.508-15.672-14.981-3.832-1.761-8.104-3.022-9.377-5.926-.452-1.69-.512-2.642-.226-3.665.821-3.32 4.784-4.355 7.925-3.403 2.023.678 3.938 2.237 5.093 4.724 5.402-3.498 5.391-3.475 9.163-5.879-1.381-2.141-2.118-3.129-3.022-4.045-3.249-3.629-7.676-5.498-14.756-5.355l-3.688.477c-3.534.893-6.902 2.748-8.877 5.235-5.926 6.724-4.236 18.492 2.975 23.335 7.104 5.332 17.54 6.545 18.873 11.531 1.297 6.104-4.486 8.08-10.234 7.378-4.236-.881-6.592-3.034-9.139-6.949-4.688 2.713-4.688 2.713-9.508 5.485 1.143 2.499 2.344 3.63 4.26 5.795 9.068 9.198 31.76 8.746 35.83-5.176.165-.478 1.261-3.666.38-8.581zM69.462 58.943H57.753l-.048 30.272c0 6.438.333 12.34-.714 14.149-1.713 3.558-6.152 3.117-8.175 2.427-2.059-1.012-3.106-2.451-4.319-4.485-.333-.584-.583-1.036-.667-1.071l-9.52 5.83c1.583 3.249 3.915 6.069 6.902 7.901 4.462 2.678 10.459 3.499 16.731 2.059 4.082-1.189 7.604-3.652 9.448-7.401 2.666-4.915 2.094-10.864 2.07-17.444.06-10.735.001-21.468.001-32.237z"
-              ></path>
-            </svg>
-
-            <svg viewBox="0 0 128 128" className="w-10 h-10">
-              <path
-                fill="var(--background)"
-                d="M22.67 47h99.67v73.67H22.67z"
-              ></path>
-              <path
-                data-name="original"
-                fill="var(--foreground)"
-                d="M1.5 63.91v62.5h125v-125H1.5zm100.73-5a15.56 15.56 0 017.82 4.5 20.58 20.58 0 013 4c0 .16-5.4 3.81-8.69 5.85-.12.08-.6-.44-1.13-1.23a7.09 7.09 0 00-5.87-3.53c-3.79-.26-6.23 1.73-6.21 5a4.58 4.58 0 00.54 2.34c.83 1.73 2.38 2.76 7.24 4.86 8.95 3.85 12.78 6.39 15.16 10 2.66 4 3.25 10.46 1.45 15.24-2 5.2-6.9 8.73-13.83 9.9a38.32 38.32 0 01-9.52-.1 23 23 0 01-12.72-6.63c-1.15-1.27-3.39-4.58-3.25-4.82a9.34 9.34 0 011.15-.73L82 101l3.59-2.08.75 1.11a16.78 16.78 0 004.74 4.54c4 2.1 9.46 1.81 12.16-.62a5.43 5.43 0 00.69-6.92c-1-1.39-3-2.56-8.59-5-6.45-2.78-9.23-4.5-11.77-7.24a16.48 16.48 0 01-3.43-6.25 25 25 0 01-.22-8c1.33-6.23 6-10.58 12.82-11.87a31.66 31.66 0 019.49.26zm-29.34 5.24v5.12H56.66v46.23H45.15V69.26H28.88v-5a49.19 49.19 0 01.12-5.17C29.08 59 39 59 51 59h21.83z"
-              ></path>
-            </svg>
-
-            <svg viewBox="0 0 128 128" className="w-10 h-10">
-              <path
-                fill="var(--foreground)"
-                d="M62.96.242c-.232.135-1.203 1.528-2.16 3.097-2.4 3.94-2.426 3.942-5.65.55-2.098-2.208-2.605-2.612-3.28-2.607-.44.002-.995.152-1.235.332-.24.18-.916 1.612-1.504 3.183-1.346 3.6-1.41 3.715-2.156 3.86-.46.086-1.343-.407-3.463-1.929-1.565-1.125-3.1-2.045-3.411-2.045-1.291 0-1.655.706-2.27 4.4-.78 4.697-.754 4.681-4.988 2.758-1.71-.776-3.33-1.41-3.603-1.41-.274 0-.792.293-1.15.652-.652.652-.653.655-.475 4.246l.178 3.595-.68.364c-.602.322-1.017.283-3.684-.348-3.48-.822-4.216-.8-4.92.15l-.516.693.692 2.964c.38 1.63.745 3.2.814 3.487.067.287-.05.746-.26 1.02-.348.448-.717.49-3.94.44-5.452-.086-5.761.382-3.51 5.3.718 1.56 1.305 2.98 1.305 3.15 0 .898-.717 1.224-3.794 1.727-1.722.28-3.218.51-3.326.51-.107 0-.43.235-.717.522-.937.936-.671 1.816 1.453 4.814 2.646 3.735 2.642 3.75-1.73 5.421-4.971 1.902-5.072 2.37-1.287 5.96 3.525 3.344 3.53 3.295-.461 5.804C.208 62.8.162 62.846.085 63.876c-.093 1.253-.071 1.275 3.538 3.48 3.57 2.18 3.57 2.246.067 5.56C-.078 76.48.038 77 5.013 78.877c4.347 1.64 4.353 1.66 1.702 5.394-1.502 2.117-1.981 3-1.981 3.653 0 1.223.637 1.535 4.44 2.174 3.206.54 3.92.857 3.92 1.741 0 .182-.588 1.612-1.307 3.177-2.236 4.87-1.981 5.275 3.31 5.275 4.93 0 4.799-.15 3.737 4.294-.8 3.35-.813 3.992-.088 4.715.554.556 1.6.494 4.87-.289 2.499-.596 2.937-.637 3.516-.328l.66.354-.177 3.594c-.178 3.593-.177 3.595.475 4.248.358.36.884.652 1.165.652.282 0 1.903-.63 3.604-1.404 4.22-1.916 4.194-1.932 4.973 2.75.617 3.711.977 4.4 2.294 4.4.327 0 1.83-.88 3.34-1.958 2.654-1.893 3.342-2.19 4.049-1.74.182.115.89 1.67 1.572 3.455 1.003 2.625 1.37 3.31 1.929 3.576 1.062.51 1.72.1 4.218-2.62 3.016-3.286 3.14-3.27 5.602.72 2.72 4.406 3.424 4.396 6.212-.089 2.402-3.864 2.374-3.862 5.621-.47 2.157 2.25 2.616 2.61 3.343 2.61.464 0 1.019-.175 1.23-.388.214-.213.92-1.786 1.568-3.496.649-1.71 1.321-3.2 1.495-3.31.687-.436 1.398-.13 4.048 1.752 1.56 1.108 3.028 1.96 3.377 1.96 1.296 0 1.764-.92 2.302-4.535.46-3.082.554-3.378 1.16-3.685.596-.302.954-.2 3.75 1.07 1.701.77 3.323 1.402 3.604 1.402.282 0 .816-.302 1.184-.672l.672-.67-.184-3.448c-.177-3.29-.16-3.468.364-3.943.54-.488.596-.486 3.615.204 3.656.835 4.338.857 5.025.17.671-.67.664-.818-.254-4.69-1.03-4.346-1.168-4.19 3.78-4.19 3.374 0 3.75-.049 4.18-.523.718-.793.547-1.702-.896-4.779-.729-1.55-1.32-2.96-1.315-3.135.024-.914.743-1.227 4.065-1.767 2.033-.329 3.553-.71 3.829-.96.923-.833.584-1.918-1.523-4.873-2.642-3.703-2.63-3.738 1.599-5.297 5.064-1.866 5.209-2.488 1.419-6.09-3.51-3.335-3.512-3.317.333-5.677 4.648-2.853 4.655-3.496.082-6.335-3.933-2.44-3.93-2.406-.405-5.753 3.78-3.593 3.678-4.063-1.295-5.965-4.388-1.679-4.402-1.72-1.735-5.38 1.588-2.18 1.982-2.903 1.982-3.65 0-1.306-.586-1.598-4.436-2.22-3.216-.52-3.924-.835-3.924-1.75 0-.174.588-1.574 1.307-3.113 1.406-3.013 1.604-4.22.808-4.94-.428-.387-1-.443-4.067-.392-3.208.054-3.618.008-4.063-.439-.486-.488-.48-.557.278-3.725.931-3.88.935-3.975.17-4.694-.777-.73-1.262-.718-4.826.121-2.597.612-3.027.653-3.617.337l-.67-.36.185-3.582.186-3.58-.67-.67c-.369-.37-.891-.67-1.163-.67-.27 0-1.884.64-3.583 1.421-2.838 1.306-3.143 1.393-3.757 1.072-.612-.32-.714-.637-1.237-3.829-.603-3.693-.977-4.412-2.288-4.412-.311 0-1.853.925-3.426 2.055-2.584 1.856-2.93 2.032-3.574 1.807-.533-.186-.843-.59-1.221-1.599-.28-.742-.817-2.172-1.194-3.177-.762-2.028-1.187-2.482-2.328-2.482-.637 0-1.213.458-3.28 2.604-3.25 3.375-3.261 3.374-5.65-.545C66.073 1.78 65.075.382 64.81.24c-.597-.32-1.3-.32-1.85.002m2.96 11.798c2.83 2.014 1.326 6.75-2.144 6.75-3.368 0-5.064-4.057-2.66-6.36 1.358-1.3 3.304-1.459 4.805-.39m-3.558 12.507c1.855.705 2.616.282 6.852-3.8l3.182-3.07 1.347.18c4.225.56 12.627 4.25 17.455 7.666 4.436 3.14 10.332 9.534 12.845 13.93l.537.942-2.38 5.364c-1.31 2.95-2.382 5.673-2.382 6.053 0 .878.576 2.267 1.13 2.726.234.195 2.457 1.265 4.939 2.378l4.51 2.025.178 1.148c.23 1.495.26 5.167.052 6.21l-.163.816h-2.575c-2.987 0-2.756-.267-2.918 3.396-.118 2.656-.76 4.124-2.22 5.075-2.377 1.551-6.304 1.27-7.97-.57-.255-.284-.752-1.705-1.105-3.16-1.03-4.254-2.413-6.64-5.193-8.965-.878-.733-1.595-1.418-1.595-1.522 0-.102.965-.915 2.145-1.803 4.298-3.24 6.77-7.012 7.04-10.747.519-7.126-5.158-13.767-13.602-15.92-2.002-.51-2.857-.526-27.624-.526-14.057 0-25.56-.092-25.56-.204 0-.263 3.125-3.295 4.965-4.816 5.054-4.178 11.618-7.465 18.417-9.22l2.35-.61 3.34 3.387c1.839 1.863 3.64 3.5 4.003 3.637M20.3 46.34c1.539 1.008 2.17 3.54 1.26 5.062-1.405 2.356-4.966 2.455-6.373.178-2.046-3.309 1.895-7.349 5.113-5.24m90.672.13c4.026 2.454.906 8.493-3.404 6.586-2.877-1.273-2.97-5.206-.155-6.64 1.174-.6 2.523-.579 3.56.053M32.163 61.5v15.02h-13.28l-.526-2.285c-1.036-4.5-1.472-9.156-1.211-12.969l.182-2.679 4.565-2.047c2.864-1.283 4.706-2.262 4.943-2.625 1.038-1.584.94-2.715-.518-5.933l-.68-1.502h6.523V61.5M70.39 47.132c2.843.74 4.345 2.245 4.349 4.355.002 1.55-.765 2.52-2.67 3.38-1.348.61-1.562.625-10.063.708l-8.686.084v-8.92h7.782c6.078 0 8.112.086 9.288.393m-2.934 21.554c1.41.392 3.076 1.616 3.93 2.888.898 1.337 1.423 3.076 2.667 8.836 1.05 4.87 1.727 6.46 3.62 8.532 2.345 2.566 1.8 2.466 13.514 2.466 5.61 0 10.198.09 10.198.2 0 .197-3.863 4.764-4.03 4.764-.048 0-2.066-.422-4.484-.939-6.829-1.458-7.075-1.287-8.642 6.032l-1.008 4.702-.91.448c-1.518.75-6.453 2.292-9.01 2.82-4.228.87-8.828 1.162-12.871.821-6.893-.585-16.02-3.259-16.377-4.8-.075-.327-.535-2.443-1.018-4.704-.485-2.26-1.074-4.404-1.31-4.764-1.13-1.724-2.318-1.83-7.547-.674-1.98.44-3.708.796-3.84.796-.248 0-3.923-4.249-3.923-4.535 0-.09 8.728-.194 19.396-.23l19.395-.066.07-6.89c.05-4.865-.018-6.997-.23-7.25-.234-.284-1.485-.358-6.011-.358H53.32v-8.36l6.597.001c3.626.002 7.02.12 7.539.264M37.57 100.02c3.084 1.88 1.605 6.804-2.043 6.8-3.74 0-5.127-4.88-1.94-6.826 1.055-.643 2.908-.63 3.983.026m56.48.206c1.512 1.108 2.015 3.413 1.079 4.95-2.46 4.034-8.612.827-6.557-3.419 1.01-2.085 3.695-2.837 5.478-1.53"
-              ></path>
-            </svg>
-
-            <svg viewBox="0 0 128 128" className="w-10 h-10">
-              <path
-                fill="var(--foreground)"
-                d="M49.33 62h29.159C86.606 62 93 55.132 93 46.981V19.183c0-7.912-6.632-13.856-14.555-15.176-5.014-.835-10.195-1.215-15.187-1.191-4.99.023-9.612.448-13.805 1.191C37.098 6.188 35 10.758 35 19.183V30h29v4H23.776c-8.484 0-15.914 5.108-18.237 14.811-2.681 11.12-2.8 17.919 0 29.53C7.614 86.983 12.569 93 21.054 93H31V79.952C31 70.315 39.428 62 49.33 62zm-1.838-39.11c-3.026 0-5.478-2.479-5.478-5.545 0-3.079 2.451-5.581 5.478-5.581 3.015 0 5.479 2.502 5.479 5.581-.001 3.066-2.465 5.545-5.479 5.545zm74.789 25.921C120.183 40.363 116.178 34 107.682 34H97v12.981C97 57.031 88.206 65 78.489 65H49.33C41.342 65 35 72.326 35 80.326v27.8c0 7.91 6.745 12.564 14.462 14.834 9.242 2.717 17.994 3.208 29.051 0C85.862 120.831 93 116.549 93 108.126V97H64v-4h43.682c8.484 0 11.647-5.776 14.599-14.66 3.047-9.145 2.916-17.799 0-29.529zm-41.955 55.606c3.027 0 5.479 2.479 5.479 5.547 0 3.076-2.451 5.579-5.479 5.579-3.015 0-5.478-2.502-5.478-5.579 0-3.068 2.463-5.547 5.478-5.547z"
-              ></path>
-            </svg>
-
-            <svg viewBox="0 0 128 128" className="w-10 h-10">
-              <path
-                fill="var(--foreground)"
-                d="M47.617 98.12c-19.192 5.362 11.677 16.439 36.115 5.969-4.003-1.556-6.874-3.351-6.874-3.351-10.897 2.06-15.952 2.222-25.844 1.092-8.164-.935-3.397-3.71-3.397-3.71zm33.189-10.46c-14.444 2.779-22.787 2.69-33.354 1.6-8.171-.845-2.822-4.805-2.822-4.805-21.137 7.016 11.767 14.977 41.309 6.336-3.14-1.106-5.133-3.131-5.133-3.131zm11.319-60.575c.001 0-42.731 10.669-22.323 34.187 6.024 6.935-1.58 13.17-1.58 13.17s15.289-7.891 8.269-17.777c-6.559-9.215-11.587-13.793 15.634-29.58zm9.998 81.144s3.529 2.91-3.888 5.159c-14.102 4.272-58.706 5.56-71.095.171-4.45-1.938 3.899-4.625 6.526-5.192 2.739-.593 4.303-.485 4.303-.485-4.952-3.487-32.013 6.85-13.742 9.815 49.821 8.076 90.817-3.637 77.896-9.468zM85 77.896c2.395-1.634 5.703-3.053 5.703-3.053s-9.424 1.685-18.813 2.474c-11.494.964-23.823 1.154-30.012.326-14.652-1.959 8.033-7.348 8.033-7.348s-8.812-.596-19.644 4.644C17.455 81.134 61.958 83.958 85 77.896zm5.609 15.145c-.108.29-.468.616-.468.616 31.273-8.221 19.775-28.979 4.822-23.725-1.312.464-2 1.543-2 1.543s.829-.334 2.678-.72c7.559-1.575 18.389 10.119-5.032 22.286zM64.181 70.069c-4.614-10.429-20.26-19.553.007-35.559C89.459 14.563 76.492 1.587 76.492 1.587c5.23 20.608-18.451 26.833-26.999 39.667-5.821 8.745 2.857 18.142 14.688 28.815zm27.274 51.748c-19.187 3.612-42.854 3.191-56.887.874 0 0 2.874 2.38 17.646 3.331 22.476 1.437 57-.8 57.816-11.436.001 0-1.57 4.032-18.575 7.231z"
-              ></path>
-            </svg>
-          </div>
         </div>
       </div>
 
-      <div className="xl:mt-[100rem] space-y-12">
-        <div className="space-y-1 h-[36rem]">
+      <div className="xl:mt-[100rem] space-y-12 grow">
+        <div className="space-y-1 h-[28rem] sm:h-[32rem] md:h-[36rem]">
           <StepDisplay number={1}>
             Scaffold project with{" "}
             <span className="font-mono bg-muted px-1.5 py-1 rounded">
               `maf create`
-            </span>{" "}
-            (note: this currently is unimplemented)
+            </span>
           </StepDisplay>
 
-          <p className="italic text-muted-foreground">view scaffold for...</p>
+          <p className="italic text-muted-foreground">View scaffold for...</p>
 
-          <ScaffoldExamples codeBlocks={codeBlocks} />
+          <ServerScaffoldExamples codeBlocks={codeBlocks} />
         </div>
 
-        <div>
+        <div className="space-y-2.5">
           <StepDisplay number={2}>
             Start a server with{" "}
             <span className="font-mono bg-muted px-1.5 py-1 rounded">
               `maf run`
             </span>
           </StepDisplay>
+
+          <div className="font-mono p-4 -mx-4 bg-neutral-900 text-xs sm:text-sm md:text-base">
+            <p>
+              <span className="font-bold text-green-500">INFO</span>: Running
+              build command `...` in ...
+            </p>
+
+            <br />
+            <p>≽^•⩊•^≼ ──☆*:・₊※*・:*:｀♪:*:。*・☆*</p>
+            <p>... (compiler magic) ...</p>
+            <br />
+
+            <p>
+              <span className="font-bold text-green-500">INFO</span>: Build
+              completed in 123.45ms
+            </p>
+
+            <p>
+              <span className="font-bold text-green-500">INFO</span>: [dev]
+              Loaded room from ...server.wasm
+            </p>
+
+            <p>
+              <span className="font-bold text-green-500">INFO</span>:
+              Development server listening on 1147
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <StepDisplay number={3}>
+            Connect to the server with a MAF client
+          </StepDisplay>
+
+          <ClientScaffoldExamples codeBlocks={codeBlocks} />
         </div>
       </div>
     </Wrapper>
@@ -230,6 +249,87 @@ const StepDisplay: React.FC<{
         {number}
       </div>
       <p className="text-lg">{children}</p>
+    </div>
+  );
+};
+
+export const PrimitivesSection: React.FC = () => {
+  return (
+    <Wrapper>
+      <h2 className="text-4xl xl:text-6xl font-bold">Goodbye Boilerplate!</h2>
+      <p className="xl:text-lg">
+        MAF comes with powerful pre-made building blocks to build your app.
+      </p>
+
+      <hr className="my-4" />
+
+      <div className="flex gap-2 flex-wrap">
+        <div className="border-4 border-green-700 px-6 py-4 space-y-2">
+          <div className="flex gap-2 items-center">
+            <ArchiveIcon size={32} />
+            <h3 className="font-bold text-3xl">Stores</h3>
+          </div>
+          <p>
+            Persistent, synchronized, and shared state with fine-grained
+            controls.
+          </p>
+        </div>
+
+        <div className="border-4 border-purple-700 px-6 py-4 space-y-2">
+          <div className="flex gap-2 items-center">
+            <SquareFunctionIcon size={32} />
+            <h3 className="font-bold text-3xl">
+              Remote Procedure Calls (RPCs)
+            </h3>
+          </div>
+          <p>Realtime transactions that feel like local invocations.</p>
+        </div>
+
+        <div className="border-4 border-amber-600 px-6 py-4 space-y-2">
+          <div className="flex gap-2 items-center">
+            <ArrowLeftRightIcon size={32} />
+            <h3 className="font-bold text-3xl">Channels</h3>
+          </div>
+          <p>Anyhow back and forth message passing.</p>
+        </div>
+
+        <div className="border-4 border-blue-500 px-6 py-4 space-y-2">
+          <div className="flex gap-2 items-center">
+            <HardDriveIcon size={32} />
+            <h3 className="font-bold text-3xl">Rooms</h3>
+          </div>
+          <p>Easily manage users and keep state separated.</p>
+        </div>
+
+        <div className="border-4 border-red-500 px-6 py-4 space-y-2">
+          <div className="flex gap-2 items-center">
+            <LockIcon size={32} />
+            <h3 className="font-bold text-3xl">Authentication</h3>
+          </div>
+          <p>
+            Secure your app with built-in authentication and authorization
+            patterns.
+          </p>
+        </div>
+      </div>
+    </Wrapper>
+  );
+};
+
+export const DeploySection: React.FC = () => {
+  return (
+    <Wrapper>
+      <h2 className="text-4xl xl:text-6xl font-bold">MAF Platform</h2>
+    </Wrapper>
+  );
+};
+
+export const GetStartedSection: React.FC = () => {
+  return (
+    <div className="w-full flex justify-center">
+      <Link href="/docs/getting-started/quickstart">
+        <Button>Get Started</Button>
+      </Link>
     </div>
   );
 };

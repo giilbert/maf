@@ -5,6 +5,7 @@ use include_dir::{include_dir, Dir, DirEntry};
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
+    process,
 };
 
 use crate::{input::input, pretty};
@@ -39,12 +40,12 @@ fn transform_project_name(name: &str) -> anyhow::Result<String> {
     Ok(name.to_string())
 }
 
-pub async fn handle_init(mut options: InitOptions) -> anyhow::Result<()> {
+pub fn handle_init(mut options: InitOptions) -> anyhow::Result<()> {
     match options.project_name.clone() {
         Some(name) => {
             transform_project_name(&name)?; // Validate the provided project name
             pretty::info!("Creating new project: {}", name.bold());
-            run_setup_commands(options).await
+            run_setup_commands(options)
         }
         None => {
             let name = input!(
@@ -57,12 +58,12 @@ pub async fn handle_init(mut options: InitOptions) -> anyhow::Result<()> {
             );
 
             options.project_name = Some(name.clone());
-            run_setup_commands(options).await
+            run_setup_commands(options)
         }
     }
 }
 
-pub async fn handle_create(mut options: InitOptions) -> anyhow::Result<()> {
+pub fn handle_create(mut options: InitOptions) -> anyhow::Result<()> {
     let server_path = input!(
         transform: |path: String| {
             if path.is_empty() {
@@ -78,12 +79,12 @@ pub async fn handle_create(mut options: InitOptions) -> anyhow::Result<()> {
 
     options.path = PathBuf::from(server_path);
 
-    handle_init(options).await?;
+    handle_init(options)?;
 
     Ok(())
 }
 
-async fn run_setup_commands(options: InitOptions) -> anyhow::Result<()> {
+fn run_setup_commands(options: InitOptions) -> anyhow::Result<()> {
     let project_name = options
         .project_name
         .expect("Project name should be set by now");
@@ -264,7 +265,7 @@ async fn run_setup_commands(options: InitOptions) -> anyhow::Result<()> {
     // Perform additional setup based on the selected template
     // e.g. installing tools and dependencies
     match template_name.as_str() {
-        "rust" => additional_rust_setup().await?,
+        "rust" => additional_rust_setup()?,
         _ => (),
     }
 
@@ -277,14 +278,13 @@ async fn run_setup_commands(options: InitOptions) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn additional_rust_setup() -> anyhow::Result<()> {
+fn additional_rust_setup() -> anyhow::Result<()> {
     pretty::info!("Installing `wasm32-wasip2` target for Rust...");
 
     println!("{} rustup target add wasm32-wasip2", "$".bold().purple());
-    let status = tokio::process::Command::new("rustup")
+    let status = process::Command::new("rustup")
         .args(&["target", "add", "wasm32-wasip2"])
-        .status()
-        .await?;
+        .status()?;
 
     if status.code().unwrap_or(1) != 0 {
         pretty::warn!("Failed to install `wasm32-wasip2` target. Please install it manually.");
