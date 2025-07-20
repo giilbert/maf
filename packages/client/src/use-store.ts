@@ -16,14 +16,16 @@ type UseStoreDiscUnion<TData, TFallback> =
       data: TData;
     };
 
-function useStore<TData>(storeName: string): UseStoreDiscUnion<TData, never>;
+export function useStore<TData>(
+  storeName: string
+): UseStoreDiscUnion<TData, never>;
 
-function useStore<TData, TFallback extends TData>(
+export function useStore<TData, TFallback extends TData>(
   storeName: string,
   fallback: TFallback
 ): UseStoreDiscUnion<TData, TFallback>;
 
-function useStore<TData, TFallback>(
+export function useStore<TData, TFallback>(
   storeName: string,
   fallback?: TFallback
 ): UseStoreDiscUnion<
@@ -41,12 +43,11 @@ function useStore<TData, TFallback>(
     if (contextData !== null) {
       const { client } = contextData;
       const store = client.store<TData>(storeName);
-      if (store.hasInit) {
-        store.on("change", () => {
-          setData(store.data);
-          setStatus(StoreStatus.READY);
-        });
-      }
+      store.init.then(() => {
+        setData(store.data);
+        setStatus(StoreStatus.READY);
+        store.on("change", () => setData(store.data));
+      });
     }
   }, [contextData]);
 

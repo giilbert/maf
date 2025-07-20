@@ -12,11 +12,9 @@ export interface MafContextType {
 
 export const MafContext = createContext<MafContextType | null>(null);
 
-const MafProvider: React.FC<React.PropsWithChildren<MafProviderProps>> = ({
-  url,
-  app,
-  children,
-}) => {
+export const MafProvider: React.FC<
+  React.PropsWithChildren<MafProviderProps>
+> = ({ url, app, children }) => {
   const client = new MafClient({ url, app });
   client.connect();
 
@@ -26,5 +24,3 @@ const MafProvider: React.FC<React.PropsWithChildren<MafProviderProps>> = ({
     <MafContext.Provider value={contextValue}>{children}</MafContext.Provider>
   );
 };
-
-export default MafProvider;
