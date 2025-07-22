@@ -3,4 +3,6 @@ packages:
   - "www/demo"
   - "packages/client"
   - "packages/client/examples/*"
+  - "packages/react"
+  - "packages/react/examples/*"
   - "packages/server"
