@@ -15,13 +15,13 @@ use super::Bundle;
 pub type RoomId = Uuid;
 
 #[derive(Debug, Clone)]
-pub struct Room {
-    pub id: Uuid,
+pub struct RoomInner {
+    id: Uuid,
     connection_tx: mpsc::Sender<BoxedConnection>,
     hooks_request_tx: mpsc::Sender<HookRequest>,
 }
 
-impl Room {
+impl RoomInner {
     pub async fn new(
         container_runtime: &ContainerRuntime,
         bundle: Bundle,
@@ -38,6 +38,11 @@ impl Room {
             },
             container,
         ))
+    }
+
+    /// Returns the unique identifier of the room.
+    pub fn id(&self) -> RoomId {
+        self.id
     }
 
     pub async fn add_connection(&self, connection: impl Connection) -> anyhow::Result<()> {

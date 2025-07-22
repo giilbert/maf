@@ -10,7 +10,7 @@ use axum::{
     routing::{get, post},
 };
 use maf_container::{
-    server::{handle_ws_upgrade, Bundle, ErrorResponse, Room},
+    server::{handle_ws_upgrade, Bundle, ErrorResponse, RoomInner},
     wasi::bindings::{self, HookRequestCaller},
     ContainerRuntime,
 };
@@ -34,7 +34,7 @@ struct DevServerState {
 
 #[derive(Debug)]
 struct StateInner {
-    room: RwLock<Room>,
+    room: RwLock<RoomInner>,
     container_runtime: ContainerRuntime,
 }
 
@@ -121,9 +121,9 @@ async fn load_room(
     reload_notify: Arc<tokio::sync::Notify>,
     runtime: &ContainerRuntime,
     path: &str,
-) -> anyhow::Result<Room> {
+) -> anyhow::Result<RoomInner> {
     let bundle = Bundle::load_wasm_module_from_file(path)?;
-    let (room, mut container) = Room::new(&runtime, bundle).await?;
+    let (room, mut container) = RoomInner::new(&runtime, bundle).await?;
 
     // Task to forward container output to the console
     let mut output = container.take_output().expect("failed to take output");

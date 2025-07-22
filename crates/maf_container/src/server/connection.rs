@@ -19,7 +19,7 @@ use tokio::{
 };
 use uuid::Uuid;
 
-use crate::{server::Room, wasi::bindings};
+use crate::{server::RoomInner, wasi::bindings};
 
 pub struct Connection {
     takeable: Option<TakeableConnection>,
@@ -212,9 +212,9 @@ fn convert_to_axum_message(message: bindings::Message) -> Message {
     }
 }
 
-pub async fn handle_ws_upgrade(ws: WebSocketUpgrade, room: Room) -> Response {
+pub async fn handle_ws_upgrade(ws: WebSocketUpgrade, room: RoomInner) -> Response {
     ws.on_upgrade(|ws| async move {
-        async fn try_init(ws: WebSocket, room: Room) -> anyhow::Result<Connection> {
+        async fn try_init(ws: WebSocket, room: RoomInner) -> anyhow::Result<Connection> {
             let connection = Connection::init(ws).await?;
             let handle = connection.handle();
             room.add_connection(handle).await?;

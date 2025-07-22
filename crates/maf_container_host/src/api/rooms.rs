@@ -3,8 +3,9 @@ use std::{
     sync::Arc,
 };
 
-use maf_container::server::{Room, RoomId};
+use maf_container::server::{RoomId, RoomInner};
 use rand::Rng as _;
+use schemas::apps::RoomCreationStrategy;
 use tokio::sync::{RwLock, RwLockReadGuard};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -16,9 +17,20 @@ pub struct AppNameAndOrgSlug {
 /// Contains additional information about the room, not related to the running the container.
 #[derive(Debug, Clone)]
 pub struct RoomMeta {
+    pub id: RoomId,
     pub app: AppNameAndOrgSlug,
     /// Optional secret for the room, as an extra layer of authentication.
-    pub room_secret: String,
+    pub secret: String,
+    /// The room creation strategy used to create this room. Needed to determine how to handle room
+    /// removal and access.
+    pub strategy: RoomCreationStrategy,
+}
+
+#[derive(Debug, Clone)]
+pub struct Room {
+    pub id: RoomId,
+    pub meta: RoomMeta,
+    pub inner: RoomInner,
 }
 
 fn generate_room_secret() -> String {
@@ -29,88 +41,84 @@ fn generate_room_secret() -> String {
         .collect()
 }
 
+#[derive(Debug, Clone)]
+pub struct InsertRoom {
+    pub strategy: RoomCreationStrategy,
+    pub app: AppNameAndOrgSlug,
+    pub room: RoomInner,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct RoomsStorage {
-    rooms: Arc<RwLock<HashMap<RoomId, (RoomMeta, Room)>>>,
+    rooms: Arc<RwLock<HashMap<RoomId, Room>>>,
     pub auto_created_rooms: Arc<RwLock<HashMap<AppNameAndOrgSlug, RoomId>>>,
     pub api_created_rooms: Arc<RwLock<HashMap<AppNameAndOrgSlug, HashSet<RoomId>>>>,
 }
 
 impl RoomsStorage {
-    pub async fn get(&self, room_id: &RoomId) -> Option<RwLockReadGuard<(RoomMeta, Room)>> {
+    pub async fn get(&self, room_id: &RoomId) -> Option<RwLockReadGuard<Room>> {
         RwLockReadGuard::try_map(self.rooms.read().await, |rooms| rooms.get(room_id)).ok()
     }
 
-    pub async fn get_auto_created_room(
-        &self,
-        app: &AppNameAndOrgSlug,
-    ) -> Option<RwLockReadGuard<(RoomMeta, Room)>> {
-        let auto_created_rooms = self.auto_created_rooms.read().await;
-        let room_id = auto_created_rooms.get(app)?;
-        self.get(room_id).await
-    }
-
-    pub async fn insert_auto_created_room(&self, room: Room, app: AppNameAndOrgSlug) -> RoomMeta {
+    /// Insert a room into the storage with a given strategy and metadata.
+    pub async fn insert(&self, param: InsertRoom) -> RoomMeta {
         let meta = RoomMeta {
-            app: app.clone(),
-            room_secret: generate_room_secret(),
+            id: param.room.id(),
+            app: param.app.clone(),
+            secret: generate_room_secret(),
+            strategy: param.strategy.clone(),
         };
 
-        self.auto_created_rooms.write().await.insert(app, room.id);
-        self.rooms
-            .write()
-            .await
-            .insert(room.id, (meta.clone(), room));
+        match param.strategy {
+            RoomCreationStrategy::AutoCreate => {
+                self.auto_created_rooms
+                    .write()
+                    .await
+                    .insert(param.app, param.room.id());
+            }
+            RoomCreationStrategy::AuthenticatedApiRequest => {
+                self.api_created_rooms
+                    .write()
+                    .await
+                    .entry(param.app)
+                    .or_default()
+                    .insert(param.room.id());
+            }
+        }
+
+        self.rooms.write().await.insert(
+            param.room.id(),
+            Room {
+                id: param.room.id(),
+                meta: meta.clone(),
+                inner: param.room,
+            },
+        );
 
         meta
     }
 
-    pub async fn remove_auto_created_room(&self, app: &AppNameAndOrgSlug) {
-        if let Some(room_id) = self.auto_created_rooms.write().await.remove(app) {
-            self.rooms.write().await.remove(&room_id);
+    /// Removes a room from the storage and returns it if it exists.
+    /// The room is automatically removed from the auto-created or API-created rooms list based on
+    /// the strategy used to create it.
+    pub async fn remove(&self, room_id: &RoomId) -> Option<Room> {
+        let room = self.rooms.write().await.remove(room_id)?;
+
+        match room.meta.strategy {
+            RoomCreationStrategy::AutoCreate => {
+                self.auto_created_rooms.write().await.remove(&room.meta.app);
+            }
+            RoomCreationStrategy::AuthenticatedApiRequest => {
+                self.api_created_rooms
+                    .write()
+                    .await
+                    .entry(room.meta.app.clone())
+                    .and_modify(|rooms| {
+                        rooms.remove(room_id);
+                    });
+            }
         }
-    }
 
-    pub async fn insert_api_room(&self, room: Room, app: AppNameAndOrgSlug) -> RoomMeta {
-        let meta = RoomMeta {
-            app: app.clone(),
-            room_secret: generate_room_secret(),
-        };
-
-        self.rooms
-            .write()
-            .await
-            .insert(room.id, (meta.clone(), room.clone()));
-
-        self.api_created_rooms
-            .write()
-            .await
-            .entry(app)
-            .or_default()
-            .insert(room.id);
-
-        meta
-    }
-
-    pub async fn remove_api_room(&self, room_id: &RoomId, app: AppNameAndOrgSlug) {
-        self.rooms.write().await.remove(room_id);
-        self.api_created_rooms
-            .write()
-            .await
-            .entry(app.clone())
-            .and_modify(|rooms| {
-                rooms.remove(&room_id);
-            });
-
-        // Remove the entry in api_created_rooms_by_org_slug if it's empty
-        if self
-            .api_created_rooms
-            .read()
-            .await
-            .get(&app)
-            .map_or(false, |rooms| rooms.is_empty())
-        {
-            self.api_created_rooms.write().await.remove(&app);
-        }
+        Some(room)
     }
 }

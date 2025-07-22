@@ -6,7 +6,7 @@ use axum::{
     Json, Router,
 };
 use chrono::Utc;
-use maf_container::server::{ErrorResponse, Room};
+use maf_container::server::{ErrorResponse, RoomInner};
 use schemas::{
     apps::{CreateUserAppRequest, RoomCreationStrategy},
     project_config::ProjectConfigFile,
@@ -18,7 +18,7 @@ use uuid::Uuid;
 use crate::{
     api::{
         auth::{authenticate_service_request, authenticate_user_request, AuthedServiceAccount},
-        rooms::AppNameAndOrgSlug,
+        rooms::{AppNameAndOrgSlug, InsertRoom},
     },
     storage::{
         bundle::BundleError,
@@ -226,8 +226,8 @@ async fn get_rooms(
             for room_id in rooms_set.iter() {
                 if let Some(room) = state.rooms.get(&room_id).await {
                     rooms.push(RoomInfo {
-                        id: room.1.id,
-                        secret: room.0.room_secret.clone(),
+                        id: room.id,
+                        secret: room.meta.secret.clone(),
                     });
                 }
             }
@@ -267,7 +267,7 @@ async fn create_room(
         )));
     }
 
-    let (room, mut container) = Room::new(
+    let (room, mut container) = RoomInner::new(
         &state.container_runtime,
         state
             .bundle_storage
@@ -281,20 +281,19 @@ async fn create_room(
     )
     .await?;
 
-    let meta = state
+    let room_meta = state
         .rooms
-        .insert_api_room(
-            room.clone(),
-            AppNameAndOrgSlug {
+        .insert(InsertRoom {
+            room,
+            strategy: RoomCreationStrategy::AuthenticatedApiRequest,
+            app: AppNameAndOrgSlug {
                 app: app.name.clone(),
                 org: org.slug.clone(),
             },
-        )
+        })
         .await;
 
-    let room_id = room.id;
-    let app_name = app.name.clone();
-    let org_slug = org.slug.clone();
+    let room_id = room_meta.id;
     let state = state.clone();
 
     container.pass_output();
@@ -306,20 +305,11 @@ async fn create_room(
         }
         tracing::info!("container {} stopped", container.id);
 
-        state
-            .rooms
-            .remove_api_room(
-                &room_id,
-                AppNameAndOrgSlug {
-                    app: app_name.clone(),
-                    org: org_slug.clone(),
-                },
-            )
-            .await;
+        state.rooms.remove(&room_id).await;
     });
 
     Ok(Json(RoomCreationResponse {
         id: room_id,
-        secret: meta.room_secret,
+        secret: room_meta.secret,
     }))
 }

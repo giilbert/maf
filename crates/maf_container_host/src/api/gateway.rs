@@ -6,7 +6,7 @@ use axum::{
     Router,
 };
 use maf_container::{
-    server::{handle_ws_upgrade, ErrorResponse, Room},
+    server::{handle_ws_upgrade, ErrorResponse, RoomInner},
     wasi::bindings::{self, HookRequestCaller},
 };
 use schemas::{apps::RoomCreationStrategy, project_config::ProjectConfigFile};
@@ -14,7 +14,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    api::rooms::AppNameAndOrgSlug,
+    api::rooms::{AppNameAndOrgSlug, InsertRoom, Room},
     storage::{db::app, repos::app_repo},
 };
 
@@ -39,9 +39,7 @@ async fn connect_route(
     Query(query_params): Query<ConnectQueryParams>,
     ws: WebSocketUpgrade,
 ) -> Result<Response, ErrorResponse> {
-    let app = app_repo::get_app_by_name_and_org_slug(&state.db, &app_name, &org_slug)
-        .await
-        .map_err(|e| anyhow::anyhow!(e))?;
+    let app = app_repo::get_app_by_name_and_org_slug(&state.db, &app_name, &org_slug).await?;
 
     let room_creation_strategy = match app.as_ref().map(|app| app.config.clone()).flatten() {
         Some(config) => {
@@ -62,7 +60,7 @@ async fn connect_route(
 
     let room = match room_creation_strategy {
         RoomCreationStrategy::AuthenticatedApiRequest => {
-            let (meta, room) = &*state
+            let room = state
                 .rooms
                 .get(
                     &Uuid::parse_str(&room_id)
@@ -74,7 +72,7 @@ async fn connect_route(
                 })?;
 
             if let Some(secret) = query_params.secret {
-                if secret != meta.room_secret {
+                if secret != room.meta.secret {
                     return Err(ErrorResponse::forbidden(Some(
                         "Invalid room secret provided.",
                     )));
@@ -98,7 +96,7 @@ async fn connect_route(
         }
     };
 
-    Ok(handle_ws_upgrade(ws, room).await)
+    Ok(handle_ws_upgrade(ws, room.inner).await)
 }
 
 async fn hook_request_handler(
@@ -114,16 +112,16 @@ async fn hook_request_handler(
     // TODO: handle other room types other than autocreated
     let room = &state
         .rooms
-        .get_auto_created_room(&AppNameAndOrgSlug {
-            app: app_name,
-            org: org_slug,
-        })
+        .get(
+            &Uuid::parse_str(&room_id)
+                .map_err(|_| ErrorResponse::bad_request(Some("Invalid room ID format")))?,
+        )
         .await
-        .ok_or_else(|| ErrorResponse::not_found(Some("app not found")))?
-        .1;
+        .ok_or_else(|| ErrorResponse::not_found(Some("app not found")))?;
 
     // TODO: handle hook bodies
     let response = room
+        .inner
         .call_hook(
             HookRequestCaller::Service,
             method.clone(),
@@ -167,7 +165,7 @@ async fn fetch_autocreated_room(
         None => {
             let (room, mut container) = match &app {
                 Some(app) => {
-                    Room::new(
+                    RoomInner::new(
                         &state.container_runtime,
                         state
                             .bundle_storage
@@ -181,7 +179,7 @@ async fn fetch_autocreated_room(
                 }
                 None if state.environment == Environment::Development => {
                     tracing::info!("App not found. Defaulting to test app (development only)");
-                    Room::new(
+                    RoomInner::new(
                         &state.container_runtime,
                         state.bundle_storage.load_test_app().await?,
                     )
@@ -197,16 +195,17 @@ async fn fetch_autocreated_room(
                 .unwrap_or("development".to_string());
 
             let app_name_clone = app_name.clone();
-            let room_id = room.id;
+            let room_id = room.id();
             state
                 .rooms
-                .insert_auto_created_room(
+                .insert(InsertRoom {
                     room,
-                    AppNameAndOrgSlug {
+                    strategy: RoomCreationStrategy::AutoCreate,
+                    app: AppNameAndOrgSlug {
                         app: app_name_clone,
                         org: org_slug.clone(),
                     },
-                )
+                })
                 .await;
 
             let state = state.clone();
@@ -219,13 +218,7 @@ async fn fetch_autocreated_room(
                 }
                 tracing::info!("container {} stopped", container.id);
 
-                state
-                    .rooms
-                    .remove_auto_created_room(&AppNameAndOrgSlug {
-                        app: app_name,
-                        org: org_slug.clone(),
-                    })
-                    .await;
+                state.rooms.remove(&room_id).await;
             });
 
             room_id
@@ -237,6 +230,5 @@ async fn fetch_autocreated_room(
         .get(&room_id)
         .await
         .expect("room not found")
-        .1
         .clone())
 }
