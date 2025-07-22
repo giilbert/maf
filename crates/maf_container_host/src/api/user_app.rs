@@ -16,7 +16,10 @@ use serde::Serialize;
 use uuid::Uuid;
 
 use crate::{
-    api::auth::{authenticate_service_request, authenticate_user_request, AuthedServiceAccount},
+    api::{
+        auth::{authenticate_service_request, authenticate_user_request, AuthedServiceAccount},
+        rooms::AppNameAndOrgSlug,
+    },
     storage::{
         bundle::BundleError,
         db::app,
@@ -209,19 +212,22 @@ async fn get_rooms(
     let org = service_account.org();
 
     match state
-        .api_created_rooms_by_app_name_org_slug
+        .rooms
+        .api_created_rooms
         .read()
         .await
-        .get(&(app.name.clone(), org.slug.clone()))
-    {
+        .get(&AppNameAndOrgSlug {
+            app: app.name.clone(),
+            org: org.slug.clone(),
+        }) {
         Some(rooms_set) => {
             let mut rooms: Vec<RoomInfo> = vec![];
 
             for room_id in rooms_set.iter() {
-                if let Some(room) = state.rooms.read().await.get(&room_id) {
+                if let Some(room) = state.rooms.get(&room_id).await {
                     rooms.push(RoomInfo {
-                        id: room.id,
-                        secret: room.room_secret.clone(),
+                        id: room.1.id,
+                        secret: room.0.room_secret.clone(),
                     });
                 }
             }
@@ -275,15 +281,16 @@ async fn create_room(
     )
     .await?;
 
-    state
-        .api_created_rooms_by_app_name_org_slug
-        .write()
-        .await
-        .entry((app.name.clone(), org.slug.clone()))
-        .or_default()
-        .insert(room.id);
-
-    state.rooms.write().await.insert(room.id, room.clone());
+    let meta = state
+        .rooms
+        .insert_api_room(
+            room.clone(),
+            AppNameAndOrgSlug {
+                app: app.name.clone(),
+                org: org.slug.clone(),
+            },
+        )
+        .await;
 
     let room_id = room.id;
     let app_name = app.name.clone();
@@ -299,36 +306,20 @@ async fn create_room(
         }
         tracing::info!("container {} stopped", container.id);
 
-        state.rooms.write().await.remove(&room_id);
         state
-            .api_created_rooms_by_app_name_org_slug
-            .write()
-            .await
-            .entry((app_name.clone(), org_slug.clone()))
-            .and_modify(|rooms| {
-                rooms.remove(&room_id);
-            });
-
-        let key = (app_name.clone(), org_slug.clone());
-
-        // Remove the entry in api_created_rooms_by_org_slug if it's empty
-        if state
-            .api_created_rooms_by_app_name_org_slug
-            .read()
-            .await
-            .get(&key)
-            .map_or(false, |rooms| rooms.is_empty())
-        {
-            state
-                .api_created_rooms_by_app_name_org_slug
-                .write()
-                .await
-                .remove(&key);
-        }
+            .rooms
+            .remove_api_room(
+                &room_id,
+                AppNameAndOrgSlug {
+                    app: app_name.clone(),
+                    org: org_slug.clone(),
+                },
+            )
+            .await;
     });
 
     Ok(Json(RoomCreationResponse {
         id: room_id,
-        secret: room.room_secret.clone(),
+        secret: meta.room_secret,
     }))
 }

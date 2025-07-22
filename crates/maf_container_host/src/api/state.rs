@@ -1,27 +1,25 @@
-use std::{
-    collections::{HashMap, HashSet},
-    sync::{atomic::AtomicU64, Arc},
-    time::Duration,
-};
+use std::{sync::atomic::AtomicU64, time::Duration};
 
 use anyhow::Context;
-use maf_container::{server::Room, utils, ContainerRuntime};
+use maf_container::{utils, ContainerRuntime};
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectOptions, EntityTrait, QueryFilter,
     TransactionTrait,
 };
-use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-use crate::storage::{
-    bundle::BundleStorage,
-    db::{
-        self,
-        user::{self, Permissions},
-        TxnError,
+use crate::{
+    api::rooms::RoomsStorage,
+    storage::{
+        bundle::BundleStorage,
+        db::{
+            self,
+            user::{self, Permissions},
+            TxnError,
+        },
+        repos::user_repo,
     },
-    repos::user_repo,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -34,10 +32,7 @@ pub enum Environment {
 pub struct AppState {
     pub environment: Environment,
     pub container_runtime: ContainerRuntime,
-    pub auto_created_rooms_by_org_slug: Arc<RwLock<HashMap<String, Uuid>>>,
-    pub api_created_rooms_by_app_name_org_slug:
-        Arc<RwLock<HashMap<(String, String), HashSet<Uuid>>>>,
-    pub rooms: Arc<RwLock<HashMap<Uuid, Room>>>,
+    pub rooms: RoomsStorage,
     pub bundle_storage: BundleStorage,
     pub db: sea_orm::DatabaseConnection,
     pub last_activity: &'static AtomicU64,
@@ -68,9 +63,7 @@ impl AppState {
                     ),
                 })?,
             container_runtime,
-            auto_created_rooms_by_org_slug: Default::default(),
-            api_created_rooms_by_app_name_org_slug: Default::default(),
-            rooms: Default::default(),
+            rooms: RoomsStorage::default(),
             bundle_storage: BundleStorage::new().await?,
             db,
             last_activity,

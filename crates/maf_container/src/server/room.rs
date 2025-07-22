@@ -12,21 +12,13 @@ use crate::{
 
 use super::Bundle;
 
+pub type RoomId = Uuid;
+
 #[derive(Debug, Clone)]
 pub struct Room {
     pub id: Uuid,
-    /// Optional secret for the room, as an extra layer of authentication.
-    pub room_secret: String,
     connection_tx: mpsc::Sender<BoxedConnection>,
     hooks_request_tx: mpsc::Sender<HookRequest>,
-}
-
-fn generate_room_secret() -> String {
-    let mut rng = rand::rng();
-
-    (0..64)
-        .map(|_| rng.sample(rand::distr::Alphanumeric) as char)
-        .collect()
 }
 
 impl Room {
@@ -41,7 +33,6 @@ impl Room {
         Ok((
             Self {
                 id,
-                room_secret: generate_room_secret(),
                 connection_tx: container.store.data().connection_tx.clone(),
                 hooks_request_tx: container.store.data().hook_request_tx.clone(),
             },

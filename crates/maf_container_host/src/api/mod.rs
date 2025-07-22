@@ -1,6 +1,7 @@
 mod admin;
 mod auth;
 mod gateway;
+mod rooms;
 mod state;
 mod user_app;
 

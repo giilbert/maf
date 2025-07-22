@@ -13,7 +13,10 @@ use schemas::{apps::RoomCreationStrategy, project_config::ProjectConfigFile};
 use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::storage::{db::app, repos::app_repo};
+use crate::{
+    api::rooms::AppNameAndOrgSlug,
+    storage::{db::app, repos::app_repo},
+};
 
 use super::state::{AppState, Environment};
 
@@ -59,10 +62,19 @@ async fn connect_route(
 
     let room = match room_creation_strategy {
         RoomCreationStrategy::AuthenticatedApiRequest => {
-            let room = get_api_created_room(&state, room_id).await?;
+            let (meta, room) = &*state
+                .rooms
+                .get(
+                    &Uuid::parse_str(&room_id)
+                        .map_err(|_| ErrorResponse::bad_request(Some("Invalid room ID format")))?,
+                )
+                .await
+                .ok_or_else(|| {
+                    ErrorResponse::not_found(Some("Room not found or not created via API"))
+                })?;
 
             if let Some(secret) = query_params.secret {
-                if secret != room.room_secret {
+                if secret != meta.room_secret {
                     return Err(ErrorResponse::forbidden(Some(
                         "Invalid room secret provided.",
                     )));
@@ -73,7 +85,7 @@ async fn connect_route(
                 )));
             }
 
-            room
+            room.clone()
         }
         RoomCreationStrategy::AutoCreate => {
             if room_id != "default" {
@@ -91,7 +103,7 @@ async fn connect_route(
 
 async fn hook_request_handler(
     State(state): State<AppState>,
-    Path((org_slug, _app_name, room_id, method)): Path<(String, String, String, String)>,
+    Path((org_slug, app_name, room_id, method)): Path<(String, String, String, String)>,
 ) -> Result<Response, ErrorResponse> {
     if room_id != "default" {
         return Err(ErrorResponse::forbidden(Some(
@@ -100,20 +112,15 @@ async fn hook_request_handler(
     }
 
     // TODO: handle other room types other than autocreated
-    let room_id = *state
-        .auto_created_rooms_by_org_slug
-        .read()
-        .await
-        .get(&org_slug)
-        .ok_or_else(|| ErrorResponse::not_found(Some("app not found")))?;
-
-    let room = state
+    let room = &state
         .rooms
-        .read()
+        .get_auto_created_room(&AppNameAndOrgSlug {
+            app: app_name,
+            org: org_slug,
+        })
         .await
-        .get(&room_id)
-        .expect("room not found")
-        .clone();
+        .ok_or_else(|| ErrorResponse::not_found(Some("app not found")))?
+        .1;
 
     // TODO: handle hook bodies
     let response = room
@@ -142,16 +149,23 @@ async fn fetch_autocreated_room(
 ) -> Result<Room, ErrorResponse> {
     // The code is structured this way to avoid deadlocks
     let existing_room_id = state
-        .auto_created_rooms_by_org_slug
+        .rooms
+        .auto_created_rooms
         .read()
         .await
-        .get(&org_slug)
+        .get(&AppNameAndOrgSlug {
+            app: app
+                .as_ref()
+                .map(|a| a.name.clone())
+                .unwrap_or("development".to_string()),
+            org: org_slug.clone(),
+        })
         .cloned();
 
     let room_id = match existing_room_id {
         Some(id) => id,
         None => {
-            let (room, mut container) = match app {
+            let (room, mut container) = match &app {
                 Some(app) => {
                     Room::new(
                         &state.container_runtime,
@@ -176,14 +190,24 @@ async fn fetch_autocreated_room(
                 None => return Err(ErrorResponse::not_found(Some("app not found"))),
             };
 
+            // In development, if the app is not found, we use the test app
+            let app_name = app
+                .as_ref()
+                .map(|a| a.name.clone())
+                .unwrap_or("development".to_string());
+
+            let app_name_clone = app_name.clone();
             let room_id = room.id;
             state
-                .auto_created_rooms_by_org_slug
-                .write()
-                .await
-                .insert(org_slug.clone(), room.id);
-
-            state.rooms.write().await.insert(room_id, room);
+                .rooms
+                .insert_auto_created_room(
+                    room,
+                    AppNameAndOrgSlug {
+                        app: app_name_clone,
+                        org: org_slug.clone(),
+                    },
+                )
+                .await;
 
             let state = state.clone();
             container.pass_output();
@@ -196,13 +220,12 @@ async fn fetch_autocreated_room(
                 tracing::info!("container {} stopped", container.id);
 
                 state
-                    .auto_created_rooms_by_org_slug
-                    .write()
-                    .await
-                    .remove(&org_slug)
-                    .unwrap_or_default();
-
-                state.rooms.write().await.remove(&room_id);
+                    .rooms
+                    .remove_auto_created_room(&AppNameAndOrgSlug {
+                        app: app_name,
+                        org: org_slug.clone(),
+                    })
+                    .await;
             });
 
             room_id
@@ -211,22 +234,9 @@ async fn fetch_autocreated_room(
 
     Ok(state
         .rooms
-        .read()
-        .await
         .get(&room_id)
+        .await
         .expect("room not found")
+        .1
         .clone())
-}
-
-async fn get_api_created_room(state: &AppState, room_id: String) -> Result<Room, ErrorResponse> {
-    let room_id = Uuid::parse_str(&room_id)
-        .map_err(|_| ErrorResponse::bad_request(Some("invalid room id format")))?;
-
-    state
-        .rooms
-        .read()
-        .await
-        .get(&room_id)
-        .cloned()
-        .ok_or_else(|| ErrorResponse::not_found(Some("room not found")))
 }

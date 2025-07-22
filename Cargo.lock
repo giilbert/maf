@@ -2272,6 +2272,7 @@ dependencies = [
  "futures-util",
  "maf_container",
  "migrations",
+ "rand 0.9.1",
  "schemas",
  "sea-orm",
  "serde",

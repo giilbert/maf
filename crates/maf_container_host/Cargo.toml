@@ -18,6 +18,7 @@ bytes = "1.10.1"
 dashmap = "6.1.0"
 dotenvy = "0.15.7"
 futures-util = "0.3.31"
+rand = "0.9.1"
 sea-orm = { version = "1.1.10", features = [
     "sqlx-postgres",
     "runtime-tokio-native-tls",

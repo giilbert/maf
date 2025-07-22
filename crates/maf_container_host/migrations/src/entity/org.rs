@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use super::{app, org_member};
 
+pub type OrgSlug = String;
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, DeriveEntityModel)]
 #[sea_orm(table_name = "org")]
 pub struct Model {
