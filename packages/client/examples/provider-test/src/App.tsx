@@ -1,0 +1,21 @@
+import { useRPC, useStore } from "@usemaf/client";
+import "./App.css";
+
+function App() {
+  const { data } = useStore<number>("count");
+  const incr_mutation = useRPC<number>("increment_counter", 1);
+
+  return (
+    <>
+      <h1>lets fuckin go bro</h1>
+      <div className="card">
+        <button onClick={incr_mutation.mutateAsync}>count is {data}</button>
+      </div>
+      <p className="read-the-docs">
+        Click on the Ur Mom and Eat Farts logos to learn more
+      </p>
+    </>
+  );
+}
+
+export default App;
