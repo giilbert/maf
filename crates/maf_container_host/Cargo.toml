@@ -15,6 +15,7 @@ async_zip = { version = "0.0.17", features = ["full"] }
 base64 = "0.22.1"
 bitflags = { version = "2.9.0", features = ["serde"] }
 bytes = "1.10.1"
+colored = "3.0.0"
 dashmap = "6.1.0"
 dotenvy = "0.15.7"
 futures-util = "0.3.31"

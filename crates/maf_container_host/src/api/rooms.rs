@@ -50,14 +50,14 @@ pub struct InsertRoom {
 
 #[derive(Debug, Clone, Default)]
 pub struct RoomsStorage {
-    rooms: Arc<RwLock<HashMap<RoomId, Room>>>,
+    pub inner: Arc<RwLock<HashMap<RoomId, Room>>>,
     pub auto_created_rooms: Arc<RwLock<HashMap<AppNameAndOrgSlug, RoomId>>>,
     pub api_created_rooms: Arc<RwLock<HashMap<AppNameAndOrgSlug, HashSet<RoomId>>>>,
 }
 
 impl RoomsStorage {
     pub async fn get(&self, room_id: &RoomId) -> Option<RwLockReadGuard<Room>> {
-        RwLockReadGuard::try_map(self.rooms.read().await, |rooms| rooms.get(room_id)).ok()
+        RwLockReadGuard::try_map(self.inner.read().await, |rooms| rooms.get(room_id)).ok()
     }
 
     /// Insert a room into the storage with a given strategy and metadata.
@@ -86,7 +86,7 @@ impl RoomsStorage {
             }
         }
 
-        self.rooms.write().await.insert(
+        self.inner.write().await.insert(
             param.room.id(),
             Room {
                 id: param.room.id(),
@@ -102,7 +102,7 @@ impl RoomsStorage {
     /// The room is automatically removed from the auto-created or API-created rooms list based on
     /// the strategy used to create it.
     pub async fn remove(&self, room_id: &RoomId) -> Option<Room> {
-        let room = self.rooms.write().await.remove(room_id)?;
+        let room = self.inner.write().await.remove(room_id)?;
 
         match room.meta.strategy {
             RoomCreationStrategy::AutoCreate => {
