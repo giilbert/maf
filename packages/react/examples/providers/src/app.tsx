@@ -1,6 +1,6 @@
 import { useRpc, useStore } from "@usemaf/react";
 
-function App() {
+export const App: React.FC = () => {
   const { data } = useStore<number>("count");
   const incr_mutation = useRpc<number>("increment_counter", 1);
 
@@ -15,6 +15,4 @@ function App() {
       </p>
     </>
   );
-}
-
-export default App;
+};
