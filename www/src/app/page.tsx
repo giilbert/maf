@@ -9,40 +9,86 @@ import {
 import { CodeBlock } from "./docs/_components/mdx-components";
 import { CODE_BLOCKS } from "./_components/scaffold-content";
 import Link from "next/link";
+import { Logo } from "@/components/logo";
+
+const FOOTER_LINK_CLASSES =
+  "text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors";
 
 export default function Home() {
   return (
-    <div className="space-y-[40rem]">
-      <Hero />
+    <div>
+      <div className="space-y-[10rem]">
+        <Hero />
 
-      <SetupSection
-        codeBlocks={Object.fromEntries(
-          Object.keys(CODE_BLOCKS).map((key) => {
-            const { language, content } =
-              CODE_BLOCKS[key as keyof typeof CODE_BLOCKS];
+        <SetupSection
+          codeBlocks={Object.fromEntries(
+            Object.keys(CODE_BLOCKS).map((key) => {
+              const { language, content } =
+                CODE_BLOCKS[key as keyof typeof CODE_BLOCKS];
 
-            return [
-              key,
-              <CodeBlock key={key} lang={language as BundledLanguage}>
-                {content.trim()}
-              </CodeBlock>,
-            ];
-          })
-        )}
-      />
+              return [
+                key,
+                <CodeBlock key={key} lang={language as BundledLanguage}>
+                  {content.trim()}
+                </CodeBlock>,
+              ];
+            })
+          )}
+        />
 
-      <PrimitivesSection />
-      {/* <DeploySection /> */}
+        <PrimitivesSection />
+        {/* <DeploySection /> */}
+      </div>
+
       <GetStartedSection />
 
-      <footer className="px-6 md:px-16 xl:px-24 space-y-4 pt-10 pb-40 border-t">
-        <p className="text-3xl font-bold">mutation authority framework</p>
-        <Link
-          href="https://github.com/giilbert/maf"
-          className="hover:underline underline-offset-2"
-        >
-          https://github.com/giilbert/maf
-        </Link>
+      <footer className="mx-6 md:mx-16 xl:mx-24 pt-10 pb-16 border-t border-neutral-800 flex">
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <div className="flex gap-3">
+              <Logo />
+              <p className="text-2xl font-bold">MAF</p>
+            </div>
+
+            <p className="text-muted-foreground">
+              mutation authority framework
+            </p>
+          </div>
+
+          <div className="flex gap-2 items-center">
+            <div className="w-3 h-3 bg-green-500 rounded-full" />
+            <p className="text-sm text-muted-foreground">
+              MAF Platform is healthy
+            </p>
+          </div>
+        </div>
+
+        <div className="ml-auto space-y-2 flex flex-col items-end">
+          <Link
+            href="https://github.com/giilbert/maf"
+            className={FOOTER_LINK_CLASSES}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            github.com/giilbert/maf
+          </Link>
+          <Link
+            href="https://www.npmjs.com/package/@usemaf/client"
+            className={FOOTER_LINK_CLASSES}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            npmjs.com/package/@usemaf/client
+          </Link>
+          <Link
+            href="https://crates.io/crates/maf"
+            className={FOOTER_LINK_CLASSES}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            crates.io/crates/maf
+          </Link>
+        </div>
       </footer>
     </div>
   );

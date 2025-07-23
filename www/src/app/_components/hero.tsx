@@ -4,7 +4,6 @@ import {
   BlocksIcon,
   CloudIcon,
   LockIcon,
-  LucideArrowUpRightFromSquare,
   LucideIcon,
   RocketIcon,
 } from "lucide-react";
@@ -14,12 +13,12 @@ import Link from "next/link";
 
 export const Hero: React.FC = () => {
   return (
-    <div className="p-6 lg:pt-12 pb-8 md:px-16 xl:px-24 lg:h-screen w-screen space-y-6 lg:space-y-8 flex flex-col">
+    <div className="p-6 lg:pt-12 pb-8 md:px-16 xl:px-24 lg:h-screen w-screen space-y-6 lg:space-y-8 flex flex-col md:max-h-screen">
       <Navbar />
 
       <div className="space-y-8 xl:space-y-0 lg:grid grid-cols-4 xl:grid-cols-5 gap-2 md:gap-8 h-fit lg:h-[calc(100vh-9rem)] flex flex-col">
         <div className="col-span-2 space-y-12 flex flex-col h-full">
-          <div className="space-y-6 bg-background-300 px-8 pt-12 pb-16 relative h-fit lg:h-full -ml-8 -mr-6 md:mr-0 flex flex-col justify-center">
+          <div className="space-y-6 bg-background-300 px-8 py-12 relative h-fit lg:h-full -ml-8 -mr-6 md:mr-0 flex flex-col justify-center">
             <div className="hidden md:block w-full h-full absolute bg-background-500 -z-10 top-4 left-4"></div>
 
             <div className="space-y-2">
@@ -63,8 +62,8 @@ export const Hero: React.FC = () => {
             />
           </div>
 
-          <div className="flex gap-2 items-center flex-col sm:flex-row">
-            <Link href="/docs/getting-started/quickstart">
+          <div className="flex gap-2 items-center flex-col sm:flex-row w-full">
+            <Link href="/docs/getting-started/quickstart" className="w-full">
               <Button size="lg" className="w-full">
                 Get Started
               </Button>
@@ -87,14 +86,9 @@ const FeatureCard: React.FC<{
 }> = ({ title, description, icon: IconComponent }) => {
   return (
     <div className="flex flex-col gap-1 px-3 py-2 border bg-background cursor-pointer group hover:bg-background-300 transition-colors">
-      <div className="flex items-center gap-3">
+      <div className="flex sm:items-center gap-3 sm:flex-row flex-col">
         <IconComponent size={24} />
         <h3 className="font-semibold group-hover:underline">{title}</h3>
-
-        <LucideArrowUpRightFromSquare
-          size={18}
-          className="ml-auto group-hover:opacity-100 opacity-0 transition-opacity"
-        />
       </div>
       <p className="text-muted-foreground text-sm">{description}</p>
     </div>

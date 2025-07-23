@@ -35,7 +35,7 @@ export const ServerScaffoldExamples: React.FC<{
         </Button>
       ))}
 
-      <hr className="my-2" />
+      <hr className="mb-2" />
 
       <div className="flex gap-1">
         {SERVER_SCAFFOLDS[selectedScaffold].files.map((s) => (
@@ -51,7 +51,7 @@ export const ServerScaffoldExamples: React.FC<{
       </div>
 
       {currentCodeBlock ? (
-        <pre className="bg-neutral-900 -mx-4 px-4 py-4 text-xs sm:text-sm md:text-base">
+        <pre className="bg-neutral-900 p-4 text-xs sm:text-sm md:text-base">
           {currentCodeBlock}
         </pre>
       ) : (
@@ -93,7 +93,7 @@ export const ClientScaffoldExamples: React.FC<{
       </div>
 
       {currentCodeBlock ? (
-        <pre className="bg-neutral-900 -mx-4 px-4 py-4 text-xs sm:text-sm md:text-base">
+        <pre className="bg-neutral-900 p-4 text-xs sm:text-sm md:text-base">
           {currentCodeBlock}
         </pre>
       ) : (
