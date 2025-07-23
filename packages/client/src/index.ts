@@ -1,2 +1,2 @@
-export { MafClient, MafClientOptions } from "./client";
-export { Store, StoreOptions, StoreEvents } from "./store";
+export { MafClient, type MafClientOptions } from "./client";
+export { Store, type StoreOptions, type StoreEvents } from "./store";

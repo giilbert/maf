@@ -1,5 +1,4 @@
 import { useRpc, useStore } from "@usemaf/react";
-import "./App.css";
 
 function App() {
   const { data } = useStore<number>("count");
