@@ -1,8 +1,8 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { MafProvider } from "@usemaf/client/src/maf-provider";
+import { MafProvider } from "@usemaf/react";
+import App from "./app";
 import "./index.css";
-import App from "./App.tsx";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

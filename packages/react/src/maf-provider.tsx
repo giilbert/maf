@@ -1,4 +1,4 @@
-import { MafClient } from "./client";
+import { MafClient } from "@usemaf/client";
 import React, { createContext } from "react";
 
 export interface MafProviderProps {

@@ -1,9 +1,9 @@
-import { useRPC, useStore } from "@usemaf/client";
+import { useRpc, useStore } from "@usemaf/react";
 import "./App.css";
 
 function App() {
   const { data } = useStore<number>("count");
-  const incr_mutation = useRPC<number>("increment_counter", 1);
+  const incr_mutation = useRpc<number>("increment_counter", 1);
 
   return (
     <>
