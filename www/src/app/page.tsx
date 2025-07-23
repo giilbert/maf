@@ -42,8 +42,8 @@ export default function Home() {
 
       <GetStartedSection />
 
-      <footer className="mx-6 md:mx-16 xl:mx-24 pt-10 pb-16 border-t border-neutral-800 flex">
-        <div className="space-y-4">
+      <footer className="mx-6 md:mx-16 xl:mx-24 pt-10 pb-16 border-t border-neutral-800 flex flex-col gap-6 md:flex-row">
+        <div className="md:space-y-4">
           <div className="space-y-1">
             <div className="flex gap-3">
               <Logo />
@@ -55,15 +55,12 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="flex gap-2 items-center">
-            <div className="w-3 h-3 bg-green-500 rounded-full" />
-            <p className="text-sm text-muted-foreground">
-              MAF Platform is healthy
-            </p>
+          <div className="hidden md:block">
+            <PlatformIndicator />
           </div>
         </div>
 
-        <div className="ml-auto space-y-2 flex flex-col items-end">
+        <div className="md:ml-auto space-y-2 flex flex-col md:items-end">
           <Link
             href="https://github.com/giilbert/maf"
             className={FOOTER_LINK_CLASSES}
@@ -89,7 +86,21 @@ export default function Home() {
             crates.io/crates/maf
           </Link>
         </div>
+
+        <div className="block md:hidden">
+          <PlatformIndicator />
+        </div>
       </footer>
     </div>
   );
 }
+
+// TODO:
+const PlatformIndicator: React.FC = () => {
+  return (
+    <div className="flex gap-2 items-center">
+      <div className="w-3 h-3 bg-green-500 rounded-full" />
+      <p className="text-sm text-muted-foreground">MAF Platform is healthy</p>
+    </div>
+  );
+};
