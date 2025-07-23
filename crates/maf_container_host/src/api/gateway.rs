@@ -8,6 +8,7 @@ use axum::{
 use maf_container::{
     server::{handle_ws_upgrade, ErrorResponse, RoomInner},
     wasi::bindings::{self, HookRequestCaller},
+    ContainerResourceLimit,
 };
 use schemas::{apps::RoomCreationStrategy, project_config::ProjectConfigFile};
 use serde::Deserialize;
@@ -174,6 +175,7 @@ async fn fetch_autocreated_room(
                             .ok_or_else(|| {
                                 ErrorResponse::not_found(Some("app bundle not found"))
                             })?,
+                        ContainerResourceLimit::sensible_default(),
                     )
                     .await?
                 }
@@ -182,6 +184,7 @@ async fn fetch_autocreated_room(
                     RoomInner::new(
                         &state.container_runtime,
                         state.bundle_storage.load_test_app().await?,
+                        ContainerResourceLimit::sensible_default(),
                     )
                     .await?
                 }
@@ -214,9 +217,9 @@ async fn fetch_autocreated_room(
 
             tokio::spawn(async move {
                 if let Err(e) = container.run().await {
-                    tracing::error!("container {} error: {e:?}", container.id);
+                    tracing::error!("container {} error: {e:?}", container.room_id);
                 }
-                tracing::info!("container {} stopped", container.id);
+                tracing::info!("container {} stopped", container.room_id);
 
                 state.rooms.remove(&room_id).await;
             });

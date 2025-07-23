@@ -17,7 +17,7 @@ async function run() {
   console.log("Connected to the server!");
 
   while (true) {
-    const _result = await client.rpc<number>("increment_counter", 2);
+    const _result = await client.rpc<number>("increment_counter", 1);
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 }

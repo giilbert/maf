@@ -1,4 +1,5 @@
 use colored::Colorize;
+use fmtsize::{Conventional, FmtSize as _};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 
 use crate::api::AppState;
@@ -95,9 +96,25 @@ impl DevConsole {
 
         for (id, room) in rooms.iter() {
             dev_print!(
-                "- {} {}",
+                "- {} {} / {}",
                 id,
-                format!("({}/{})", room.meta.app.org, room.meta.app.app).dimmed()
+                format!("({}/{})", room.meta.app.org, room.meta.app.app).dimmed(),
+                format!(
+                    "{} reserved ram | {} wasm table entries",
+                    (room
+                        .inner
+                        .container
+                        .resources
+                        .memory_usage
+                        .load(std::sync::atomic::Ordering::Relaxed) as u64)
+                        .fmt_size(Conventional),
+                    (room
+                        .inner
+                        .container
+                        .resources
+                        .table_usage
+                        .load(std::sync::atomic::Ordering::Relaxed) as u64)
+                )
             );
         }
 

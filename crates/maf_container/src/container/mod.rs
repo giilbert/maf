@@ -1,9 +1,10 @@
 mod io;
+mod limits;
 
 use std::{
     sync::{
         Arc,
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicU64, AtomicUsize, Ordering},
     },
     time::Duration,
 };
@@ -15,14 +16,19 @@ use uuid::Uuid;
 use wasmtime as wt;
 use wasmtime_wasi::IoView;
 
-use crate::{interface::BoxedConnection, runtime::wasi::Bindings, utils, wasi::HookRequest};
+use crate::{
+    ContainerRuntime, container::limits::ContainerResourceLimiter, interface::BoxedConnection,
+    runtime::wasi::Bindings, utils, wasi::HookRequest,
+};
 
+/// An instance of user-written WASI code running in a sandboxed environment.
 pub struct Container {
-    pub id: Uuid,
-    pub instance: Bindings,
+    pub room_id: Uuid,
     pub store: wt::Store<ContainerData>,
-    pub output: Option<mpsc::Receiver<String>>,
     pub cancel_token: CancellationToken,
+    instance: Bindings,
+    output: Option<mpsc::Receiver<String>>,
+    shared: ContainerHandle,
 }
 
 impl std::fmt::Debug for Container {
@@ -34,6 +40,45 @@ impl std::fmt::Debug for Container {
     }
 }
 
+/// Contains shared data for the container, including container statistics and signals.
+///
+/// This struct is lightweight and can be cloned cheaply, allowing it to be passed around without
+/// significant overhead.
+#[derive(Debug, Clone)]
+pub struct ContainerHandle {
+    pub room_id: Uuid,
+    pub runtime: ContainerRuntime,
+    pub cancel_token: CancellationToken,
+    pub resources: Arc<ContainerResourceStats>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ContainerResourceLimit {
+    pub memory: usize,
+    pub table: usize,
+}
+
+impl ContainerResourceLimit {
+    // TODO: parse resource limit from app config file
+    pub fn sensible_default() -> Self {
+        Self {
+            memory: 16 * 1024 * 1024, // 16 MiB
+            table: 1000,              // 1000 entries
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct ContainerResourceStats {
+    pub memory_usage: AtomicUsize,
+    pub table_usage: AtomicUsize,
+}
+
+/// Data shared between the container and the host runtime.
+///
+/// Compared to `ContainerHandle`, this contains details intrinsic to the container's operation,
+/// such as the WASI context, resource table, and actor communication channels. This struct is
+/// heavier and should be used when the container's internal state is needed.
 pub struct ContainerData {
     pub resources: wasmtime_wasi::ResourceTable,
     pub wasi_ctx: wasmtime_wasi::WasiCtx,
@@ -43,6 +88,7 @@ pub struct ContainerData {
     pub hook_request_rx: Option<mpsc::Receiver<HookRequest>>,
     pub(crate) last_activity: Arc<AtomicU64>,
     pub(crate) app_activity: &'static AtomicU64,
+    pub(crate) limiter: ContainerResourceLimiter,
 }
 
 impl std::fmt::Debug for ContainerData {
@@ -57,13 +103,23 @@ impl Container {
     pub async fn load_from_binary(
         runtime: &super::ContainerRuntime,
         bytes: impl AsRef<[u8]>,
-        id: Uuid,
+        room_id: Uuid,
+        resource_limit: ContainerResourceLimit,
     ) -> anyhow::Result<Self> {
         let component = wt::component::Component::new(&runtime.engine, &bytes)?;
 
         let (connection_tx, connection_rx) = mpsc::channel(10);
         let (output_tx, output_rx) = mpsc::channel(100);
         let (hook_request_tx, hook_request_rx) = mpsc::channel(1000);
+
+        let resource_stats = Arc::<ContainerResourceStats>::default();
+        let cancel_token = CancellationToken::new();
+        let shared = ContainerHandle {
+            room_id,
+            runtime: runtime.clone(),
+            cancel_token: cancel_token.clone(),
+            resources: resource_stats.clone(),
+        };
 
         let resources = wasmtime_wasi::ResourceTable::default();
         let stdout = ContainerStdoutFactory {
@@ -81,19 +137,26 @@ impl Container {
                 hook_request_rx: Some(hook_request_rx),
                 last_activity: Arc::new(AtomicU64::new(utils::now_as_secs())),
                 app_activity: runtime.app_activity,
+                limiter: ContainerResourceLimiter {
+                    room_id,
+                    stats: resource_stats.clone(),
+                    limits: resource_limit,
+                },
             },
         );
 
+        store.limiter_async(|data| &mut data.limiter);
         store.epoch_deadline_async_yield_and_update(1);
 
         let instance = Bindings::instantiate_async(&mut store, &component, &runtime.linker).await?;
 
         Ok(Self {
-            id,
+            room_id,
             instance,
             store,
             output: Some(output_rx),
-            cancel_token: CancellationToken::new(),
+            cancel_token: cancel_token.clone(),
+            shared,
         })
     }
 
@@ -140,7 +203,7 @@ impl Container {
         let mut output = self
             .take_output()
             .expect("output channel should be available");
-        let container_id = self.id.clone();
+        let container_id = self.room_id.clone();
 
         tokio::spawn(async move {
             while let Some(line) = output.recv().await {
@@ -150,6 +213,10 @@ impl Container {
                 );
             }
         });
+    }
+
+    pub fn handle(&self) -> ContainerHandle {
+        self.shared.clone()
     }
 }
 

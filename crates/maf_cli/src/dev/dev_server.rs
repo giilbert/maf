@@ -12,7 +12,7 @@ use axum::{
 use maf_container::{
     server::{handle_ws_upgrade, Bundle, ErrorResponse, RoomInner},
     wasi::bindings::{self, HookRequestCaller},
-    ContainerRuntime,
+    ContainerResourceLimit, ContainerRuntime,
 };
 use notify::RecommendedWatcher;
 use notify_debouncer_full::{new_debouncer_opt, DebounceEventResult, Debouncer, RecommendedCache};
@@ -123,7 +123,15 @@ async fn load_room(
     path: &str,
 ) -> anyhow::Result<RoomInner> {
     let bundle = Bundle::load_wasm_module_from_file(path)?;
-    let (room, mut container) = RoomInner::new(&runtime, bundle).await?;
+    let (room, mut container) = RoomInner::new(
+        &runtime,
+        bundle,
+        ContainerResourceLimit {
+            memory: usize::MAX,
+            table: usize::MAX,
+        },
+    )
+    .await?;
 
     // Task to forward container output to the console
     let mut output = container.take_output().expect("failed to take output");

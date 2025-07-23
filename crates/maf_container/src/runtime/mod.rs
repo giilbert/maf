@@ -12,7 +12,7 @@ use wasmtime as wt;
 #[derive(Clone)]
 pub struct ContainerRuntime {
     pub(super) engine: wt::Engine,
-    pub(super) linker: wt::component::Linker<ContainerData>,
+    pub(super) linker: Arc<wt::component::Linker<ContainerData>>,
     pub(super) app_activity: &'static AtomicU64,
 }
 
@@ -26,15 +26,14 @@ impl ContainerRuntime {
     pub fn init(app_activity: &'static AtomicU64) -> anyhow::Result<Self> {
         let engine = wt::Engine::new(
             &wt::Config::new()
-                .wasm_memory64(false)
                 .async_support(true)
                 .epoch_interruption(true),
         )?;
         let linker = Self::create_component_linker(&engine)?;
 
         Ok(Self {
-            engine: engine.clone(),
-            linker: linker.clone(),
+            engine,
+            linker: Arc::new(linker),
             app_activity,
         })
     }

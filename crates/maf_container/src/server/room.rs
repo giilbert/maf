@@ -1,9 +1,9 @@
-use rand::Rng as _;
 use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
 
 use crate::{
     BoxedConnection, Connection, Container, ContainerRuntime,
+    container::{ContainerHandle, ContainerResourceLimit},
     wasi::{
         HookRequest,
         bindings::{self, HookRequestCaller, HookRequestInit},
@@ -16,6 +16,7 @@ pub type RoomId = Uuid;
 
 #[derive(Debug, Clone)]
 pub struct RoomInner {
+    pub container: ContainerHandle,
     id: Uuid,
     connection_tx: mpsc::Sender<BoxedConnection>,
     hooks_request_tx: mpsc::Sender<HookRequest>,
@@ -25,16 +26,23 @@ impl RoomInner {
     pub async fn new(
         container_runtime: &ContainerRuntime,
         bundle: Bundle,
+        resource_limit: ContainerResourceLimit,
     ) -> anyhow::Result<(Self, Container)> {
-        let id = Uuid::new_v4();
-        let container =
-            Container::load_from_binary(&container_runtime, bundle.wasm_module, id).await?;
+        let room_id = Uuid::new_v4();
+        let container = Container::load_from_binary(
+            &container_runtime,
+            bundle.wasm_module,
+            room_id,
+            resource_limit,
+        )
+        .await?;
 
         Ok((
             Self {
-                id,
+                id: room_id,
                 connection_tx: container.store.data().connection_tx.clone(),
                 hooks_request_tx: container.store.data().hook_request_tx.clone(),
+                container: container.handle(),
             },
             container,
         ))

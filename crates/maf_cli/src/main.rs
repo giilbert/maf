@@ -14,6 +14,7 @@ use clap::{Parser, Subcommand};
 
 pub use context::Context;
 use dev::DevCommands;
+use tracing_subscriber::{fmt, layer::SubscriberExt as _, util::SubscriberInitExt as _, EnvFilter};
 
 use crate::{auth::AuthCommands, config::ConfigCommands, init::InitOptions};
 
@@ -83,6 +84,11 @@ async fn try_main() -> anyhow::Result<()> {
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::registry()
+        .with(fmt::layer())
+        .with(EnvFilter::from_default_env())
+        .init();
+
     match try_main().await {
         Ok(_) => {}
         Err(e) => {

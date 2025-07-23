@@ -6,7 +6,10 @@ use axum::{
     Json, Router,
 };
 use chrono::Utc;
-use maf_container::server::{ErrorResponse, RoomInner};
+use maf_container::{
+    server::{ErrorResponse, RoomInner},
+    ContainerResourceLimit,
+};
 use schemas::{
     apps::{CreateUserAppRequest, RoomCreationStrategy},
     project_config::ProjectConfigFile,
@@ -278,6 +281,7 @@ async fn create_room(
                 _ => ErrorResponse::internal_server_error(Some("Failed to load app bundle")),
             })?
             .ok_or_else(|| ErrorResponse::not_found(Some("App bundle not found")))?,
+        ContainerResourceLimit::sensible_default(),
     )
     .await?;
 
@@ -301,9 +305,9 @@ async fn create_room(
 
     tokio::spawn(async move {
         if let Err(e) = container.run().await {
-            tracing::error!("container {} error: {e:?}", container.id);
+            tracing::error!("container {} error: {e:?}", container.room_id);
         }
-        tracing::info!("container {} stopped", container.id);
+        tracing::info!("container {} stopped", container.room_id);
 
         state.rooms.remove(&room_id).await;
     });

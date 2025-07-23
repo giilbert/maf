@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use maf::*;
 
 struct CounterStore;

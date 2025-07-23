@@ -1249,6 +1249,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "fmtsize"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd649816640879b21274f00840a0c06a0d7e221ef628dc80ce4a896e9817133e"
+
+[[package]]
 name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2230,6 +2236,8 @@ dependencies = [
  "tokio",
  "tokio-util",
  "toml",
+ "tracing",
+ "tracing-subscriber",
  "url",
  "uuid",
 ]
@@ -2270,6 +2278,7 @@ dependencies = [
  "colored",
  "dashmap",
  "dotenvy",
+ "fmtsize",
  "futures-util",
  "maf_container",
  "migrations",
