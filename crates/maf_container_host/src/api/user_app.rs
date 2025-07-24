@@ -15,7 +15,7 @@ use schemas::{
     project_config::ProjectConfigFile,
 };
 use sea_orm::{ActiveValue::Set, ModelTrait};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
@@ -47,7 +47,7 @@ pub fn create_user_app_router(state: AppState) -> Router<AppState> {
     let service_account_router = Router::new()
         .route(
             "/{org_slug}/{app_name}/rooms",
-            get(get_rooms).post(create_room),
+            get(service_get_rooms).post(service_create_room),
         )
         .layer(middleware::from_fn_with_state(
             state,
@@ -207,7 +207,7 @@ struct RoomInfo {
     secret: String,
 }
 
-async fn get_rooms(
+async fn service_get_rooms(
     State(state): State<AppState>,
     service_account: AuthedServiceAccount,
 ) -> Result<Json<Vec<RoomInfo>>, ErrorResponse> {
@@ -248,12 +248,29 @@ pub struct RoomCreationResponse {
     pub secret: String,
 }
 
-async fn create_room(
+#[derive(Debug, Deserialize)]
+pub struct CreateRoomOptions {
+    /// A key used to identify the room, defaults to the room ID or "default" for autocreated rooms.
+    /// The key cannot be a UUID or "default" as they are reserved.
+    pub key: Option<String>,
+}
+
+async fn service_create_room(
     State(state): State<AppState>,
     service_account: AuthedServiceAccount,
+    Json(options): Json<CreateRoomOptions>,
 ) -> Result<Json<RoomCreationResponse>, ErrorResponse> {
     let app = service_account.app();
     let org = service_account.org();
+
+    // Validate options
+    if let Some(key) = &options.key {
+        if key == "default" || Uuid::parse_str(key).is_ok() {
+            return Err(ErrorResponse::bad_request(Some(
+                "Key cannot be 'default' or a valid UUID.",
+            )));
+        }
+    }
 
     let room_creation_strategy = match &app.config {
         Some(config) => {
@@ -285,6 +302,7 @@ async fn create_room(
     )
     .await?;
 
+    let room_id = room.id();
     let room_meta = state
         .rooms
         .insert(InsertRoom {
@@ -294,6 +312,7 @@ async fn create_room(
                 app: app.name.clone(),
                 org: org.slug.clone(),
             },
+            key: options.key.unwrap_or_else(|| room_id.to_string()),
         })
         .await;
 

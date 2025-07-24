@@ -7,7 +7,6 @@ mod rpc;
 mod store;
 pub mod tasks;
 mod user;
-pub(crate) mod utils;
 
 pub(crate) use app::StateError;
 

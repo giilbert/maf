@@ -102,9 +102,9 @@ async fn connect_route(
 
 async fn hook_request_handler(
     State(state): State<AppState>,
-    Path((org_slug, app_name, room_id, method)): Path<(String, String, String, String)>,
+    Path((org_slug, app_name, room_key, method)): Path<(String, String, String, String)>,
 ) -> Result<Response, ErrorResponse> {
-    if room_id != "default" {
+    if room_key != "default" {
         return Err(ErrorResponse::forbidden(Some(
             "only autocreated rooms are supported right now",
         )));
@@ -113,9 +113,12 @@ async fn hook_request_handler(
     // TODO: handle other room types other than autocreated
     let room = &state
         .rooms
-        .get(
-            &Uuid::parse_str(&room_id)
-                .map_err(|_| ErrorResponse::bad_request(Some("Invalid room ID format")))?,
+        .get_by_key_or_id(
+            &AppNameAndOrgSlug {
+                app: app_name,
+                org: org_slug,
+            },
+            &room_key,
         )
         .await
         .ok_or_else(|| ErrorResponse::not_found(Some("app not found")))?;
@@ -208,6 +211,7 @@ async fn fetch_autocreated_room(
                         app: app_name_clone,
                         org: org_slug.clone(),
                     },
+                    key: "default".to_string(),
                 })
                 .await;
 

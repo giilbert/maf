@@ -161,6 +161,7 @@ impl FromRequestParts<AppState> for AuthedUser {
     }
 }
 
+#[allow(dead_code)]
 impl AuthedUser {
     pub fn id(&self) -> Uuid {
         self.inner.id
@@ -175,6 +176,14 @@ impl AuthedUser {
     }
 }
 
+/// Extractor for authenticated service accounts. This is used for developers' backend services
+/// that need to interact with Platform APIs, such as creating rooms or authenticating users.
+///
+/// It can only be used within routes that are protected by the `authenticate_service_request`
+/// middleware, which requires that the route has a `app_name` and `org_slug` in the path.
+///
+/// The middleware ensures that the service account is authenticated and can modify data in the
+/// requested application (checks that the app/org name match up are not required).
 #[derive(Debug, Clone)]
 pub struct AuthedServiceAccount {
     app: app::Model,

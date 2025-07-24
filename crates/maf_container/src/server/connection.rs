@@ -35,8 +35,7 @@ pub struct ConnectionHandle {
 
 struct TakeableConnection {
     command_rx: mpsc::Receiver<ConnectionCommand>,
-    command_tx: mpsc::Sender<ConnectionCommand>,
-
+    // command_tx: mpsc::Sender<ConnectionCommand>,
     message_tx: mpsc::Sender<bindings::Message>,
 
     ws_rx: SplitStream<WebSocket>,
@@ -58,7 +57,7 @@ impl Connection {
         let connection_id = Uuid::new_v4();
 
         match timeout(Duration::from_secs(1), ws_rx.next()).await {
-            Ok(Some(Ok(Message::Text(message)))) => {
+            Ok(Some(Ok(Message::Text(_message)))) => {
                 ws_tx
                     .send(Message::Text(
                         serde_json::to_string(&serde_json::json!({
@@ -94,7 +93,7 @@ impl Connection {
             },
             takeable: Some(TakeableConnection {
                 command_rx,
-                command_tx,
+                // command_tx,
                 message_tx,
                 ws_rx,
                 ws_tx,

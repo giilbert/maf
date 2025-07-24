@@ -24,6 +24,7 @@ pub struct RoomMeta {
     /// The room creation strategy used to create this room. Needed to determine how to handle room
     /// removal and access.
     pub strategy: RoomCreationStrategy,
+    pub key: String,
 }
 
 #[derive(Debug, Clone)]
@@ -46,11 +47,19 @@ pub struct InsertRoom {
     pub strategy: RoomCreationStrategy,
     pub app: AppNameAndOrgSlug,
     pub room: RoomInner,
+    pub key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct RoomKeyHash {
+    pub app: AppNameAndOrgSlug,
+    pub key: String,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct RoomsStorage {
     pub inner: Arc<RwLock<HashMap<RoomId, Room>>>,
+    pub keys: Arc<RwLock<HashMap<RoomKeyHash, RoomId>>>,
     pub auto_created_rooms: Arc<RwLock<HashMap<AppNameAndOrgSlug, RoomId>>>,
     pub api_created_rooms: Arc<RwLock<HashMap<AppNameAndOrgSlug, HashSet<RoomId>>>>,
 }
@@ -60,6 +69,28 @@ impl RoomsStorage {
         RwLockReadGuard::try_map(self.inner.read().await, |rooms| rooms.get(room_id)).ok()
     }
 
+    pub async fn get_by_key_or_id(
+        &self,
+        app: &AppNameAndOrgSlug,
+        key: &str,
+    ) -> Option<RwLockReadGuard<Room>> {
+        // If the key is a UUID, we try to get the room by ID.
+        if let Ok(uuid) = RoomId::parse_str(key) {
+            return self.get(&uuid).await;
+        }
+
+        // Otherwise, we try to get the room by key.
+        let keys = self.keys.read().await;
+        let key = keys
+            .get(&RoomKeyHash {
+                app: app.clone(),
+                key: key.to_string(),
+            })
+            .cloned()?;
+
+        RwLockReadGuard::try_map(self.inner.read().await, |rooms| rooms.get(&key)).ok()
+    }
+
     /// Insert a room into the storage with a given strategy and metadata.
     pub async fn insert(&self, param: InsertRoom) -> RoomMeta {
         let meta = RoomMeta {
@@ -67,6 +98,7 @@ impl RoomsStorage {
             app: param.app.clone(),
             secret: generate_room_secret(),
             strategy: param.strategy.clone(),
+            key: param.key.clone(),
         };
 
         match param.strategy {
@@ -74,17 +106,27 @@ impl RoomsStorage {
                 self.auto_created_rooms
                     .write()
                     .await
-                    .insert(param.app, param.room.id());
+                    .insert(param.app.clone(), param.room.id());
             }
             RoomCreationStrategy::AuthenticatedApiRequest => {
                 self.api_created_rooms
                     .write()
                     .await
-                    .entry(param.app)
+                    .entry(param.app.clone())
                     .or_default()
                     .insert(param.room.id());
             }
         }
+
+        // Insert keys into keys index
+        let mut keys = self.keys.write().await;
+        keys.insert(
+            RoomKeyHash {
+                app: param.app.clone(),
+                key: param.key.clone(),
+            },
+            param.room.id(),
+        );
 
         self.inner.write().await.insert(
             param.room.id(),
@@ -118,6 +160,13 @@ impl RoomsStorage {
                     });
             }
         }
+
+        // Remove keys from keys index
+        let mut keys = self.keys.write().await;
+        keys.remove(&RoomKeyHash {
+            app: room.meta.app.clone(),
+            key: room.meta.key.clone(),
+        });
 
         Some(room)
     }

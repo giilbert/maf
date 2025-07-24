@@ -96,8 +96,9 @@ impl DevConsole {
 
         for (id, room) in rooms.iter() {
             dev_print!(
-                "- {} {} / {}",
+                "- {} {} {} / {}",
                 id,
+                format!("[key {}]", room.meta.key).dimmed(),
                 format!("({}/{})", room.meta.app.org, room.meta.app.app).dimmed(),
                 format!(
                     "{} reserved ram | {} wasm table entries",
@@ -122,7 +123,8 @@ impl DevConsole {
             match rooms.get(room_id) {
                 Some(room) => {
                     dev_print!(
-                        "+ room {} {} is autocreated",
+                        "{} room {} {} is autocreated",
+                        "+".bold().blue(),
                         room_id,
                         format!("({}/{})", room.meta.app.org, room.meta.app.app).dimmed()
                     );
