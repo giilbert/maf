@@ -1,3 +1,5 @@
+import { PlatformApiError } from "./error";
+
 export interface MafServiceClientOptions {
   url: URL | string;
   app: string;
@@ -42,10 +44,14 @@ class Rooms {
         "Content-Type": "application/json",
         Authorization: this.client.authorization,
       },
+      body: JSON.stringify({}),
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to create room: ${response.statusText}`);
+      throw new PlatformApiError(
+        `Failed to create room: ${response.statusText}`,
+        await response.json()
+      );
     }
 
     const data = (await response.json()) as {

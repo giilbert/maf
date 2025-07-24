@@ -5,4 +5,4 @@ packages:
   - "packages/client/examples/*"
   - "packages/react"
   - "packages/react/examples/*"
-  - "packages/server"
+  - "packages/platform"

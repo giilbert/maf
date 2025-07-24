@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "vite",
+    "dev": "bun --hot server & vite",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -11,15 +11,13 @@
   "license": "ISC",
   "dependencies": {
     "@usemaf/client": "workspace:*",
-    "@usemaf/server": "workspace:*",
-    "express": "^5.1.0",
-    "zod": "^3.24.2"
+    "@usemaf/platform": "workspace:*",
+    "hono": "^4.8.5"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",
     "@types/node": "^20",
     "typescript": "^5.8.2",
-    "vite": "^6.2.3",
-    "vite-plugin-api-routes": "1.2.4-beta"
+    "vite": "^6.2.3"
   }
 }

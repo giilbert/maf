@@ -1,5 +1,6 @@
-import type { Request, Response } from "express";
-import { MafServiceClient } from "@usemaf/server";
+import { MafServiceClient } from "@usemaf/platform";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
 
 const server = new MafServiceClient({
   url: "http://localhost:1147",
@@ -11,12 +12,20 @@ const server = new MafServiceClient({
   clientSecret: "secret",
 });
 
-export default async (_req: Request, res: Response) => {
+const app = new Hono();
+
+app.use("*", cors({ origin: "*" }));
+app.post("/api/rooms", async (c) => {
   try {
     const data = await server.rooms.create();
-    return res.status(200).send({ type: "success", data });
+    return c.json({ type: "success", data });
   } catch (e) {
     console.error("Failed to create room:", e);
-    return res.status(500).send({ type: "error" });
+    return c.json({ type: "error" }, 500);
   }
+});
+
+export default {
+  fetch: app.fetch,
+  port: 8080,
 };

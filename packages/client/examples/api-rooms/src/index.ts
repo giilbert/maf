@@ -20,7 +20,9 @@ type JsonData =
 async function run() {
   console.log("Creating room...");
 
-  const res = await fetch("/api/rooms", { method: "POST" });
+  const res = await fetch("http://localhost:8080/api/rooms", {
+    method: "POST",
+  });
   const json = (await res.json()) as JsonData;
 
   if (json.type === "error") {
