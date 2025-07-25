@@ -11,6 +11,8 @@ const buttonVariants = cva("cursor-pointer transition-colors", {
       primary: "bg-primary text-background hover:bg-primary-500 font-bold",
       secondary: "bg-neutral-800 hover:bg-neutral-800/70",
       ghost: "hover:bg-neutral-800/50",
+      outline:
+        "text-primary border border-neutral-800 hover:bg-neutral-800/50 text-neutral-800",
     },
   },
   defaultVariants: {

@@ -21,7 +21,7 @@ use uuid::Uuid;
 use crate::{
     api::{
         auth::{authenticate_service_request, authenticate_user_request, AuthedServiceAccount},
-        rooms::{AppNameAndOrgSlug, InsertRoom},
+        rooms::{AppNameAndOrgSlug, InsertRoom, RoomKeyHash},
     },
     storage::{
         bundle::BundleError,
@@ -204,9 +204,11 @@ async fn delete_app(
 #[serde(rename_all = "camelCase")]
 struct RoomInfo {
     id: Uuid,
+    key: String,
     secret: String,
 }
 
+/// **GET** `/api/v1/apps/{org}/{app}/rooms`
 async fn service_get_rooms(
     State(state): State<AppState>,
     service_account: AuthedServiceAccount,
@@ -230,6 +232,7 @@ async fn service_get_rooms(
                 if let Some(room) = state.rooms.get(&room_id).await {
                     rooms.push(RoomInfo {
                         id: room.id,
+                        key: room.meta.key.clone(),
                         secret: room.meta.secret.clone(),
                     });
                 }
@@ -241,13 +244,6 @@ async fn service_get_rooms(
     }
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RoomCreationResponse {
-    pub id: Uuid,
-    pub secret: String,
-}
-
 #[derive(Debug, Deserialize)]
 pub struct CreateRoomOptions {
     /// A key used to identify the room, defaults to the room ID or "default" for autocreated rooms.
@@ -255,11 +251,12 @@ pub struct CreateRoomOptions {
     pub key: Option<String>,
 }
 
+/// **POST** `/api/v1/apps/{org}/{app}/rooms`
 async fn service_create_room(
     State(state): State<AppState>,
     service_account: AuthedServiceAccount,
     Json(options): Json<CreateRoomOptions>,
-) -> Result<Json<RoomCreationResponse>, ErrorResponse> {
+) -> Result<Json<RoomInfo>, ErrorResponse> {
     let app = service_account.app();
     let org = service_account.org();
 
@@ -269,6 +266,23 @@ async fn service_create_room(
             return Err(ErrorResponse::bad_request(Some(
                 "Key cannot be 'default' or a valid UUID.",
             )));
+        }
+
+        if key.len() > 128 {
+            return Err(ErrorResponse::bad_request(Some(
+                "Key cannot be longer than 128 characters.",
+            )));
+        }
+
+        // Check for key uniqueness
+        if state.rooms.keys.read().await.contains_key(&RoomKeyHash {
+            app: AppNameAndOrgSlug {
+                app: app.name.clone(),
+                org: org.slug.clone(),
+            },
+            key: key.clone(),
+        }) {
+            return Err(ErrorResponse::conflict(Some("Room key already exists.")));
         }
     }
 
@@ -331,8 +345,9 @@ async fn service_create_room(
         state.rooms.remove(&room_id).await;
     });
 
-    Ok(Json(RoomCreationResponse {
+    Ok(Json(RoomInfo {
         id: room_id,
+        key: room_meta.key.clone(),
         secret: room_meta.secret,
     }))
 }

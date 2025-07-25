@@ -1,4 +1,4 @@
-import { PlatformApiError } from "./error";
+import { Rooms } from "./rooms";
 
 export interface MafServiceClientOptions {
   url: URL | string;
@@ -26,39 +26,5 @@ export class MafServiceClient {
 
     this.rooms = new Rooms(this);
     this.app = options.app;
-  }
-}
-
-class Rooms {
-  constructor(private client: MafServiceClient) {}
-
-  async create() {
-    const url = new URL(
-      `api/v1/apps/${this.client.app}/rooms`,
-      this.client.serverBaseUrl
-    );
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: this.client.authorization,
-      },
-      body: JSON.stringify({}),
-    });
-
-    if (!response.ok) {
-      throw new PlatformApiError(
-        `Failed to create room: ${response.statusText}`,
-        await response.json()
-      );
-    }
-
-    const data = (await response.json()) as {
-      id: string;
-      secret: string;
-    };
-
-    return data;
   }
 }

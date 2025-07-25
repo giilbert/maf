@@ -1,0 +1,83 @@
+---
+title: Platform API Reference
+category: Reference
+---
+
+# Platform API Reference
+
+## Overview
+
+The Platform API provides a set of HTTP endpoints that allow you to interact
+with the MAF Platform. This includes managing user authentication, handling
+rooms, and monitoring apps.
+
+All endpoints are RESTful and return JSON responses. Parameters are passed via
+the URL path, query string, and/or request body as appropriate.
+
+## Authentication
+
+Platform API endpoints are authenticated using the `Authorization` header. When
+making requests, include a base64 encoded string of your client ID and secret
+in the format `Basic <base64(clientId:clientSecret)>`.
+
+You will need to pass in the app slug and organization slug of the app you are
+interacting with in the URL path. The documentation will refer to these as
+`:app` and `:org` respectively.
+
+If a request is not authenticated or if authentication is incorrect, you will
+receive a `401 Unauthorized` response.
+
+## App Endpoints
+
+### `GET /api/v1/apps/:org/:app/rooms`
+
+Lists all the rooms.
+
+**Example Response**
+
+```json
+[
+  {
+    // A UUID for the room.
+    "id": "b7276f46-7456-4f01-a7ec-cb4103372966",
+    // A 64-character secret key used for connecting to the room.
+    "secret": "iMcbVmiaEJ9YEETIZeDafaG3oAQslb4G4yIiJsXe9mWw5IbKgVGVhz7TKJgkbXtw",
+    // Another key that can be used for room identification. Developer-defined.
+    "key": "ABCDEF"
+  },
+  {
+    "id": "9f2a1508-0b68-48b7-b3d7-617ee5fdd1f9",
+    "secret": "9b1c2f3e4d5a6b7c8d9e0f1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0t1u",
+    "key": "GHIJKL"
+  }
+  // ...
+]
+```
+
+### `POST /api/v1/apps/:org/:app/rooms`
+
+Creates a new room.
+
+**Example Request Body**
+
+```json
+{
+  // <Optional> A key used to identify the room. If not provided, the room ID
+  // will be used. Must be unique within the app. The key must be less than
+  // or equal to 128 characters long and cannot be "default" or a UUID.
+  "key": "ABCD1234"
+}
+```
+
+**Example Response**
+
+```json
+{
+  // A UUID for the room.
+  "id": "b7276f46-7456-4f01-a7ec-cb4103372966",
+  // A 64-character secret key used for connecting to the room.
+  "secret": "iMcbVmiaEJ9YEETIZeDafaG3oAQslb4G4yIiJsXe9mWw5IbKgVGVhz7TKJgkbXtw",
+  // Another key that can be used for room identification. Developer-defined.
+  "key": "ABCD1234"
+}
+```

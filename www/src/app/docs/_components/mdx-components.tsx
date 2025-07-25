@@ -54,6 +54,7 @@ export const CodeBlock: React.FC<{
   children: string;
   lang: BundledLanguage;
 }> = async (props) => {
+  console.log(props.children);
   const out = await codeToHtml(props.children, {
     lang: props.lang,
     theme: "github-dark-default",

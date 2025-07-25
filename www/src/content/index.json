@@ -18,5 +18,9 @@
       "build/rpc",
       "build/rooms"
     ]
+  },
+  {
+    "name": "Reference",
+    "docs": ["reference/platform"]
   }
 ]
