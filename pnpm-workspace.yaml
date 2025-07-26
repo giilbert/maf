@@ -6,3 +6,5 @@ packages:
   - "packages/react"
   - "packages/react/examples/*"
   - "packages/platform"
+# TODO: Change me!!
+publishBranch: "dev"
