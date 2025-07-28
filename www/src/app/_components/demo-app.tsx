@@ -25,11 +25,14 @@ export const DemoApp: React.FC = () => {
 
   useEffect(() => {
     const maf = new MafClient({
-      url:
+      server:
         process.env.NODE_ENV === "development"
-          ? "http://localhost:1147"
-          : "https://maf-server.fly.dev",
-      app: "gilbert/maf-demo",
+          ? "dev"
+          : {
+              type: "platform",
+              url: "https://maf-server.fly.dev",
+              app: "gilbert/maf-demo",
+            },
     });
 
     mafRef.current = maf;
