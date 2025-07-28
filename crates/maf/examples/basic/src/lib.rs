@@ -43,6 +43,7 @@ fn on_connect(user: User) {
 fn build() -> App {
     App::builder()
         .on_connect(on_connect)
+        .store::<CounterStore>()
         .rpc("increment_counter", increment_counter)
         .hook("counter", counter_read_hook)
         .background(|app: App| async move {

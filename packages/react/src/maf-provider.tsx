@@ -1,10 +1,9 @@
 import { MafClient } from "@usemaf/client";
-import { ConnectOptions } from "@usemaf/client/src/client";
+import { ConnectOptions, MafServerOptions } from "@usemaf/client/src/client";
 import React, { createContext, useEffect, useRef, useState } from "react";
 
 export interface MafProviderProps {
-  url: string;
-  app: string;
+  server: MafServerOptions;
   connectOptions?: ConnectOptions;
 }
 
@@ -16,19 +15,21 @@ export const MafContext = createContext<MafContextType | null>(null);
 
 export const MafProvider: React.FC<
   React.PropsWithChildren<MafProviderProps>
-> = ({ url, app, connectOptions = { type: "default" }, children }) => {
+> = ({ server, connectOptions = { type: "default" }, children }) => {
   const [mafClient] = useState<MafClient>(() => {
-    return new MafClient({ url, app });
+    return new MafClient({ server });
   });
 
   useEffect(() => {
-    // Steam roll errors because react strict mode is dumb
+    // Connect will throw an error if the connection fails or cancels, which is
+    // expected when React strict mode is enabled.
+    // TODO: Pass other errors through?
     mafClient.connect(connectOptions).catch(() => {});
 
     return () => {
       mafClient.disconnect();
     };
-  }, [url, app]);
+  }, []);
 
   return (
     <MafContext.Provider
@@ -36,7 +37,8 @@ export const MafProvider: React.FC<
         {
           client: mafClient,
         } as MafContextType
-      }>
+      }
+    >
       {children}
     </MafContext.Provider>
   );

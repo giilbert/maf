@@ -50,6 +50,8 @@ export class MafClient extends Emittery<MafClientEvents> {
   private _rpcId = 0;
   private _rpcCalls: Map<number, (data: unknown) => void> = new Map();
 
+  private _cleanups: (() => void)[] = [];
+
   public get ws() {
     if (!this._ws) throw new Error("WebSocket is not connected");
     return this._ws;
@@ -67,9 +69,11 @@ export class MafClient extends Emittery<MafClientEvents> {
 
     if (options.server === "dev") {
       url = new URL(DEFAULT_DEV_SERVER_URL);
+      // In dev mode, use _/_ as the app for parity with the Platform server
+      url.pathname = "@/_/_";
     } else if (options.server.type === "dev") {
       url = new URL(options.server.url || DEFAULT_DEV_SERVER_URL);
-      url.pathname = "@";
+      url.pathname = "@/_/_";
     } else if (options.server.type === "platform") {
       url = new URL(options.server.url);
       url.pathname = `@/${options.server.app}`;
@@ -141,10 +145,18 @@ export class MafClient extends Emittery<MafClientEvents> {
     };
     ws.addEventListener("message", handleMessage);
 
-    ws.addEventListener("close", () => {
+    this._cleanups.push(() => {
       ws.removeEventListener("message", handleMessage);
-      this.emit("close", undefined);
     });
+
+    ws.addEventListener(
+      "close",
+      () => {
+        ws.removeEventListener("message", handleMessage);
+        this.emit("close", undefined);
+      },
+      { once: true }
+    );
 
     return handshakeResponse;
   }
@@ -153,10 +165,12 @@ export class MafClient extends Emittery<MafClientEvents> {
     if (this._ws) {
       if (this._ws.readyState === WebSocket.OPEN) {
         this._ws.close();
+        for (const cleanup of this._cleanups) cleanup();
       } else if (this._ws.readyState === WebSocket.CONNECTING) {
         const wsRef = this._ws;
         this._ws.onopen = () => {
           wsRef.close();
+          for (const cleanup of this._cleanups) cleanup();
         };
       }
 
