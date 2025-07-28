@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::apps::RoomCreationStrategy;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectConfigFile {
     pub name: String,
     #[serde(default = "default_room_creation_strategy")]
@@ -12,7 +12,7 @@ pub struct ProjectConfigFile {
     pub release: TargetConfig,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TargetConfig {
     pub command: String,
     pub output: String,

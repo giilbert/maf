@@ -1,8 +1,7 @@
 import { MafClient } from "@usemaf/client";
 
 const client = new MafClient({
-  url: "http://localhost:1147",
-  app: "gilbert/test-2",
+  server: "dev",
 });
 
 const store = client.store("CounterStore");

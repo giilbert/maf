@@ -3,9 +3,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 
 const server = new MafServiceClient({
-  url: "http://localhost:1147",
-  // Replace with your actual app name
-  app: "gilbert/example-basic",
+  server: "dev",
   // Fake credentials for testing purposes
   // In a real application, you would use actual credentials
   clientId: "test-client-id",

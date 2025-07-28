@@ -16,9 +16,10 @@ use maf_container::{
 };
 use notify::RecommendedWatcher;
 use notify_debouncer_full::{new_debouncer_opt, DebounceEventResult, Debouncer, RecommendedCache};
+use schemas::apps::RoomCreationStrategy;
 use tokio::sync::RwLock;
 
-use crate::pretty;
+use crate::{dev::rooms::DevRoomsStorage, pretty, print_dimmed, Context};
 
 #[derive(Debug)]
 pub struct DevServerConfig {
@@ -35,16 +36,38 @@ struct DevServerState {
 #[derive(Debug)]
 struct StateInner {
     room: RwLock<RoomInner>,
-    container_runtime: ContainerRuntime,
+    runtime: ContainerRuntime,
+    rooms: DevRoomsStorage,
 }
 
-pub async fn start_local_server(config: DevServerConfig) -> anyhow::Result<()> {
-    let address = format!("0.0.0.0:{}", config.port);
+pub async fn start_local_server(
+    context: &mut Context,
+    config: DevServerConfig,
+) -> anyhow::Result<()> {
+    if let Some(project_config) = context.project_config.as_ref() {
+        print_dimmed!(
+            "[dev] Read project config from {}",
+            project_config.base.join("maf-project.toml").display()
+        );
+    }
 
-    let runtime = ContainerRuntime::init(Box::leak(Box::new(AtomicU64::new(0))))?;
+    let room_creation_strategy = context
+        .project_config
+        .as_ref()
+        .map(|c| c.data.rooms.clone())
+        .unwrap_or(RoomCreationStrategy::AutoCreate);
+    print_dimmed!(
+        "[dev] Using room creation strategy: {}",
+        room_creation_strategy.format_with_description()
+    );
+
+    // ContainerRuntime uses this variable to track whether the app is active. In dev mode, we
+    // use this variable to store but not use the activity, since we don't need to auto stop.
+    let app_activity = Box::leak(Box::new(AtomicU64::new(0)));
+    let runtime = ContainerRuntime::init(app_activity)?;
 
     // This is so jank
-
+    //
     // If the file watcher is enabled, we create a notify watcher that will trigger a reload
     // when the WASM file changes.
     //
@@ -64,7 +87,8 @@ pub async fn start_local_server(config: DevServerConfig) -> anyhow::Result<()> {
     let state = DevServerState {
         inner: Arc::new(StateInner {
             room: RwLock::new(room),
-            container_runtime: runtime,
+            runtime,
+            rooms: DevRoomsStorage::new(context.project_config.clone()),
         }),
     };
 
@@ -72,11 +96,11 @@ pub async fn start_local_server(config: DevServerConfig) -> anyhow::Result<()> {
     let reload_room = async move {
         loop {
             reload_notify.notified().await;
-            pretty::info!("[dev] Reloading room...");
+            print_dimmed!("[dev] Reloading room...");
 
             let room = load_room(
                 reload_notify.clone(),
-                &state_clone.inner.container_runtime,
+                &state_clone.inner.runtime,
                 &config.wasm_module_path,
             )
             .await;
@@ -109,9 +133,10 @@ pub async fn start_local_server(config: DevServerConfig) -> anyhow::Result<()> {
         )
         .with_state(state.clone());
 
+    let address = format!("0.0.0.0:{}", config.port);
     let listener = tokio::net::TcpListener::bind(address).await?;
 
-    pretty::info!("Development server listening on {}", config.port);
+    println!("[dev] Development server listening on {}", config.port);
     axum::serve(listener, app).await?;
 
     Ok(())
@@ -158,7 +183,7 @@ async fn load_room(
         pretty::info!("[dev] Container exited");
     });
 
-    pretty::info!("[dev] Loaded room from {}", path);
+    print_dimmed!("[dev] Loaded room from {}", path);
 
     Ok(room)
 }
@@ -182,7 +207,7 @@ fn create_file_watcher(
         notify::Config::default().with_compare_contents(true),
     )?;
 
-    pretty::info!("[dev] Watching for changes in {}", path.display());
+    print_dimmed!("[dev] Watching for changes in {}", path.display());
     debouncer.watch(path, notify::RecursiveMode::NonRecursive)?;
 
     Ok((notify, debouncer))
@@ -190,11 +215,22 @@ fn create_file_watcher(
 
 async fn connect_route(
     State(state): State<DevServerState>,
-    Path((_org_slug, _app_name, _room_id)): Path<(String, String, String)>,
+    Path((_org_slug, _app_name, room_key)): Path<(String, String, String)>,
     ws: WebSocketUpgrade,
 ) -> Result<Response, ErrorResponse> {
-    let room = state.inner.room.read().await.clone();
-    Ok(handle_ws_upgrade(ws, room).await)
+    let room = state
+        .inner
+        .rooms
+        .get_by_key_or_id(&room_key)
+        .await
+        .ok_or_else(|| {
+            ErrorResponse::not_found(Some(&format!(
+                "Room with key or ID '{}' not found",
+                room_key
+            )))
+        })?;
+
+    Ok(handle_ws_upgrade(ws, room.inner.clone()).await)
 }
 
 async fn hook_request_handler(

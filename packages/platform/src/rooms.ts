@@ -14,15 +14,10 @@ export class Rooms {
    * **GET** `/api/v1/apps/{app}/rooms`
    */
   async list() {
-    const url = new URL(
-      `api/v1/apps/${this.client.app}/rooms`,
-      this.client.serverBaseUrl
+    const response = await this.client.fetch(
+      `/api/v1/apps/${this.client.app}/rooms`,
+      { method: "GET" }
     );
-
-    const response = await fetch(url, {
-      method: "GET",
-      headers: { Authorization: this.client.authorization },
-    });
 
     if (!response.ok) {
       throw new PlatformApiError(
@@ -37,20 +32,14 @@ export class Rooms {
   /**
    * **POST** `/api/v1/apps/{app}/rooms`
    */
-  async create() {
-    const url = new URL(
-      `api/v1/apps/${this.client.app}/rooms`,
-      this.client.serverBaseUrl
+  async create(options: { key?: string } = {}) {
+    const response = await this.client.fetch(
+      `/api/v1/apps/${this.client.app}/rooms`,
+      {
+        method: "POST",
+        body: JSON.stringify(options),
+      }
     );
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: this.client.authorization,
-      },
-      body: JSON.stringify({}),
-    });
 
     if (!response.ok) {
       throw new PlatformApiError(

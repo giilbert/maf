@@ -1,3 +1,4 @@
+use schemas::apps::RoomId;
 use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
 
@@ -11,8 +12,6 @@ use crate::{
 };
 
 use super::Bundle;
-
-pub type RoomId = Uuid;
 
 #[derive(Debug, Clone)]
 pub struct RoomInner {

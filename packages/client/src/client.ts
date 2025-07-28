@@ -4,9 +4,19 @@ import { Store, StoreOptions } from "./store";
 import { RxPacket, TxPacket } from "./packet";
 
 export interface MafClientOptions {
-  url: URL | string;
-  app?: string;
+  server: MafServerOptions;
 }
+
+export type MafServerOptions =
+  | { type: "dev"; url?: string | URL }
+  | {
+      type: "platform";
+      url: string | URL;
+      app: string;
+    }
+  | "dev";
+
+export const DEFAULT_DEV_SERVER_URL = "http://localhost:1147";
 
 export interface MafClientEvents {
   ready: SessionInfo;
@@ -18,9 +28,7 @@ export interface SessionInfo {
 }
 
 export type ConnectOptions =
-  | {
-      type: "default";
-    }
+  | { type: "default" }
   | {
       type: "room";
       id: string;
@@ -55,11 +63,18 @@ export class MafClient extends Emittery<MafClientEvents> {
   constructor(options: MafClientOptions) {
     super();
 
-    const url =
-      typeof options.url === "string" ? new URL(options.url) : options.url;
+    let url: URL;
 
-    if (options.app) {
-      url.pathname = `@/${options.app}`;
+    if (options.server === "dev") {
+      url = new URL(DEFAULT_DEV_SERVER_URL);
+    } else if (options.server.type === "dev") {
+      url = new URL(options.server.url || DEFAULT_DEV_SERVER_URL);
+      url.pathname = "@";
+    } else if (options.server.type === "platform") {
+      url = new URL(options.server.url);
+      url.pathname = `@/${options.server.app}`;
+    } else {
+      throw new Error("Invalid server options");
     }
 
     this.url = url;

@@ -11,17 +11,17 @@ use maf_container::{
     ContainerResourceLimit,
 };
 use schemas::{
-    apps::{CreateUserAppRequest, RoomCreationStrategy},
+    apps::{AppNameAndOrgSlug, CreateUserAppRequest, RoomCreationStrategy, RoomInfo, RoomKeyHash},
     project_config::ProjectConfigFile,
 };
 use sea_orm::{ActiveValue::Set, ModelTrait};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
     api::{
         auth::{authenticate_service_request, authenticate_user_request, AuthedServiceAccount},
-        rooms::{AppNameAndOrgSlug, InsertRoom, RoomKeyHash},
+        rooms::InsertRoom,
     },
     storage::{
         bundle::BundleError,
@@ -198,14 +198,6 @@ async fn delete_app(
     };
 
     Ok(Json(app))
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct RoomInfo {
-    id: Uuid,
-    key: String,
-    secret: String,
 }
 
 /// **GET** `/api/v1/apps/{org}/{app}/rooms`

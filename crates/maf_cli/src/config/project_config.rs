@@ -5,7 +5,7 @@ use schemas::project_config::ProjectConfigFile;
 
 /// Configuration information for a MAF project, if found in the current directory or any parent
 /// directory.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ProjectConfig {
     pub data: ProjectConfigFile,
     pub base: PathBuf,

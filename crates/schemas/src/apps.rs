@@ -1,5 +1,14 @@
 use colored::Colorize;
+use rand::Rng as _;
 use serde::{Deserialize, Serialize};
+
+pub fn generate_room_secret() -> String {
+    let mut rng = rand::rng();
+
+    (0..64)
+        .map(|_| rng.sample(rand::distr::Alphanumeric) as char)
+        .collect()
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserAppConfig {
@@ -46,4 +55,28 @@ impl RoomCreationStrategy {
             }
         }
     }
+}
+
+pub type RoomId = uuid::Uuid;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AppNameAndOrgSlug {
+    pub app: String,
+    pub org: String,
+}
+
+/// A struct used for hashing the room key and app name, used to quickly look up rooms by key.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct RoomKeyHash {
+    pub app: AppNameAndOrgSlug,
+    pub key: String,
+}
+
+/// Serialized information about a room, used for API responses.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RoomInfo {
+    pub id: RoomId,
+    pub key: String,
+    pub secret: String,
 }

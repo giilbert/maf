@@ -10,12 +10,15 @@ use maf_container::{
     wasi::bindings::{self, HookRequestCaller},
     ContainerResourceLimit,
 };
-use schemas::{apps::RoomCreationStrategy, project_config::ProjectConfigFile};
+use schemas::{
+    apps::{AppNameAndOrgSlug, RoomCreationStrategy},
+    project_config::ProjectConfigFile,
+};
 use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    api::rooms::{AppNameAndOrgSlug, InsertRoom, Room},
+    api::rooms::{InsertRoom, Room},
     storage::{db::app, repos::app_repo},
 };
 

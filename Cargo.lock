@@ -2252,6 +2252,7 @@ dependencies = [
  "bytes",
  "futures-util",
  "rand 0.9.1",
+ "schemas",
  "serde",
  "serde_json",
  "tokio",
@@ -3340,7 +3341,9 @@ name = "schemas"
 version = "0.1.0"
 dependencies = [
  "colored",
+ "rand 0.9.1",
  "serde",
+ "uuid",
 ]
 
 [[package]]
