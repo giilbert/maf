@@ -4,7 +4,7 @@ mod project_config;
 use clap::Subcommand;
 use colored::Colorize;
 pub use global_config::GlobalConfig;
-pub use project_config::ProjectConfig;
+pub use project_config::{ProjectConfig, ProjectConfigExt};
 
 use crate::{pretty, Context};
 
