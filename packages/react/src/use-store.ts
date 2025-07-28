@@ -25,6 +25,11 @@ export function useStore<TData, TFallback extends TData>(
   fallback: TFallback
 ): UseStoreDiscUnion<TData, TFallback>;
 
+export function useStore<TData>(
+  storeName: string,
+  fallback?: TData
+): UseStoreDiscUnion<TData, TData>;
+
 export function useStore<TData, TFallback>(
   storeName: string,
   fallback?: TFallback

@@ -149,6 +149,22 @@ export class MafClient extends Emittery<MafClientEvents> {
     return handshakeResponse;
   }
 
+  public disconnect() {
+    if (this._ws) {
+      if (this._ws.readyState === WebSocket.OPEN) {
+        this._ws.close();
+      } else if (this._ws.readyState === WebSocket.CONNECTING) {
+        const wsRef = this._ws;
+        this._ws.onopen = () => {
+          wsRef.close();
+        };
+      }
+
+      this._ws = undefined;
+      this._sessionInfo = undefined;
+    }
+  }
+
   private async handleMessage(packet: RxPacket) {
     if (packet.type === "ChannelSend") {
       const { channel, data } = packet.data;

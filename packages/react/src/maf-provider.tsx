@@ -22,16 +22,11 @@ export const MafProvider: React.FC<
   });
 
   useEffect(() => {
-    mafClient.connect(connectOptions);
+    // Steam roll errors because react strict mode is dumb
+    mafClient.connect(connectOptions).catch(() => {});
 
     return () => {
-      if (mafClient.ws.readyState === WebSocket.OPEN) {
-        mafClient.ws.close();
-      } else if (mafClient.ws.readyState === WebSocket.CONNECTING) {
-        mafClient.ws.onopen = () => {
-          mafClient.ws.close();
-        };
-      }
+      mafClient.disconnect();
     };
   }, [url, app]);
 
