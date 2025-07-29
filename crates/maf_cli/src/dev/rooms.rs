@@ -24,7 +24,7 @@ pub type RoomKey = String;
 #[derive(Debug, Clone)]
 pub struct InsertRoom {
     pub strategy: RoomCreationStrategy,
-    pub key: String,
+    pub key: Option<String>,
 }
 
 /// Rooms storage for development server.
@@ -99,25 +99,31 @@ impl DevRoomsStorage {
         )
         .await?;
 
-        let room_key = param.key.clone();
+        let room_key = param.key.unwrap_or(room.id().to_string());
+
+        let room_key_clone = room_key.clone();
         let mut output = container.take_output().expect("Output should be available");
         tokio::spawn(async move {
             while let Some(line) = output.recv().await {
                 let line = line.trim_matches(&['\n', '\r', ' ']);
                 println!(
                     "{} {} {line}",
-                    format!("[dev] `{}`", room_key).dimmed(),
+                    format!("[dev] `{}`", room_key_clone).dimmed(),
                     "out".blue()
                 )
             }
         });
 
-        let room_key = param.key.clone();
+        let room_key_clone = room_key.clone();
         tokio::spawn(async move {
             if let Err(e) = container.run().await {
                 println!(
                     "{}",
-                    format!("[dev] `{}` Error running room container: {e}", room_key).red()
+                    format!(
+                        "[dev] `{}` Error running room container: {e}",
+                        room_key_clone
+                    )
+                    .red()
                 )
             }
         });
@@ -126,7 +132,7 @@ impl DevRoomsStorage {
             id: room.id(),
             secret: generate_room_secret(),
             strategy: param.strategy.clone(),
-            key: param.key.clone(),
+            key: room_key.clone(),
         };
 
         match param.strategy {
@@ -150,7 +156,7 @@ impl DevRoomsStorage {
         self.keys
             .write()
             .await
-            .insert(param.key.clone(), meta.id.clone());
+            .insert(room_key.clone(), meta.id.clone());
 
         println!("[dev] Created room with key `{}`", meta.key);
 

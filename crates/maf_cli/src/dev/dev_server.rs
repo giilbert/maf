@@ -15,7 +15,10 @@ use schemas::apps::RoomCreationStrategy;
 
 use crate::{
     config::{ProjectConfig, ProjectConfigExt},
-    dev::rooms::{DevRoomsStorage, InsertRoom},
+    dev::{
+        platform::create_platform_api_router,
+        rooms::{DevRoomsStorage, InsertRoom},
+    },
     print_dimmed, Context,
 };
 
@@ -84,12 +87,13 @@ pub async fn start_local_server(
             "/@/{org_slug}/{app_slug}/{room_id}/hooks/{method}",
             post(hook_request_handler),
         )
+        .merge(create_platform_api_router())
         .with_state(state.clone());
 
     let address = format!("0.0.0.0:{}", config.port);
-    let listener = tokio::net::TcpListener::bind(address).await?;
+    let listener = tokio::net::TcpListener::bind(&address).await?;
 
-    println!("[dev] Development server listening on {}", config.port);
+    println!("[dev] Development server listening on {}", address);
     axum::serve(listener, app).await?;
 
     Ok(())
@@ -112,7 +116,7 @@ async fn connect_route(
                         &state,
                         InsertRoom {
                             strategy: RoomCreationStrategy::AutoCreate,
-                            key: "default".to_string(),
+                            key: Some("default".to_string()),
                         },
                     )
                     .await?;

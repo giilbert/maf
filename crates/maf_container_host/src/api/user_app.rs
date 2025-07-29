@@ -11,11 +11,13 @@ use maf_container::{
     ContainerResourceLimit,
 };
 use schemas::{
-    apps::{AppNameAndOrgSlug, CreateUserAppRequest, RoomCreationStrategy, RoomInfo, RoomKeyHash},
+    apps::{
+        AppNameAndOrgSlug, CreateRoomOptions, CreateUserAppRequest, RoomCreationStrategy, RoomInfo,
+        RoomKeyHash,
+    },
     project_config::ProjectConfigFile,
 };
 use sea_orm::{ActiveValue::Set, ModelTrait};
-use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
@@ -234,13 +236,6 @@ async fn service_get_rooms(
         }
         None => Ok(Json(vec![])),
     }
-}
-
-#[derive(Debug, Deserialize)]
-pub struct CreateRoomOptions {
-    /// A key used to identify the room, defaults to the room ID or "default" for autocreated rooms.
-    /// The key cannot be a UUID or "default" as they are reserved.
-    pub key: Option<String>,
 }
 
 /// **POST** `/api/v1/apps/{org}/{app}/rooms`

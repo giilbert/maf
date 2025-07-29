@@ -1,4 +1,5 @@
 mod dev_server;
+mod platform;
 mod rooms;
 
 use std::{path::Path, process};

@@ -19,5 +19,6 @@ pub struct TargetConfig {
 }
 
 fn default_room_creation_strategy() -> RoomCreationStrategy {
+    println!("default called");
     RoomCreationStrategy::AuthenticatedApiRequest
 }

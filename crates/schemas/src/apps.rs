@@ -80,3 +80,10 @@ pub struct RoomInfo {
     pub key: String,
     pub secret: String,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct CreateRoomOptions {
+    /// A key used to identify the room, defaults to the room ID or "default" for autocreated rooms.
+    /// The key cannot be a UUID or "default" as they are reserved.
+    pub key: Option<String>,
+}
