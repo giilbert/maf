@@ -18,7 +18,11 @@ serde_json = { version = "^1", default-features = false, features = ["alloc"] }
 thiserror = "2"
 tokio = { version = "1.44.2", default-features = false, features = ["sync"] }
 uuid = { version = "1.16.0", features = ["serde", "v4"] }
+maf_typed = { path = "../maf_typed", optional = true }
 
 # [target."wasm32-wasip2".dependencies]
 wit-bindgen = "0.40.0"
 wasi = "0.14.2"
+
+[features]
+typed = ["dep:maf_typed"]

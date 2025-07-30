@@ -316,6 +316,9 @@ impl App {
     }
 
     pub fn run(self) {
+        #[cfg(feature = "typed")]
+        maf_typed::test();
+
         tasks::spawn(self.run_async());
         Runtime::current().blocking_poll();
     }

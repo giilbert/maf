@@ -1,0 +1,7 @@
+[package]
+name = "maf_typed"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+facet = "0.28.0"
