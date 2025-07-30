@@ -1177,20 +1177,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "example-basic"
-version = "0.0.0"
-dependencies = [
- "maf",
-]
-
-[[package]]
-name = "example-basic-typed"
-version = "0.0.0"
-dependencies = [
- "maf",
-]
-
-[[package]]
 name = "facet"
 version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2257,8 +2243,8 @@ name = "maf"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "facet",
  "futures-util",
- "maf_typed",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
@@ -2362,13 +2348,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
-]
-
-[[package]]
-name = "maf_typed"
-version = "0.1.0"
-dependencies = [
- "facet",
 ]
 
 [[package]]

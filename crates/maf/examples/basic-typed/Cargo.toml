@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 maf = { path = "../..", features = ["typed"] }
+facet = "0.28.0"
 
 [lib]
 crate-type = ["cdylib"]

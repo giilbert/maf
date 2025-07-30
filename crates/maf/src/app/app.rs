@@ -20,6 +20,7 @@ use crate::{
     },
     store::{AnyStore, StoreKey},
     tasks::{self, Runtime},
+    typed,
     user::UserMessage,
     Channel, RpcFunction, StoreData, User, UserListener,
 };
@@ -316,9 +317,6 @@ impl App {
     }
 
     pub fn run(self) {
-        #[cfg(feature = "typed")]
-        maf_typed::test();
-
         tasks::spawn(self.run_async());
         Runtime::current().blocking_poll();
     }
@@ -566,9 +564,13 @@ impl AppBuilder {
             hooks: self.hooks,
         };
 
-        App {
+        let app = App {
             inner: Arc::new(inner),
-        }
+        };
+
+        typed::export_types(&app);
+
+        app
     }
 }
 
