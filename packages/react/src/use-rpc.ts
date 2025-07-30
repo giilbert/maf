@@ -2,7 +2,7 @@ import { useContext } from "react";
 import { MafContext } from "./maf-provider";
 
 export interface UseRpc<TData> {
-  mutateAsync: () => Promise<TData>;
+  mutateAsync: (...args: unknown[]) => Promise<TData>;
 }
 
 export function useRpc<TData>(method: string): UseRpc<TData> {
