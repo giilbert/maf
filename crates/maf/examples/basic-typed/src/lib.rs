@@ -1,16 +1,18 @@
 use maf::*;
 
-struct CounterStore;
+struct CounterStore {
+    count: i32,
+}
 
 impl StoreData for CounterStore {
-    type Data = i32;
+    type Select = i32;
 
-    fn init() -> Self::Data {
-        42
+    fn init() -> Self {
+        CounterStore { count: 0 }
     }
 
-    fn select(data: &Self::Data, _user: &User) -> impl serde::Serialize {
-        data
+    fn select(&self, _user: &User) -> &Self::Select {
+        &self.count
     }
 
     fn name() -> impl AsRef<str> {
@@ -19,19 +21,22 @@ impl StoreData for CounterStore {
 }
 
 async fn increment_counter(Params(counter): Params<i32>, test: Store<CounterStore>) -> i32 {
-    let mut data = test.write().await;
+    let mut store = test.write().await;
 
-    *data += counter;
+    store.count += counter;
 
-    println!("incremented counter by {counter}. new value: {}", &*data);
+    println!(
+        "incremented counter by {counter}. new value: {}",
+        store.count
+    );
 
-    *data
+    store.count
 }
 
 async fn counter_read_hook(test: Store<CounterStore>) -> i32 {
-    let data = test.read().await;
-    println!("counter read hook: {}", &*data);
-    *data
+    let store = test.read().await;
+    println!("counter read hook: {}", store.count);
+    store.count
 }
 
 fn on_connect(user: User) {

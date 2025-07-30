@@ -6,6 +6,7 @@ use std::{
     },
 };
 
+use serde::Serialize;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::{
@@ -59,8 +60,8 @@ pub struct Store<T: StoreData> {
 pub struct StoreKey(Arc<str>);
 
 /// Describes the data stored in a [`Store`].
-pub trait StoreData: 'static {
-    type Data: Send + Sync + 'static;
+pub trait StoreData: Send + Sync + 'static {
+    type Select: Serialize;
 
     fn name() -> impl AsRef<str> + Send {
         std::any::type_name::<Self>()
@@ -71,11 +72,9 @@ pub trait StoreData: 'static {
     }
 
     #[allow(unused_variables)]
-    fn select(data: &Self::Data, user: &User) -> impl serde::Serialize {
-        ()
-    }
+    fn select(&self, user: &User) -> &Self::Select;
 
-    fn init() -> Self::Data;
+    fn init() -> Self;
 }
 
 impl AnyStore {
@@ -85,9 +84,9 @@ impl AnyStore {
             dirty: Arc::new(AtomicBool::new(false)),
             data: Arc::new(RwLock::new(T::init())),
             serializer: Arc::new(|data, user| {
-                let data = data.downcast_ref::<T::Data>().expect(&std::format!(
+                let data = data.downcast_ref::<T>().expect(&std::format!(
                     "store data is not of expected type {}",
-                    std::any::type_name::<T::Data>()
+                    std::any::type_name::<T>()
                 ));
 
                 serde_json::to_value(T::select(&data, user)).map_err(Into::into)
@@ -109,21 +108,21 @@ impl AsRef<str> for StoreKey {
 }
 
 impl<T: StoreData> Store<T> {
-    pub async fn read(&self) -> RwLockReadGuard<T::Data> {
+    pub async fn read(&self) -> RwLockReadGuard<T> {
         RwLockReadGuard::map(self.inner.data.read().await, |inner| {
             inner
-                .downcast_ref::<T::Data>()
+                .downcast_ref::<T>()
                 .expect("failed to downcast store (is the store of the right type?)")
         })
     }
 
-    pub async fn write(&self) -> StoreMut<T::Data> {
+    pub async fn write(&self) -> StoreMut<T> {
         StoreMut::new(
             &self.app,
             &self.inner,
             RwLockWriteGuard::map(self.inner.data.write().await, |inner| {
                 inner
-                    .downcast_mut::<T::Data>()
+                    .downcast_mut::<T>()
                     .expect("failed to downcast store (is the store of the right type?)")
             }),
         )

@@ -46,13 +46,19 @@ mod tests {
         >() {
         }
 
-        struct T {}
+        struct T {
+            count: i32,
+        }
 
         impl StoreData for T {
-            type Data = i32;
+            type Select = i32;
 
-            fn init() -> Self::Data {
-                42
+            fn init() -> Self {
+                T { count: 0 }
+            }
+
+            fn select(&self, _user: &User) -> &Self::Select {
+                &self.count
             }
         }
 

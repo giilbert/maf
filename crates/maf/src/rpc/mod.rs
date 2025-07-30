@@ -161,10 +161,14 @@ mod tests {
         struct T {}
 
         impl StoreData for T {
-            type Data = i32;
+            type Select = ();
 
-            fn init() -> Self::Data {
-                42
+            fn init() -> Self {
+                T {}
+            }
+
+            fn select(&self, _user: &User) -> &Self::Select {
+                &()
             }
         }
 

@@ -16,9 +16,9 @@ struct LightsOut {
 }
 
 impl StoreData for LightsOut {
-    type Data = LightsOut;
+    type Select = Self;
 
-    fn init() -> Self::Data {
+    fn init() -> Self {
         LightsOut {
             tiles: vec![false; 64],
             people: 0,
@@ -29,8 +29,8 @@ impl StoreData for LightsOut {
         "LightsOut"
     }
 
-    fn select(data: &Self::Data, _user: &User) -> impl serde::Serialize {
-        data
+    fn select(&self, _user: &User) -> &Self::Select {
+        self
     }
 }
 
