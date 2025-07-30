@@ -1,8 +1,7 @@
 import { MafClient } from "@usemaf/client";
 
 const client = new MafClient({
-  url: "http://localhost:1147",
-  app: "gilbert/example-basic",
+  server: "dev",
 });
 
 type JsonData =

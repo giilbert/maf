@@ -11,17 +11,19 @@ use maf_container::{
     ContainerResourceLimit,
 };
 use schemas::{
-    apps::{CreateUserAppRequest, RoomCreationStrategy},
+    apps::{
+        AppNameAndOrgSlug, CreateRoomOptions, CreateUserAppRequest, RoomCreationStrategy, RoomInfo,
+        RoomKeyHash,
+    },
     project_config::ProjectConfigFile,
 };
 use sea_orm::{ActiveValue::Set, ModelTrait};
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
     api::{
         auth::{authenticate_service_request, authenticate_user_request, AuthedServiceAccount},
-        rooms::{AppNameAndOrgSlug, InsertRoom, RoomKeyHash},
+        rooms::InsertRoom,
     },
     storage::{
         bundle::BundleError,
@@ -200,14 +202,6 @@ async fn delete_app(
     Ok(Json(app))
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct RoomInfo {
-    id: Uuid,
-    key: String,
-    secret: String,
-}
-
 /// **GET** `/api/v1/apps/{org}/{app}/rooms`
 async fn service_get_rooms(
     State(state): State<AppState>,
@@ -242,13 +236,6 @@ async fn service_get_rooms(
         }
         None => Ok(Json(vec![])),
     }
-}
-
-#[derive(Debug, Deserialize)]
-pub struct CreateRoomOptions {
-    /// A key used to identify the room, defaults to the room ID or "default" for autocreated rooms.
-    /// The key cannot be a UUID or "default" as they are reserved.
-    pub key: Option<String>,
 }
 
 /// **POST** `/api/v1/apps/{org}/{app}/rooms`

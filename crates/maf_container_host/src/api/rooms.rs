@@ -3,17 +3,18 @@ use std::{
     sync::Arc,
 };
 
-use maf_container::server::{RoomId, RoomInner};
-use rand::Rng as _;
-use schemas::apps::RoomCreationStrategy;
+use maf_container::server::RoomInner;
+use schemas::apps::{
+    generate_room_secret, AppNameAndOrgSlug, RoomCreationStrategy, RoomId, RoomKeyHash,
+};
 use tokio::sync::{RwLock, RwLockReadGuard};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct AppNameAndOrgSlug {
-    pub app: String,
-    pub org: String,
+#[derive(Debug, Clone)]
+pub struct Room {
+    pub id: RoomId,
+    pub meta: RoomMeta,
+    pub inner: RoomInner,
 }
-
 /// Contains additional information about the room, not related to the running the container.
 #[derive(Debug, Clone)]
 pub struct RoomMeta {
@@ -28,31 +29,10 @@ pub struct RoomMeta {
 }
 
 #[derive(Debug, Clone)]
-pub struct Room {
-    pub id: RoomId,
-    pub meta: RoomMeta,
-    pub inner: RoomInner,
-}
-
-fn generate_room_secret() -> String {
-    let mut rng = rand::rng();
-
-    (0..64)
-        .map(|_| rng.sample(rand::distr::Alphanumeric) as char)
-        .collect()
-}
-
-#[derive(Debug, Clone)]
 pub struct InsertRoom {
     pub strategy: RoomCreationStrategy,
     pub app: AppNameAndOrgSlug,
     pub room: RoomInner,
-    pub key: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct RoomKeyHash {
-    pub app: AppNameAndOrgSlug,
     pub key: String,
 }
 

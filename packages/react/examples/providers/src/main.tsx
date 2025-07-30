@@ -6,7 +6,7 @@ import "./index.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <MafProvider url="http://localhost:1147" app="santiago/game-clock">
+    <MafProvider server="dev">
       <App />
     </MafProvider>
   </StrictMode>

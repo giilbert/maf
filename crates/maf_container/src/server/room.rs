@@ -1,8 +1,9 @@
-use tokio::sync::{mpsc, oneshot};
+use schemas::apps::RoomId;
+use tokio::sync::oneshot;
 use uuid::Uuid;
 
 use crate::{
-    BoxedConnection, Connection, Container, ContainerRuntime,
+    Connection, Container, ContainerRuntime,
     container::{ContainerHandle, ContainerResourceLimit},
     wasi::{
         HookRequest,
@@ -12,14 +13,10 @@ use crate::{
 
 use super::Bundle;
 
-pub type RoomId = Uuid;
-
 #[derive(Debug, Clone)]
 pub struct RoomInner {
     pub container: ContainerHandle,
     id: Uuid,
-    connection_tx: mpsc::Sender<BoxedConnection>,
-    hooks_request_tx: mpsc::Sender<HookRequest>,
 }
 
 impl RoomInner {
@@ -40,12 +37,15 @@ impl RoomInner {
         Ok((
             Self {
                 id: room_id,
-                connection_tx: container.store.data().connection_tx.clone(),
-                hooks_request_tx: container.store.data().hook_request_tx.clone(),
                 container: container.handle(),
             },
             container,
         ))
+    }
+
+    pub async fn replace_container(&mut self, container: Container) -> anyhow::Result<()> {
+        self.container = container.handle();
+        Ok(())
     }
 
     /// Returns the unique identifier of the room.
@@ -54,7 +54,7 @@ impl RoomInner {
     }
 
     pub async fn add_connection(&self, connection: impl Connection) -> anyhow::Result<()> {
-        match self.connection_tx.send(Box::new(connection)).await {
+        match self.container.add_connection(Box::new(connection)).await {
             Ok(_) => tracing::info!("connection added to room {}", self.id),
             Err(_) => anyhow::bail!("failed to add connection to room {}", self.id),
         }
@@ -78,7 +78,7 @@ impl RoomInner {
             },
             message_tx,
         );
-        self.hooks_request_tx.send(request).await?;
+        self.container.send_hook_request(request).await?;
 
         match tokio::time::timeout(std::time::Duration::from_secs(5), message_rx).await? {
             Ok(response) => {

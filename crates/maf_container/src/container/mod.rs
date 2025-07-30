@@ -50,6 +50,8 @@ pub struct ContainerHandle {
     pub runtime: ContainerRuntime,
     pub cancel_token: CancellationToken,
     pub resources: Arc<ContainerResourceStats>,
+    connection_tx: mpsc::Sender<BoxedConnection>,
+    hook_request_tx: mpsc::Sender<HookRequest>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -119,6 +121,8 @@ impl Container {
             runtime: runtime.clone(),
             cancel_token: cancel_token.clone(),
             resources: resource_stats.clone(),
+            connection_tx: connection_tx.clone(),
+            hook_request_tx: hook_request_tx.clone(),
         };
 
         let resources = wasmtime_wasi::ResourceTable::default();
@@ -215,8 +219,25 @@ impl Container {
         });
     }
 
+    #[inline]
     pub fn handle(&self) -> ContainerHandle {
         self.shared.clone()
+    }
+}
+
+impl ContainerHandle {
+    pub async fn add_connection(&self, connection: BoxedConnection) -> anyhow::Result<()> {
+        self.connection_tx
+            .send(connection)
+            .await
+            .map_err(|_| anyhow::anyhow!("failed to add connection to room {}", self.room_id))
+    }
+
+    pub async fn send_hook_request(&self, request: HookRequest) -> anyhow::Result<()> {
+        self.hook_request_tx
+            .send(request)
+            .await
+            .map_err(|_| anyhow::anyhow!("failed to send hook request to room {}", self.room_id))
     }
 }
 

@@ -1,11 +1,13 @@
 mod dev_server;
+mod platform;
+mod rooms;
 
 use std::{path::Path, process};
 
 use clap::Subcommand;
 use dev_server::DevServerConfig;
 
-use crate::{pretty, Context};
+use crate::Context;
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum DevCommands {
@@ -21,13 +23,26 @@ pub async fn handle_commands(
     match command {
         Some(DevCommands::Run { file_path }) => handle_run(context, Some(file_path), port).await,
         None => {
-            let file_path = file_path.expect("FILE_PATH argument is required");
+            // Use the file path from the project config if available, otherwise use file_path
+            let file_path = match context
+                .project_config
+                .as_ref()
+                .map(|p| p.data.debug.output.clone())
+            {
+                Some(output) => output,
+                None => file_path.ok_or_else(|| {
+                    anyhow::anyhow!("No file path provided and no project config available")
+                })?,
+            };
 
-            dev_server::start_local_server(DevServerConfig {
-                port: port.unwrap_or(DEFAULT_PORT),
-                wasm_module_path: file_path,
-                watch: true,
-            })
+            dev_server::start_local_server(
+                context,
+                DevServerConfig {
+                    port: port.unwrap_or(DEFAULT_PORT),
+                    wasm_module_path: file_path,
+                    watch: true,
+                },
+            )
             .await
         }
     }
@@ -40,29 +55,29 @@ pub async fn handle_run(
     file_path: Option<String>,
     port: Option<u16>,
 ) -> anyhow::Result<()> {
-    dev_server::start_local_server(DevServerConfig {
-        port: port.unwrap_or(DEFAULT_PORT),
-        wasm_module_path: match file_path {
-            Some(path) => path,
-            None => {
-                let project = context.assert_project();
-                run_build_command(&project.base, &project.data.debug.command)?;
+    dev_server::start_local_server(
+        context,
+        DevServerConfig {
+            port: port.unwrap_or(DEFAULT_PORT),
+            wasm_module_path: match file_path {
+                Some(path) => path,
+                None => {
+                    let project = context.assert_project();
+                    run_build_command(&project.base, &project.data.debug.command)?;
 
-                let path = std::fs::canonicalize(project.base.join(&project.data.debug.output))?;
-                path.to_string_lossy().to_string()
-            }
+                    let path =
+                        std::fs::canonicalize(project.base.join(&project.data.debug.output))?;
+                    path.to_string_lossy().to_string()
+                }
+            },
+            watch: false,
         },
-        watch: false,
-    })
+    )
     .await
 }
 
 pub fn run_build_command(base_path: &Path, command: &str) -> anyhow::Result<()> {
-    pretty::info!(
-        "Running build command `{}` in `{}`...",
-        command,
-        base_path.to_string_lossy()
-    );
+    print_dimmed!("[dev] Running build command `{}`", command);
 
     println!("\n\n");
 
@@ -80,9 +95,20 @@ pub fn run_build_command(base_path: &Path, command: &str) -> anyhow::Result<()> 
 
     println!("\n");
 
-    pretty::info!("Build completed in {:.2?}", start.elapsed());
+    print_dimmed!("[dev] Build completed in {:.2?}", start.elapsed());
 
     println!("\n");
 
     Ok(())
 }
+
+#[macro_export]
+macro_rules! print_dimmed {
+    ($($arg:tt)*) => {
+        #[allow(unused_imports)]
+        use colored::Colorize as _;
+        println!("{}", format!($($arg)*).dimmed());
+    };
+}
+
+pub use print_dimmed;

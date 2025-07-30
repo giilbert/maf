@@ -13,7 +13,7 @@ import Link from "next/link";
 
 export const Hero: React.FC = () => {
   return (
-    <div className="p-6 lg:pt-12 pb-8 md:px-16 xl:px-24 lg:h-screen w-screen space-y-6 lg:space-y-8 flex flex-col md:max-h-screen">
+    <div className="p-6 lg:pt-12 pb-8 md:px-16 xl:px-24 lg:h-screen w-full space-y-6 lg:space-y-8 flex flex-col md:max-h-screen">
       <Navbar />
 
       <div className="space-y-8 xl:space-y-0 lg:grid grid-cols-4 xl:grid-cols-5 gap-2 md:gap-8 h-fit lg:h-[calc(100vh-9rem)] flex flex-col">

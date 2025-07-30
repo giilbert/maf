@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use schemas::apps::RoomId;
 use wasmtime::ResourceLimiterAsync;
 
-use crate::{ContainerResourceLimit, container::ContainerResourceStats, server::RoomId};
+use crate::{ContainerResourceLimit, container::ContainerResourceStats};
 
 // TODO: Pass in container data to the limiter
 pub struct ContainerResourceLimiter {

@@ -15,6 +15,7 @@
     "typescript": "^5.8.2"
   },
   "dependencies": {
+    "@usemaf/client": "workspace:*",
     "emittery": "^1.1.0",
     "zod": "^3.24.2"
   }

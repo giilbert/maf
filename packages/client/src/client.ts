@@ -4,9 +4,19 @@ import { Store, StoreOptions } from "./store";
 import { RxPacket, TxPacket } from "./packet";
 
 export interface MafClientOptions {
-  url: URL | string;
-  app?: string;
+  server: MafServerOptions;
 }
+
+export type MafServerOptions =
+  | { type: "dev"; url?: string | URL }
+  | {
+      type: "platform";
+      url: string | URL;
+      app: string;
+    }
+  | "dev";
+
+export const DEFAULT_DEV_SERVER_URL = "http://localhost:1147";
 
 export interface MafClientEvents {
   ready: SessionInfo;
@@ -18,9 +28,7 @@ export interface SessionInfo {
 }
 
 export type ConnectOptions =
-  | {
-      type: "default";
-    }
+  | { type: "default" }
   | {
       type: "room";
       id: string;
@@ -42,6 +50,8 @@ export class MafClient extends Emittery<MafClientEvents> {
   private _rpcId = 0;
   private _rpcCalls: Map<number, (data: unknown) => void> = new Map();
 
+  private _cleanups: (() => void)[] = [];
+
   public get ws() {
     if (!this._ws) throw new Error("WebSocket is not connected");
     return this._ws;
@@ -55,11 +65,20 @@ export class MafClient extends Emittery<MafClientEvents> {
   constructor(options: MafClientOptions) {
     super();
 
-    const url =
-      typeof options.url === "string" ? new URL(options.url) : options.url;
+    let url: URL;
 
-    if (options.app) {
-      url.pathname = `@/${options.app}`;
+    if (options.server === "dev") {
+      url = new URL(DEFAULT_DEV_SERVER_URL);
+      // In dev mode, use _/_ as the app for parity with the Platform server
+      url.pathname = "@/_/_";
+    } else if (options.server.type === "dev") {
+      url = new URL(options.server.url || DEFAULT_DEV_SERVER_URL);
+      url.pathname = "@/_/_";
+    } else if (options.server.type === "platform") {
+      url = new URL(options.server.url);
+      url.pathname = `@/${options.server.app}`;
+    } else {
+      throw new Error("Invalid server options");
     }
 
     this.url = url;
@@ -126,10 +145,18 @@ export class MafClient extends Emittery<MafClientEvents> {
     };
     ws.addEventListener("message", handleMessage);
 
-    ws.addEventListener("close", () => {
+    this._cleanups.push(() => {
       ws.removeEventListener("message", handleMessage);
-      this.emit("close", undefined);
     });
+
+    ws.addEventListener(
+      "close",
+      () => {
+        ws.removeEventListener("message", handleMessage);
+        this.emit("close", undefined);
+      },
+      { once: true }
+    );
 
     return handshakeResponse;
   }
@@ -138,10 +165,12 @@ export class MafClient extends Emittery<MafClientEvents> {
     if (this._ws) {
       if (this._ws.readyState === WebSocket.OPEN) {
         this._ws.close();
+        for (const cleanup of this._cleanups) cleanup();
       } else if (this._ws.readyState === WebSocket.CONNECTING) {
         const wsRef = this._ws;
         this._ws.onopen = () => {
           wsRef.close();
+          for (const cleanup of this._cleanups) cleanup();
         };
       }
 
