@@ -16,7 +16,7 @@ struct LightsOut {
 }
 
 impl StoreData for LightsOut {
-    type Select = Self;
+    type Select<'this> = &'this LightsOut;
 
     fn init() -> Self {
         LightsOut {
@@ -29,7 +29,7 @@ impl StoreData for LightsOut {
         "LightsOut"
     }
 
-    fn select(&self, _user: &User) -> &Self::Select {
+    fn select(&self, _user: &User) -> Self::Select<'_> {
         self
     }
 }

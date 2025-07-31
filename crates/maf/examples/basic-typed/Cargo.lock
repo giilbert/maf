@@ -692,6 +692,7 @@ name = "schemas"
 version = "0.1.0"
 dependencies = [
  "colored",
+ "facet",
  "rand",
  "serde",
  "uuid",

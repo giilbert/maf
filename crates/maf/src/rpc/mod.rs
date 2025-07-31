@@ -162,14 +162,14 @@ mod tests {
         struct T {}
 
         impl StoreData for T {
-            type Select = ();
+            type Select<'this> = ();
 
             fn init() -> Self {
                 T {}
             }
 
-            fn select(&self, _user: &User) -> &Self::Select {
-                &()
+            fn select(&self, _user: &User) -> Self::Select<'_> {
+                ()
             }
         }
 

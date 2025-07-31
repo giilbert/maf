@@ -46,23 +46,23 @@ mod tests {
         >() {
         }
 
-        struct T {
+        struct Counter {
             count: i32,
         }
 
-        impl StoreData for T {
-            type Select = i32;
+        impl StoreData for Counter {
+            type Select<'this> = i32;
 
             fn init() -> Self {
-                T { count: 0 }
+                Counter { count: 0 }
             }
 
-            fn select(&self, _user: &User) -> &Self::Select {
-                &self.count
+            fn select(&self, _user: &User) -> Self::Select<'_> {
+                self.count
             }
         }
 
-        check_on_connect_disconnect_parameter::<Store<T>>();
+        check_on_connect_disconnect_parameter::<Store<Counter>>();
         check_on_connect_disconnect_parameter::<User>();
         check_on_connect_disconnect_parameter::<App>();
     }

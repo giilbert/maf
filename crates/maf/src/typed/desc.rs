@@ -1,5 +1,5 @@
 use facet::Facet;
-use serde::{de::DeserializeOwned, Deserialize};
+use serde::de::DeserializeOwned;
 
 use crate::{App, Params, Store, StoreData, User};
 
@@ -173,14 +173,14 @@ mod tests {
     fn extract_rpc_desc_compiles() {
         struct Test;
         impl StoreData for Test {
-            type Select = i32;
+            type Select<'this> = i32;
 
             fn init() -> Self {
                 Test
             }
 
-            fn select(&self, _user: &crate::User) -> &Self::Select {
-                &1
+            fn select(&self, _user: &crate::User) -> Self::Select<'_> {
+                1
             }
         }
 

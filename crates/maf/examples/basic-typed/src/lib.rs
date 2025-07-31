@@ -6,14 +6,14 @@ struct CounterStore {
 }
 
 impl StoreData for CounterStore {
-    type Select = i32;
+    type Select<'a> = Option<&'a i32>;
 
     fn init() -> Self {
         CounterStore { count: 0 }
     }
 
-    fn select(&self, _user: &User) -> &Self::Select {
-        &self.count
+    fn select(&self, user: &User) -> Self::Select<'_> {
+        Some(&self.count)
     }
 
     fn name() -> impl AsRef<str> {

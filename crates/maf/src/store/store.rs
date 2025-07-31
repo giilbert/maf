@@ -66,9 +66,9 @@ pub struct StoreKey(Arc<str>);
 /// Describes the data stored in a [`Store`].
 pub trait StoreData: Send + Sync + 'static {
     // #[cfg(not(feature = "typed"))]
-    // type Select: Serialize;
+    // type Select<'this>: Serialize;
     // #[cfg(feature = "typed")]
-    type Select: Serialize + for<'a> facet::Facet<'a>;
+    type Select<'this>: Serialize + facet::Facet<'this>;
 
     fn name() -> impl AsRef<str> + Send {
         std::any::type_name::<Self>()
@@ -79,7 +79,7 @@ pub trait StoreData: Send + Sync + 'static {
     }
 
     #[allow(unused_variables)]
-    fn select(&self, user: &User) -> &Self::Select;
+    fn select(&self, user: &User) -> Self::Select<'_>;
 
     fn init() -> Self;
 }
