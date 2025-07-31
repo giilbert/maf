@@ -20,7 +20,7 @@ use crate::{
     },
     store::{AnyStore, StoreKey},
     tasks::{self, Runtime},
-    typed,
+    typed::{self, ExtractRpcDesc},
     user::UserMessage,
     Channel, RpcFunction, StoreData, User, UserListener,
 };
@@ -430,14 +430,23 @@ impl AppBuilder {
     ///         .build()
     /// }
     /// ```
-    pub fn rpc<Params, Return, Handler, const IS_ASYNC: bool>(
+    pub fn rpc<
+        // FIXME: WHY ARE TYPE PARAMETERS BAD
+        Params,
+        Return,
+        Handler,
+        const IS_ASYNC: bool,
+        Params2,
+        Return2,
+        const IS_ASYNC2: bool,
+    >(
         mut self,
         method: impl ToString,
         handler: Handler,
     ) -> Self
     where
-        Handler:
-            IntoCallable<RpcRequestContext, Params, Return, RpcError, RpcRequestInit, IS_ASYNC>,
+        Handler: IntoCallable<RpcRequestContext, Params, Return, RpcError, RpcRequestInit, IS_ASYNC>
+            + ExtractRpcDesc<Params2, Return2, IS_ASYNC2>,
         Return: Serialize + 'static,
     {
         let method = method.to_string();
@@ -462,6 +471,7 @@ impl AppBuilder {
                     })
                 })
             }),
+            desc: Handler::extract(method.clone()),
         });
         self
     }
