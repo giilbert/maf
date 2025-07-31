@@ -42,6 +42,11 @@ impl bindings::Host for ContainerData {
         Ok(self.resources.push(res)?)
     }
 
+    async fn report_app_schema(&mut self, schema: String) -> wasmtime::Result<()> {
+        println!("report_app_schema:\n {schema}");
+        Ok(())
+    }
+
     fn convert_listen_error(&mut self, err: ListenError) -> anyhow::Result<bindings::ListenError> {
         err.0.downcast()
     }

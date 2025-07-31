@@ -578,7 +578,7 @@ impl AppBuilder {
             inner: Arc::new(inner),
         };
 
-        typed::export_types(&app);
+        app.export_types();
 
         app
     }

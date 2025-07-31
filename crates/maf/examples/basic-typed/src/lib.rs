@@ -1,4 +1,3 @@
-use facet::Facet;
 use maf::*;
 
 struct CounterStore {

@@ -1,43 +1,59 @@
-use facet::{StructKind, TextualType, UserType};
-use serde::Serialize;
+use facet::{EnumType, PointerType, StructKind, TextualType, UserType};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub struct Type {
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AppSchema {
+    pub stores: Vec<StoreSerialized>,
+    pub rpcs: Vec<RpcSerialized>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct StoreSerialized {
     pub name: String,
-    pub kind: TypeKind,
+    pub select: TypeKind,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RpcSerialized {
+    pub name: String,
+    pub params: Option<TypeKind>,
+    pub result: Option<TypeKind>,
 }
 
 /// A high-level representation of types commonly used in programming languages.
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "type", content = "data")]
 pub enum TypeKind {
     /// Numeric, boolean, character, string, etc.
     Primitive(PrimitiveType),
     /// Option<T> / `_ | null` types.
     Nullable(Box<TypeKind>),
-
     Record(Box<RecordType>),
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "type", content = "data")]
 pub enum PrimitiveType {
     Numeric(NumericType),
     Bool,
     Char,
     String,
+    Unit,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RecordType {
     pub fields: Vec<(String, TypeKind)>,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MapType {
     pub key: TypeKind,
     pub value: TypeKind,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "type", content = "data")]
 pub enum NumericType {
     I8,
     I16,
@@ -115,9 +131,28 @@ impl From<&'static facet::Shape> for TypeKind {
             facet::Type::User(UserType::Opaque) if shape.type_identifier == "String" => {
                 TypeKind::Primitive(PrimitiveType::String)
             }
+            facet::Type::User(UserType::Opaque) if shape.type_identifier == "()" => {
+                TypeKind::Primitive(PrimitiveType::Unit)
+            }
+
             facet::Type::User(UserType::Opaque) if shape.type_identifier == "Option" => {
                 TypeKind::Nullable(Box::new((shape.type_params[0].shape)().into()))
             }
+            facet::Type::User(UserType::Enum(enum_type)) if shape.type_identifier == "Option" => {
+                // Option is represented as an enum with two variants: Some(T) and None
+                TypeKind::Nullable(Box::new(
+                    (enum_type
+                        .variants
+                        .iter()
+                        .find(|p| p.name == "Some")
+                        .expect("Some(T) variant not found in Option<T> enum")
+                        .data
+                        .fields[0]
+                        .shape)
+                        .into(),
+                ))
+            }
+
             facet::Type::User(UserType::Struct(struct_type))
                 if struct_type.kind == StructKind::Struct =>
             {
@@ -129,7 +164,7 @@ impl From<&'static facet::Shape> for TypeKind {
                         .collect(),
                 }))
             }
-            facet::Type::Pointer(_) => unimplemented!("pointer types are not supported"),
+            facet::Type::Pointer(PointerType::Reference(reference)) => (reference.target)().into(),
             other => todo!("unsupported type: {:?}", other),
         }
     }
@@ -244,5 +279,11 @@ mod tests {
                 NumericType::I32
             ))))
         );
+
+        // Test null-pointer optimization types
+        assert_eq!(
+            TypeKind::from(Option::<&String>::SHAPE),
+            TypeKind::Nullable(Box::new(TypeKind::Primitive(PrimitiveType::String)))
+        )
     }
 }
