@@ -1,0 +1,12 @@
+[package]
+name = "maf_typed"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+schemas = { path = "../schemas" }
+
+[dev-dependencies]
+facet = "0.28.0"
+maf = { path = "../maf" }
+serde = { version = "^1", features = ["derive"] }

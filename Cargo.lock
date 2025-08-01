@@ -2352,6 +2352,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "maf_typed"
+version = "0.1.0"
+dependencies = [
+ "facet",
+ "maf",
+ "schemas",
+ "serde",
+]
+
+[[package]]
 name = "matchers"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
