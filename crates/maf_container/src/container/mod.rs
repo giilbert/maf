@@ -10,7 +10,11 @@ use std::{
 };
 
 use io::ContainerStdoutFactory;
-use tokio::{sync::mpsc, time};
+use schemas::typed::AppSchema;
+use tokio::{
+    sync::{mpsc, oneshot},
+    time,
+};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 use wasmtime as wt;
@@ -88,6 +92,10 @@ pub struct ContainerData {
     pub hook_request_tx: mpsc::Sender<HookRequest>,
     pub connection_rx: Option<mpsc::Receiver<BoxedConnection>>,
     pub hook_request_rx: Option<mpsc::Receiver<HookRequest>>,
+
+    pub app_schema_tx: Option<oneshot::Sender<AppSchema>>,
+    pub app_schema_rx: Option<oneshot::Receiver<AppSchema>>,
+
     pub(crate) last_activity: Arc<AtomicU64>,
     pub(crate) app_activity: &'static AtomicU64,
     pub(crate) limiter: ContainerResourceLimiter,
@@ -113,6 +121,7 @@ impl Container {
         let (connection_tx, connection_rx) = mpsc::channel(10);
         let (output_tx, output_rx) = mpsc::channel(100);
         let (hook_request_tx, hook_request_rx) = mpsc::channel(1000);
+        let (app_schema_tx, app_schema_rx) = oneshot::channel();
 
         let resource_stats = Arc::<ContainerResourceStats>::default();
         let cancel_token = CancellationToken::new();
@@ -139,6 +148,8 @@ impl Container {
                 hook_request_tx,
                 connection_rx: Some(connection_rx),
                 hook_request_rx: Some(hook_request_rx),
+                app_schema_rx: Some(app_schema_rx),
+                app_schema_tx: Some(app_schema_tx),
                 last_activity: Arc::new(AtomicU64::new(utils::now_as_secs())),
                 app_activity: runtime.app_activity,
                 limiter: ContainerResourceLimiter {
@@ -197,6 +208,17 @@ impl Container {
         }
 
         Ok(())
+    }
+
+    pub fn get_app_schema(&mut self) -> anyhow::Result<oneshot::Receiver<AppSchema>> {
+        let rx = self
+            .store
+            .data_mut()
+            .app_schema_rx
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("app schema receiver already taken"))?;
+
+        Ok(rx)
     }
 
     pub fn take_output(&mut self) -> Option<mpsc::Receiver<String>> {

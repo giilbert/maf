@@ -14,13 +14,13 @@ impl App {
             .expect("Failed to read stores");
         let rpcs = &self.inner.rpc_functions.inner;
 
-        for (key, store) in stores.iter() {
-            println!("store: key = {:?}, desc = {:?}", key.as_ref(), store.desc);
-        }
+        // for (key, store) in stores.iter() {
+        //     println!("store: key = {:?}, desc = {:?}", key.as_ref(), store.desc);
+        // }
 
-        for rpc in rpcs.values() {
-            println!("rpc: method = {:?} desc = {:?}", rpc.method, rpc.desc);
-        }
+        // for rpc in rpcs.values() {
+        //     println!("rpc: method = {:?} desc = {:?}", rpc.method, rpc.desc);
+        // }
 
         bindings::bindgen::report_app_schema(
             &serde_json::to_string_pretty(&schemas::typed::AppSchema {

@@ -1,4 +1,4 @@
-use facet::{EnumType, PointerType, StructKind, TextualType, UserType};
+use facet::{PointerType, StructKind, TextualType, UserType};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

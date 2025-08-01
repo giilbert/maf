@@ -114,6 +114,30 @@ impl DevRoomsStorage {
             }
         });
 
+        let schema_rx = container.get_app_schema()?;
+        let room_key_clone = room_key.clone();
+        tokio::spawn(async move {
+            let schema = match schema_rx.await {
+                Ok(schema) => schema,
+                Err(e) => {
+                    println!(
+                        "{}",
+                        format!("[dev] `{}` Error receiving app schema: {e}", room_key_clone).red()
+                    );
+                    return;
+                }
+            };
+
+            println!(
+                "{}",
+                format!(
+                    "[dev] `{}` App schema received: {schema:#?}",
+                    room_key_clone
+                )
+                .dimmed()
+            );
+        });
+
         let room_key_clone = room_key.clone();
         tokio::spawn(async move {
             if let Err(e) = container.run().await {
