@@ -1,18 +1,18 @@
 import { useEffect, useState, useContext } from "react";
 import { MafContext } from "./maf-provider";
 
-export enum StoreStatus {
-  LOADING,
-  READY,
+export enum MafStatus {
+  LOADING = "loading",
+  READY = "ready",
 }
 
 type UseStoreDiscUnion<TData, TFallback> =
   | {
-      status: StoreStatus.LOADING;
+      status: MafStatus.LOADING;
       data: TFallback;
     }
   | {
-      status: StoreStatus.READY;
+      status: MafStatus.READY;
       data: TData;
     };
 
@@ -37,7 +37,7 @@ export function useStore<TData, TFallback>(
   TData | undefined,
   TFallback extends undefined ? never : TFallback
 > {
-  const [status, setStatus] = useState<StoreStatus>(StoreStatus.LOADING);
+  const [status, setStatus] = useState<MafStatus>(MafStatus.LOADING);
   const [data, setData] = useState<TData | TFallback>(
     fallback as TFallback extends undefined ? never : TFallback
   );
@@ -50,21 +50,21 @@ export function useStore<TData, TFallback>(
       const store = client.store<TData>(storeName);
       store.init.then(() => {
         setData(store.data);
-        setStatus(StoreStatus.READY);
+        setStatus(MafStatus.READY);
         store.on("change", () => setData(store.data));
       });
     }
   }, [contextData]);
 
-  if (status === StoreStatus.LOADING) {
+  if (status === MafStatus.LOADING) {
     return {
-      status: StoreStatus.LOADING,
+      status: MafStatus.LOADING,
       data: fallback as TFallback extends undefined ? never : TFallback,
     };
   }
 
   return {
-    status: StoreStatus.READY,
+    status: MafStatus.READY,
     data: data as TData,
   };
 }
