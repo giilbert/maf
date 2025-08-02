@@ -1,9 +1,8 @@
 import { useContext } from "react";
 import { MafContext } from "./maf-provider";
+import { useMutation, UseMutationResult } from "@tanstack/react-query";
 
-export interface UseRpc<TData> {
-  mutateAsync: (...args: unknown[]) => Promise<TData>;
-}
+export type UseRpc<TData> = UseMutationResult<TData, Error, unknown, unknown>;
 
 export function useRpc<TData>(method: string): UseRpc<TData> {
   const contextData = useContext(MafContext);
@@ -16,7 +15,9 @@ export function useRpc<TData>(method: string): UseRpc<TData> {
 
   const { client } = contextData;
 
-  return {
-    mutateAsync: (...args: unknown[]) => client.rpc<TData>(method, ...args),
-  };
+  const mutation = useMutation({
+    mutationFn: (...args: unknown[]) => client.rpc<TData>(method, ...args),
+  });
+
+  return mutation;
 }

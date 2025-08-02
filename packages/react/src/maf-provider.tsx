@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MafClient } from "@usemaf/client";
 import { ConnectOptions, MafServerOptions } from "@usemaf/client/src/client";
 import React, { createContext, useEffect, useRef, useState } from "react";
@@ -12,6 +13,7 @@ export interface MafContextType {
 }
 
 export const MafContext = createContext<MafContextType | null>(null);
+const queryClient = new QueryClient();
 
 export const MafProvider: React.FC<
   React.PropsWithChildren<MafProviderProps>
@@ -37,9 +39,8 @@ export const MafProvider: React.FC<
         {
           client: mafClient,
         } as MafContextType
-      }
-    >
-      {children}
+      }>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </MafContext.Provider>
   );
 };
