@@ -2280,6 +2280,7 @@ dependencies = [
  "include_dir",
  "indicatif",
  "maf_container",
+ "maf_typed",
  "notify",
  "notify-debouncer-full",
  "reqwest",

@@ -128,10 +128,21 @@ impl DevRoomsStorage {
                 }
             };
 
-            println!(
+            tracing::debug!(
                 "{}",
                 format!(
                     "[dev] `{}` App schema received: {schema:#?}",
+                    room_key_clone
+                )
+                .dimmed()
+            );
+
+            let codegen = maf_typed::TypeScriptCodegen::new(schema);
+            let typescript_types = codegen.emit();
+            tracing::debug!(
+                "{}",
+                format!(
+                    "[dev] `{}` TypeScript types generated:\n{typescript_types}",
                     room_key_clone
                 )
                 .dimmed()
