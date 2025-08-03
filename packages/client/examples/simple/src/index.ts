@@ -1,10 +1,17 @@
-import { MafClient } from "@usemaf/client";
+import { TypedMafClient } from "@usemaf/client";
+import type { MafApp } from "./types";
 
-const client = new MafClient({
+declare module "@usemaf/client" {
+  interface MafTypes {
+    generated: MafApp;
+  }
+}
+
+const client = new TypedMafClient({
   server: "dev",
 });
 
-const store = client.store("CounterStore");
+const store = client.store("count");
 
 store.on("change", (data) => {
   console.log("Counter value changed:", data);

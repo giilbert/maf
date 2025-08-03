@@ -5,3 +5,4 @@ export {
   type MafServerOptions,
 } from "./client";
 export { Store, type StoreOptions, type StoreEvents } from "./store";
+export { TypedMafClient, type MafTypes, type StoreDefinition } from "./typed";

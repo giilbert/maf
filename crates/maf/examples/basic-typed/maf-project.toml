@@ -8,3 +8,6 @@ output = "target/wasm32-wasip2/debug/example_basic_typed.wasm"
 [release]
 command = "cargo build --target wasm32-wasip2 --release"
 output = "target/wasm32-wasip2/release/example_basic_typed.wasm"
+
+[typed]
+out = "types.ts"

@@ -116,6 +116,7 @@ impl DevRoomsStorage {
 
         let schema_rx = container.get_app_schema()?;
         let room_key_clone = room_key.clone();
+        let project = state.project.clone();
         tokio::spawn(async move {
             let schema = match schema_rx.await {
                 Ok(schema) => schema,
@@ -147,6 +148,36 @@ impl DevRoomsStorage {
                 )
                 .dimmed()
             );
+
+            if let Some((base, Some(typed_config))) =
+                project.map(|c| (c.base, c.data.typed.clone()))
+            {
+                let config_path = tokio::fs::canonicalize(base.join(&typed_config.out))
+                    .await
+                    .expect("Failed to canonicalize typed config path");
+
+                if let Err(e) = tokio::fs::write(&config_path, typescript_types).await {
+                    println!(
+                        "{}",
+                        format!(
+                            "[dev] `{}` Error writing TypeScript types to {}: {e}",
+                            room_key_clone,
+                            config_path.display()
+                        )
+                        .red()
+                    );
+                } else {
+                    println!(
+                        "{}",
+                        format!(
+                            "[dev] `{}` TypeScript types generated to {}",
+                            room_key_clone,
+                            config_path.display()
+                        )
+                        .dimmed()
+                    );
+                }
+            }
         });
 
         let room_key_clone = room_key.clone();
