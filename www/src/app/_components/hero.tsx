@@ -16,14 +16,14 @@ export const Hero: React.FC = () => {
     <div className="p-6 lg:pt-12 pb-8 md:px-16 xl:px-24 lg:h-screen w-full space-y-6 lg:space-y-8 flex flex-col md:max-h-screen">
       <Navbar />
 
-      <div className="space-y-8 xl:space-y-0 lg:grid grid-cols-4 xl:grid-cols-5 gap-2 md:gap-8 h-fit lg:h-[calc(100vh-9rem)] flex flex-col">
-        <div className="col-span-2 space-y-12 flex flex-col h-full">
+      <div className="space-y-8 xl:space-y-0 lg:flex-row gap-2 md:gap-8 h-fit lg:h-[calc(100vh-9rem)] flex flex-col">
+        <div className="space-y-6 flex flex-col h-full flex-2/3 max-w-1/2">
           <div className="space-y-6 bg-background-300 px-8 py-12 relative h-fit lg:h-full -ml-8 -mr-6 md:mr-0 flex flex-col justify-center">
             <div className="hidden md:block w-full h-full absolute bg-background-500 -z-10 top-4 left-4"></div>
 
             <div className="space-y-2">
               <p className="font-mono">{"//"} mutation authority framework</p>
-              <h1 className="font-extrabold text-5xl md:text-6xl xl:text-[4rem] leading-[0.9]">
+              <h1 className="font-extrabold text-4xl md:text-5xl xl:text-[3.5rem] leading-[0.9]">
                 <Balancer>
                   Take The <span className="italic">Time</span> Out Of Realtime
                 </Balancer>
@@ -71,7 +71,7 @@ export const Hero: React.FC = () => {
           </div>
         </div>
 
-        <div className="h-[calc(100vh-8rem)] lg:h-full col-span-2 xl:col-span-3 border border-dashed border-neutral-700 flex items-center justify-center">
+        <div className="h-[calc(100vh-8rem)] lg:h-full col-span-2 xl:col-span-3 border border-dashed border-neutral-700 flex items-center justify-center flex-[1]">
           <DemoApp />
         </div>
       </div>
