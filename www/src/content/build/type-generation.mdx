@@ -1,0 +1,103 @@
+---
+title: Type Generation
+category: Build Your App
+---
+
+# Type Generation
+
+MAF can optionally generate TypeScript types for your app's data models. This is
+useful for ensuring type safety in your application code.
+
+Currently, type generation is only supported for Rust and TypeScript projects.
+Support for more languages will be added in the future.
+
+## Enabling Type Generation
+
+1\. Add the following to your `maf-project.toml`:
+
+```toml
+[typed]
+language = "TypeScript"
+out = "types.ts" # Output file for generated types
+```
+
+2\. Enable Rust type introspection by implementing `facet::Facet` in serialized
+types.
+
+```toml
+# Cargo.toml: Add `facet` as a dependency
+[dependencies]
+# ...
+facet = "0.28.0"
+```
+
+```rust
+// Most standard library types already implement `facet::Facet`,
+// but for custom types, you need to derive `Facet`:
+#[derive(facet::Facet)]
+struct Game {
+    points: i32,
+    round: u32,
+    phase: String,
+}
+
+impl StoreData for Game {
+    type Select<'this> = &'this Game;
+    //                   ^^^^^^^^^^^ Store::Select must implement `Facet`
+    // ...
+}
+
+fn make_move(params: Params<(u32, u32)>) -> String {
+    //                      ^^^^^^^^^^      ^^^^^^
+    //                      Parameter and return types must implement `Facet`
+    // ...
+}
+
+fn build() -> App {
+    App::builder()
+        // Types should be statically registered in the app builder
+        .store::<Game>()
+        .rpc("make_move", make_move)
+        // ...
+        .build()
+}
+
+// ...
+```
+
+3\. Start a development server and create a room to generate the types:
+
+```bash
+$ maf run
+# ...
+[dev] `default` Types generated to .../types.ts
+```
+
+4\. Import the generated types in your client code and register them:
+
+```typescript
+import type { MafApp } from "./types";
+
+declare module "@usemaf/client" {
+  interface MafTypes {
+    generated: MafApp;
+  }
+}
+```
+
+5\. Change `MafClient` to `TypedMafClient` in your client code:
+
+```typescript
+const client = new TypedMafClient({
+  //               ^^^^^^^^^^^^^^
+  server: "dev",
+});
+
+const store = client.store("game");
+//                         ^ Should auto-complete
+
+store.on("change", (data) => {
+  //                ^ Should have type information
+  console.log("Game store changed:", data);
+});
+```

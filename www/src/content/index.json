@@ -16,7 +16,8 @@
       "build/store",
       "build/state",
       "build/rpc",
-      "build/rooms"
+      "build/rooms",
+      "build/type-generation"
     ]
   },
   {
