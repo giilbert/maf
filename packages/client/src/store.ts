@@ -1,5 +1,5 @@
 import Emittery from "emittery";
-import type { MafBaseClient } from "./client";
+import type { MafUntypedBaseClient } from "./client";
 
 export interface StoreOptions<T> {
   default?: T;
@@ -11,7 +11,7 @@ export interface StoreEvents<T> {
 }
 
 export class Store<T> extends Emittery<StoreEvents<T>> {
-  private readonly client: MafBaseClient;
+  private readonly client: MafUntypedBaseClient;
   private readonly name: string;
 
   private _hasInit: boolean = false;
@@ -30,7 +30,11 @@ export class Store<T> extends Emittery<StoreEvents<T>> {
    */
   public readonly init: Promise<void>;
 
-  constructor(client: MafBaseClient, name: string, options?: StoreOptions<T>) {
+  constructor(
+    client: MafUntypedBaseClient,
+    name: string,
+    options?: StoreOptions<T>
+  ) {
     super();
 
     const storeInit = options?.default ?? null;

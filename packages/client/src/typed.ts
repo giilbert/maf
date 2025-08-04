@@ -6,9 +6,16 @@ export interface StoreDefinition<S> {
   select: S;
 }
 
+export interface RpcDefinition<P, R extends unknown | unknown[]> {
+  name: string;
+  params: P;
+  result: R;
+}
+
 interface DefaultMafTypes {
   generated: {
     stores: Record<string, StoreDefinition<unknown>>;
+    rpcs: Record<string, RpcDefinition<unknown, unknown>>;
   };
 }
 
@@ -17,6 +24,12 @@ export interface MafTypes extends DefaultMafTypes {}
 type TypedStores = MafTypes["generated"]["stores"];
 type StoreKeys = keyof TypedStores;
 type StoreSelect<K extends StoreKeys> = TypedStores[K]["select"];
+
+type TypedRpcs = MafTypes["generated"]["rpcs"];
+type RpcKeys = keyof TypedRpcs;
+type RpcParams<K extends RpcKeys> = TypedRpcs[K]["params"] extends unknown[]
+  ? TypedRpcs[K]["params"]
+  : [TypedRpcs[K]["params"]];
 
 export class TypedMafClient extends MafUntypedBaseClient {
   constructor(options: MafClientOptions) {
@@ -30,7 +43,7 @@ export class TypedMafClient extends MafUntypedBaseClient {
     return super.untypedStore(name, options);
   }
 
-  public rpc<T>(method: string, ...params: unknown[]) {
-    return this.untypedRpc<T>(method, ...params);
+  public rpc<K extends RpcKeys>(method: K, ...params: RpcParams<K>) {
+    return this.untypedRpc<TypedRpcs[K]["result"]>(method, ...params);
   }
 }
