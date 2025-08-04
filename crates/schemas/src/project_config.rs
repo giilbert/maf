@@ -15,7 +15,13 @@ pub struct ProjectConfigFile {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Language {
+    TypeScript,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TypedConfig {
+    pub language: Language,
     pub out: PathBuf,
 }
 
@@ -26,6 +32,5 @@ pub struct TargetConfig {
 }
 
 fn default_room_creation_strategy() -> RoomCreationStrategy {
-    println!("default called");
     RoomCreationStrategy::AuthenticatedApiRequest
 }

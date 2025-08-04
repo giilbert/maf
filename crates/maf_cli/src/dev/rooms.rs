@@ -15,7 +15,11 @@ use notify_debouncer_full::{new_debouncer_opt, DebounceEventResult, Debouncer, R
 use schemas::apps::{generate_room_secret, RoomCreationStrategy, RoomId};
 use tokio::sync::{RwLock, RwLockReadGuard};
 
-use crate::{config::ProjectConfig, dev::dev_server::DevServerState, print_dimmed};
+use crate::{
+    config::ProjectConfig,
+    dev::{dev_server::DevServerState, typed},
+    print_dimmed,
+};
 
 // Simplified version of RoomKeyHash and InsertRoom for development purposes
 
@@ -131,52 +135,16 @@ impl DevRoomsStorage {
 
             tracing::debug!(
                 "{}",
-                format!(
-                    "[dev] `{}` App schema received: {schema:#?}",
-                    room_key_clone
-                )
-                .dimmed()
+                format!("[dev] `{}` App schema received: {schema:?}", room_key_clone).dimmed()
             );
 
-            let codegen = maf_typed::TypeScriptCodegen::new(schema);
-            let typescript_types = codegen.emit();
-            tracing::debug!(
-                "{}",
-                format!(
-                    "[dev] `{}` TypeScript types generated:\n{typescript_types}",
-                    room_key_clone
-                )
-                .dimmed()
-            );
-
-            if let Some((base, Some(typed_config))) =
-                project.map(|c| (c.base, c.data.typed.clone()))
+            if let Err(e) =
+                typed::create_types_file_for_project(project, schema, &room_key_clone).await
             {
-                let config_path = tokio::fs::canonicalize(base.join(&typed_config.out))
-                    .await
-                    .expect("Failed to canonicalize typed config path");
-
-                if let Err(e) = tokio::fs::write(&config_path, typescript_types).await {
-                    println!(
-                        "{}",
-                        format!(
-                            "[dev] `{}` Error writing TypeScript types to {}: {e}",
-                            room_key_clone,
-                            config_path.display()
-                        )
-                        .red()
-                    );
-                } else {
-                    println!(
-                        "{}",
-                        format!(
-                            "[dev] `{}` TypeScript types generated to {}",
-                            room_key_clone,
-                            config_path.display()
-                        )
-                        .dimmed()
-                    );
-                }
+                println!(
+                    "{}",
+                    format!("[dev] `{}` Error creating types file: {e}", room_key_clone).red()
+                );
             }
         });
 
