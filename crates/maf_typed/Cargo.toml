@@ -8,5 +8,5 @@ schemas = { path = "../schemas" }
 
 [dev-dependencies]
 facet = "0.28.0"
-maf = { path = "../maf" }
+maf = { path = "../maf", features = ["typed"] }
 serde = { version = "^1", features = ["derive"] }

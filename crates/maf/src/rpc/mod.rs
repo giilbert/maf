@@ -33,7 +33,6 @@ use params::ParamsError;
 
 use crate::{
     callable::{AnyCallable, CallableFetch},
-    typed::RpcDesc,
     App, SendError, StateError, User,
 };
 
@@ -41,7 +40,9 @@ pub struct RpcFunction {
     pub(crate) method: String,
     pub(crate) type_id: TypeId,
     pub(crate) handler: AnyCallable<RpcRequestContext, TypedRpcResponsePacket, RpcError>,
-    pub(crate) desc: RpcDesc,
+
+    #[cfg(feature = "typed")]
+    pub(crate) desc: crate::typed::RpcDesc,
 }
 
 impl std::fmt::Debug for RpcFunction {

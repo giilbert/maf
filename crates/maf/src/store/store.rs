@@ -11,7 +11,6 @@ use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::{
     callable::{CallableFetch, CallableParam},
-    typed::StoreDesc,
     App, User,
 };
 
@@ -29,8 +28,8 @@ pub struct AnyStore {
             + 'static,
     >,
 
-    // #[cfg(feature = "typed")]
-    pub(crate) desc: StoreDesc,
+    #[cfg(feature = "typed")]
+    pub(crate) desc: crate::typed::StoreDesc,
 }
 
 impl std::fmt::Debug for AnyStore {
@@ -65,9 +64,9 @@ pub struct StoreKey(Arc<str>);
 
 /// Describes the data stored in a [`Store`].
 pub trait StoreData: Send + Sync + 'static {
-    // #[cfg(not(feature = "typed"))]
-    // type Select<'this>: Serialize;
-    // #[cfg(feature = "typed")]
+    #[cfg(not(feature = "typed"))]
+    type Select<'this>: Serialize;
+    #[cfg(feature = "typed")]
     type Select<'this>: Serialize + facet::Facet<'this>;
 
     fn name() -> impl AsRef<str> + Send {
@@ -98,8 +97,8 @@ impl AnyStore {
 
                 serde_json::to_value(T::select(&data, user)).map_err(Into::into)
             }),
-            // #[cfg(feature = "typed")]
-            desc: StoreDesc::new::<T>(),
+            #[cfg(feature = "typed")]
+            desc: crate::typed::StoreDesc::new::<T>(),
         }
     }
 }

@@ -20,7 +20,6 @@ use crate::{
     },
     store::{AnyStore, StoreKey},
     tasks::{self, Runtime},
-    typed::{self, ExtractRpcDesc},
     user::UserMessage,
     Channel, RpcFunction, StoreData, User, UserListener,
 };
@@ -434,21 +433,30 @@ impl AppBuilder {
         // FIXME: WHY ARE TYPE PARAMETERS BAD
         Params,
         Return,
-        Handler,
         const IS_ASYNC: bool,
-        Params2,
-        Return2,
-        const IS_ASYNC2: bool,
+        #[cfg(feature = "typed")] TypedParams,
+        #[cfg(feature = "typed")] TypedReturn,
+        #[cfg(feature = "typed")] const TYPED_IS_ASYNC: bool,
+        #[cfg(feature = "typed")] Handler: IntoCallable<RpcRequestContext, Params, Return, RpcError, RpcRequestInit, IS_ASYNC>
+            + crate::typed::ExtractRpcDesc<TypedParams, TypedReturn, TYPED_IS_ASYNC>,
     >(
         mut self,
         method: impl ToString,
-        handler: Handler,
+        #[cfg(feature = "typed")] handler: Handler,
+        #[cfg(not(feature = "typed"))] handler: impl IntoCallable<
+            RpcRequestContext,
+            Params,
+            Return,
+            RpcError,
+            RpcRequestInit,
+            IS_ASYNC,
+        >,
     ) -> Self
     where
-        Handler: IntoCallable<RpcRequestContext, Params, Return, RpcError, RpcRequestInit, IS_ASYNC>
-            + ExtractRpcDesc<Params2, Return2, IS_ASYNC2>,
         Return: Serialize + 'static,
     {
+        use std::any::Any;
+
         let method = method.to_string();
         let callable: Arc<AnyCallable<RpcRequestContext, Return, RpcError>> =
             Arc::from(handler.into_callable(RpcRequestInit {
@@ -456,7 +464,7 @@ impl AppBuilder {
             }));
 
         self.rpc_functions.add_rpc_function(RpcFunction {
-            type_id: std::any::TypeId::of::<Handler>(),
+            type_id: handler.type_id(),
             method: method.clone(),
             handler: Box::new(move |ctx| {
                 let callable = callable.clone();
@@ -471,6 +479,7 @@ impl AppBuilder {
                     })
                 })
             }),
+            #[cfg(feature = "typed")]
             desc: Handler::extract(method.clone()),
         });
         self
@@ -578,6 +587,7 @@ impl AppBuilder {
             inner: Arc::new(inner),
         };
 
+        #[cfg(feature = "typed")]
         app.export_types();
 
         app

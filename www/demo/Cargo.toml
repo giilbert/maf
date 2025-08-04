@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 maf = { path = "../../crates/maf" }
+facet = "0.28.0"
 serde = { version = "^1", features = ["derive"] }
 
 [lib]
