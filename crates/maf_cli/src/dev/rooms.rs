@@ -15,11 +15,7 @@ use notify_debouncer_full::{new_debouncer_opt, DebounceEventResult, Debouncer, R
 use schemas::apps::{generate_room_secret, RoomCreationStrategy, RoomId};
 use tokio::sync::{RwLock, RwLockReadGuard};
 
-use crate::{
-    config::ProjectConfig,
-    dev::{dev_server::DevServerState, typed},
-    print_dimmed,
-};
+use crate::{config::ProjectConfig, dev::dev_server::DevServerState, print_dimmed};
 
 // Simplified version of RoomKeyHash and InsertRoom for development purposes
 
@@ -115,36 +111,6 @@ impl DevRoomsStorage {
                     format!("[dev] `{}`", room_key_clone).dimmed(),
                     "out".blue()
                 )
-            }
-        });
-
-        let schema_rx = container.get_app_schema()?;
-        let room_key_clone = room_key.clone();
-        let project = state.project.clone();
-        tokio::spawn(async move {
-            let schema = match schema_rx.await {
-                Ok(schema) => schema,
-                Err(e) => {
-                    println!(
-                        "{}",
-                        format!("[dev] `{}` Error receiving app schema: {e}", room_key_clone).red()
-                    );
-                    return;
-                }
-            };
-
-            tracing::debug!(
-                "{}",
-                format!("[dev] `{}` App schema received: {schema:?}", room_key_clone).dimmed()
-            );
-
-            if let Err(e) =
-                typed::create_types_file_for_project(project, schema, &room_key_clone).await
-            {
-                println!(
-                    "{}",
-                    format!("[dev] `{}` Error creating types file: {e}", room_key_clone).red()
-                );
             }
         });
 

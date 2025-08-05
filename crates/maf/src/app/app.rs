@@ -598,7 +598,7 @@ impl AppBuilder {
 macro_rules! register {
     ($func:ident) => {
         pub use $crate::bindings::bindgen::{
-            self, __export_world_imports_cabi, _export_run_cabi, export,
+            self, __export_world_imports_cabi, _export_dry_run_cabi, _export_run_cabi, export,
         };
 
         pub struct GuestImpl {}
@@ -609,6 +609,13 @@ macro_rules! register {
                 $crate::tasks::Runtime::new().global();
                 let app = $func();
                 app.run();
+                Ok(())
+            }
+
+            fn dry_run() -> Result<(), ()> {
+                $crate::bindings::init_panic_hook();
+                $crate::tasks::Runtime::new().global();
+                let _app = $func();
                 Ok(())
             }
         }

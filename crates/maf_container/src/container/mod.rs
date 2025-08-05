@@ -200,12 +200,28 @@ impl Container {
         tokio::select! {
             result = self.instance.call_run(&mut self.store) => {
                 let inner_result = result?;
-                return inner_result.map_err(|e| anyhow::anyhow!("container error: {e:?}"));
+                return inner_result.map_err(|_| anyhow::anyhow!("unknown container error"));
             }
             _ = self.cancel_token.cancelled() => {
                 tracing::info!("container stopped due to inactivity");
             }
         }
+
+        Ok(())
+    }
+
+    /// Dry-run the container without listening for IO events (connections, hooks, etc).
+    ///
+    /// This is useful for checking if the container can create the app without errors and report
+    /// data for type generation.
+    pub async fn dry_run(&mut self) -> anyhow::Result<()> {
+        tokio::time::timeout(Duration::from_millis(100), async move {
+            self.instance.call_dry_run(&mut self.store).await
+        })
+        .await
+        .map_err(|_| anyhow::anyhow!("container dry-run timed out"))?
+        .map_err(|e| anyhow::anyhow!("container error: {e:?}"))?
+        .map_err(|_| anyhow::anyhow!("unknown container error"))?;
 
         Ok(())
     }
