@@ -510,7 +510,6 @@ name = "maf"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "facet",
  "futures-util",
  "schemas",
  "serde",

@@ -5,13 +5,13 @@ struct CounterStore {
 }
 
 impl StoreData for CounterStore {
-    type Select = i32;
+    type Select<'this> = &'this i32;
 
     fn init() -> Self {
         CounterStore { count: 0 }
     }
 
-    fn select(&self, _user: &User) -> &Self::Select {
+    fn select(&self, _user: &User) -> Self::Select<'_> {
         &self.count
     }
 

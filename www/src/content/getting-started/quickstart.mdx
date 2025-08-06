@@ -98,18 +98,23 @@ INFO: Setting up project 'enter-project-name' using template 'rust' in ...
 ```rust
 use maf::*;
 
-struct CounterStore;
+struct CounterStore {
+  count: i32,
+}
 
 impl StoreData for CounterStore {
-    type Data = i32;
+    type Data<'this> = i32;
+    //        ^ This lifetime is used for borrowing data from the store
+    //          when selecting data to send to the client. (Read more below!)
 
-    fn init() -> Self::Data {
-        0
+    fn init() -> Self {
+        Self { count: 0 }
     }
 
     // Determines what data to send to the client when the store is serialized
-    fn select(data: &Self::Data, _user: &User) -> impl serde::Serialize {
-        data
+    //                                             v Used when borrowing data
+    fn select(&self, _user: &User) -> Self::Select<'_> {
+        self.count
     }
 
     // This name will be used to identify the store
@@ -198,9 +203,8 @@ a website, you will need a bundler like [Vite](https://vite.dev/),
 import { MafClient } from "@usemaf/client";
 
 const client = new MafClient({
-  url: "http://localhost:1147",
-  // Use the same name as in `maf-project.toml`
-  app: "your-organization/your-project-name",
+  // NOTE: Change this when you deploy your server
+  server: "dev",
 });
 
 // Use the same name as in `StoreData`
