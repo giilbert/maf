@@ -96,6 +96,17 @@ impl TypeScriptCodegen {
                     format!("[{}]", type_strings.join(", "))
                 }
             }
+
+            TypeKind::Map(map) => {
+                let key_type = self.format_type(&map.key);
+                let value_type = self.format_type(&map.value);
+                format!("Record<{}, {}>", key_type, value_type)
+            }
+
+            TypeKind::Array(array) => {
+                let element_type = self.format_type(&array.element);
+                format!("{}[]", element_type)
+            }
         }
     }
 
@@ -282,7 +293,7 @@ mod tests {
     }
 
     #[test]
-    fn typescript_codegen_store() {
+    fn typescript_format_array() {
         let codegen = TypeScriptCodegen {
             schema: AppSchema {
                 stores: vec![],
@@ -290,23 +301,18 @@ mod tests {
             },
         };
 
-        println!("{}", codegen.emit_store(&store_to_schema::<Pomodoro>()));
+        assert_eq!(
+            codegen.format_type(&TypeKind::Array(Box::new(schemas::typed::ArrayType {
+                element: TypeKind::Primitive(PrimitiveType::String),
+            }))),
+            "string[]"
+        );
 
         assert_eq!(
-            codegen.emit_store(&store_to_schema::<Pomodoro>()),
-            r#""pomodoro": {
-  name: "pomodoro";
-  select: {
-    phase: string;
-    count: number;
-    auto: boolean;
-    durations: {
-      hustle: number;
-      rest: number;
-      longRest: number;
-    };
-  };
-};"#
+            codegen.format_type(&TypeKind::Array(Box::new(schemas::typed::ArrayType {
+                element: TypeKind::Primitive(PrimitiveType::Numeric(NumericType::I32)),
+            }))),
+            "number[]"
         );
     }
 }

@@ -1,4 +1,4 @@
-use facet::{PointerType, StructKind, TextualType, UserType};
+use facet::{PointerType, SequenceType, StructKind, TextualType, UserType};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -32,6 +32,10 @@ pub enum TypeKind {
     Record(Box<RecordType>),
     /// A fixed-length array type.
     Tuple(Box<TupleType>),
+    /// A map type with key-value pairs.
+    Map(Box<MapType>),
+    /// Array type with variable length.
+    Array(Box<ArrayType>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -75,6 +79,11 @@ pub enum NumericType {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TupleType {
     pub elements: Vec<TypeKind>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ArrayType {
+    pub element: TypeKind,
 }
 
 impl From<&'static facet::Shape> for TypeKind {
@@ -142,7 +151,6 @@ impl From<&'static facet::Shape> for TypeKind {
             facet::Type::User(UserType::Opaque) if shape.type_identifier == "()" => {
                 TypeKind::Primitive(PrimitiveType::Unit)
             }
-
             facet::Type::User(UserType::Opaque) if shape.type_identifier == "Option" => {
                 TypeKind::Nullable(Box::new((shape.type_params[0].shape)().into()))
             }
@@ -159,6 +167,28 @@ impl From<&'static facet::Shape> for TypeKind {
                         .shape)
                         .into(),
                 ))
+            }
+            facet::Type::User(UserType::Opaque) if shape.type_identifier == "HashMap" => {
+                TypeKind::Map(Box::new(MapType {
+                    key: (shape.type_params[0].shape)().into(),
+                    value: (shape.type_params[1].shape)().into(),
+                }))
+            }
+            facet::Type::User(UserType::Opaque) if shape.type_identifier == "Vec" => {
+                TypeKind::Array(Box::new(ArrayType {
+                    element: (shape.type_params[0].shape)().into(),
+                }))
+            }
+
+            facet::Type::Sequence(SequenceType::Array(array_type)) => {
+                TypeKind::Array(Box::new(ArrayType {
+                    element: array_type.t.into(),
+                }))
+            }
+            facet::Type::Sequence(SequenceType::Slice(slice_type)) => {
+                TypeKind::Array(Box::new(ArrayType {
+                    element: slice_type.t.into(),
+                }))
             }
 
             facet::Type::User(UserType::Struct(struct_type))
@@ -310,6 +340,43 @@ mod tests {
                     TypeKind::Primitive(PrimitiveType::Numeric(NumericType::F64)),
                     TypeKind::Primitive(PrimitiveType::Numeric(NumericType::F64)),
                 ],
+            }))
+        );
+    }
+
+    #[test]
+    fn serialize_map_types() {
+        assert_eq!(
+            TypeKind::from(std::collections::HashMap::<String, i32>::SHAPE),
+            TypeKind::Map(Box::new(MapType {
+                key: TypeKind::Primitive(PrimitiveType::String),
+                value: TypeKind::Primitive(PrimitiveType::Numeric(NumericType::I32)),
+            }))
+        );
+    }
+
+    #[test]
+    fn serialize_array_types() {
+        assert_eq!(
+            TypeKind::from(Vec::<String>::SHAPE),
+            TypeKind::Array(Box::new(ArrayType {
+                element: TypeKind::Primitive(PrimitiveType::String),
+            }))
+        );
+
+        type A = [i32; 5];
+        assert_eq!(
+            TypeKind::from(A::SHAPE),
+            TypeKind::Array(Box::new(ArrayType {
+                element: TypeKind::Primitive(PrimitiveType::Numeric(NumericType::I32)),
+            }))
+        );
+
+        type B = &'static [i32];
+        assert_eq!(
+            TypeKind::from(B::SHAPE),
+            TypeKind::Array(Box::new(ArrayType {
+                element: TypeKind::Primitive(PrimitiveType::Numeric(NumericType::I32)),
             }))
         );
     }
