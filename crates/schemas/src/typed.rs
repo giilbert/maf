@@ -28,7 +28,10 @@ pub enum TypeKind {
     Primitive(PrimitiveType),
     /// Option<T> / `_ | null` types.
     Nullable(Box<TypeKind>),
+    /// Record types, similar to structs or objects.
     Record(Box<RecordType>),
+    /// A fixed-length array type.
+    Tuple(Box<TupleType>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -67,6 +70,11 @@ pub enum NumericType {
     U128,
     F32,
     F64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TupleType {
+    pub elements: Vec<TypeKind>,
 }
 
 impl From<&'static facet::Shape> for TypeKind {
@@ -164,6 +172,19 @@ impl From<&'static facet::Shape> for TypeKind {
                         .collect(),
                 }))
             }
+            facet::Type::User(UserType::Struct(struct_type))
+                if struct_type.kind == StructKind::TupleStruct
+                    || struct_type.kind == StructKind::Tuple =>
+            {
+                TypeKind::Tuple(Box::new(TupleType {
+                    elements: struct_type
+                        .fields
+                        .iter()
+                        .map(|field| TypeKind::from(field.shape))
+                        .collect(),
+                }))
+            }
+
             facet::Type::Pointer(PointerType::Reference(reference)) => (reference.target)().into(),
             other => todo!("unsupported type: {:?}", other),
         }
@@ -261,6 +282,33 @@ mod tests {
                         "student_id".to_string(),
                         TypeKind::Primitive(PrimitiveType::String)
                     ),
+                ],
+            }))
+        );
+    }
+
+    #[test]
+    fn serialize_tuple_types() {
+        #[derive(Facet)]
+        struct Point(f64, f64);
+
+        assert_eq!(
+            TypeKind::from(Point::SHAPE),
+            TypeKind::Tuple(Box::new(TupleType {
+                elements: vec![
+                    TypeKind::Primitive(PrimitiveType::Numeric(NumericType::F64)),
+                    TypeKind::Primitive(PrimitiveType::Numeric(NumericType::F64)),
+                ],
+            }))
+        );
+
+        type A = (f64, f64);
+        assert_eq!(
+            TypeKind::from(A::SHAPE),
+            TypeKind::Tuple(Box::new(TupleType {
+                elements: vec![
+                    TypeKind::Primitive(PrimitiveType::Numeric(NumericType::F64)),
+                    TypeKind::Primitive(PrimitiveType::Numeric(NumericType::F64)),
                 ],
             }))
         );

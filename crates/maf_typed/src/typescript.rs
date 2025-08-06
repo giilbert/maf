@@ -80,6 +80,22 @@ impl TypeScriptCodegen {
                         .join(";\n")
                 )
             }
+
+            TypeKind::Tuple(tuple) => {
+                let type_strings = tuple
+                    .elements
+                    .iter()
+                    .map(|elem| self.format_type(elem))
+                    .collect::<Vec<_>>();
+
+                let multilined = type_strings.iter().any(|s| s.contains('\n'));
+
+                if multilined {
+                    format!("[\n{}\n]", self.indent(type_strings.join(",\n")))
+                } else {
+                    format!("[{}]", type_strings.join(", "))
+                }
+            }
         }
     }
 
@@ -113,6 +129,7 @@ impl TypeScriptCodegen {
 mod tests {
     use facet::Facet;
     use maf::StoreData;
+    use schemas::typed::TupleType;
     use serde::Serialize;
 
     use super::*;
@@ -212,6 +229,55 @@ mod tests {
   name: string;
   number: number;
 }"#
+        )
+    }
+
+    #[test]
+    fn typescript_format_tuple() {
+        let codegen = TypeScriptCodegen {
+            schema: AppSchema {
+                stores: vec![],
+                rpcs: vec![],
+            },
+        };
+
+        assert_eq!(
+            codegen.format_type(&TypeKind::Tuple(Box::new(TupleType {
+                elements: vec![
+                    TypeKind::Primitive(PrimitiveType::String),
+                    TypeKind::Primitive(PrimitiveType::Numeric(NumericType::I64))
+                ],
+            }))),
+            "[string, bigint]"
+        );
+
+        assert_eq!(
+            codegen.format_type(&TypeKind::Tuple(Box::new(TupleType {
+                elements: vec![
+                    TypeKind::Primitive(PrimitiveType::String),
+                    TypeKind::Record(Box::new(schemas::typed::RecordType {
+                        fields: vec![
+                            (
+                                "string".to_string(),
+                                TypeKind::Primitive(PrimitiveType::String)
+                            ),
+                            (
+                                "number".to_string(),
+                                TypeKind::Primitive(PrimitiveType::Numeric(NumericType::F64))
+                            )
+                        ]
+                    })),
+                    TypeKind::Primitive(PrimitiveType::Bool)
+                ],
+            }))),
+            r#"[
+  string,
+  {
+    string: string;
+    number: number;
+  },
+  boolean
+]"#
         )
     }
 
