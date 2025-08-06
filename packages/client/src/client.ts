@@ -2,6 +2,7 @@ import Emittery from "emittery";
 import { Channel } from "./channel";
 import { Store, StoreOptions } from "./store";
 import { RxPacket, TxPacket } from "./packet";
+import type { MafTypes } from "./typed";
 
 export interface MafClientOptions {
   server: MafServerOptions;
@@ -35,7 +36,7 @@ export type ConnectOptions =
       secret: string;
     };
 
-export class MafClient extends Emittery<MafClientEvents> {
+export class MafUntypedBaseClient extends Emittery<MafClientEvents> {
   public readonly url: URL;
 
   private _sessionInfo?: SessionInfo;
@@ -209,7 +210,7 @@ export class MafClient extends Emittery<MafClientEvents> {
     this.ws.send(JSON.stringify(message));
   }
 
-  public rpc<T>(method: string, ...params: unknown[]) {
+  public untypedRpc<T>(method: string, ...params: unknown[]) {
     const id = this._rpcId++;
 
     this.send({
@@ -243,7 +244,7 @@ export class MafClient extends Emittery<MafClientEvents> {
     });
   }
 
-  public store<T>(name: string, options?: StoreOptions<T>) {
+  public untypedStore<T>(name: string, options?: StoreOptions<T>) {
     const data = this._storeData[name];
     if (!this._stores[name])
       this._stores[name] = new Store(this, name, {
@@ -251,5 +252,19 @@ export class MafClient extends Emittery<MafClientEvents> {
         ...options,
       });
     return this._stores[name] as Store<T>;
+  }
+}
+
+export class MafClient extends MafUntypedBaseClient {
+  constructor(options: MafClientOptions) {
+    super(options);
+  }
+
+  public store<T>(name: string, options?: StoreOptions<T>): Store<T> {
+    return this.untypedStore(name, options) as Store<T>;
+  }
+
+  public rpc<T>(method: string, ...params: unknown[]) {
+    return this.untypedRpc<T>(method, ...params);
   }
 }

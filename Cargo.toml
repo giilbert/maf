@@ -1,10 +1,9 @@
 [workspace]
-resolver = "2"
-members = [
-    "crates/*",
-    "crates/*/examples/*",
-    "crates/maf_container_host/migrations",
-    "www/demo",
+resolver = "3"
+members = ["crates/*", "crates/maf_container_host/migrations", "www/demo"]
+exclude = [
+    # Examples are excluded as feature flags are weird in examples
+    "crates/maf/examples/basic-typed",
+    "crates/maf/examples/basic",
+    "crates/maf_cli/src/init/templates/**",
 ]
-
-exclude = ["crates/maf_cli/src/init/templates/**"]

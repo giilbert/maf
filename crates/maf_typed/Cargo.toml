@@ -1,12 +1,12 @@
 [package]
-name = "maf-demo"
+name = "maf_typed"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-maf = { path = "../../crates/maf" }
-facet = "0.28.0"
-serde = { version = "^1", features = ["derive"] }
+schemas = { path = "../schemas" }
 
-[lib]
-crate-type = ["cdylib"]
+[dev-dependencies]
+facet = "0.28.0"
+maf = { path = "../maf", features = ["typed"] }
+serde = { version = "^1", features = ["derive"] }

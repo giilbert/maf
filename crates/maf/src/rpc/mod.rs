@@ -40,6 +40,9 @@ pub struct RpcFunction {
     pub(crate) method: String,
     pub(crate) type_id: TypeId,
     pub(crate) handler: AnyCallable<RpcRequestContext, TypedRpcResponsePacket, RpcError>,
+
+    #[cfg(feature = "typed")]
+    pub(crate) desc: crate::typed::RpcDesc,
 }
 
 impl std::fmt::Debug for RpcFunction {
@@ -74,7 +77,7 @@ pub struct RpcRequestInit {
 
 #[derive(Debug, Default)]
 pub struct RpcStore {
-    rpc_functions: HashMap<String, RpcFunction>,
+    pub(crate) inner: HashMap<String, RpcFunction>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -104,8 +107,7 @@ pub enum RpcError {
 
 impl RpcStore {
     pub fn add_rpc_function(&mut self, rpc_function: RpcFunction) {
-        self.rpc_functions
-            .insert(rpc_function.method.clone(), rpc_function);
+        self.inner.insert(rpc_function.method.clone(), rpc_function);
     }
 
     pub async fn handle_typed_rpc_request(
@@ -116,7 +118,7 @@ impl RpcStore {
     ) -> Result<TypedRpcResponsePacket, RpcError> {
         let method = packet.method;
         let rpc_function = self
-            .rpc_functions
+            .inner
             .get(&method)
             .ok_or_else(|| RpcError::MethodNotFound(method))?;
 
@@ -161,10 +163,14 @@ mod tests {
         struct T {}
 
         impl StoreData for T {
-            type Data = i32;
+            type Select<'this> = ();
 
-            fn init() -> Self::Data {
-                42
+            fn init() -> Self {
+                T {}
+            }
+
+            fn select(&self, _user: &User) -> Self::Select<'_> {
+                ()
             }
         }
 

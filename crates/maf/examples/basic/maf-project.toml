@@ -3,8 +3,8 @@ rooms = "AuthenticatedApiRequest"
 
 [debug]
 command = "cargo build --target wasm32-wasip2"
-output = "../../../../target/wasm32-wasip2/debug/example_basic.wasm"
+output = "target/wasm32-wasip2/debug/example_basic.wasm"
 
 [release]
 command = "cargo build --target wasm32-wasip2 --release"
-output = "../../../../target/wasm32-wasip2/release/example_basic.wasm"
+output = "target/wasm32-wasip2/release/example_basic.wasm"

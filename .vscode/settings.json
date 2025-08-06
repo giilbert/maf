@@ -1,7 +1,9 @@
 {
-    "[rust]": {
-        "editor.rulers": [
-            100
-        ]
-    }
+  "[rust]": {
+    "editor.rulers": [
+      100
+    ]
+  },
+  "rust-analyzer.cargo.features": [],
+  "rust-analyzer.cargo.noDefaultFeatures": true,
 }

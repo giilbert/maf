@@ -8,6 +8,9 @@ mod store;
 pub mod tasks;
 mod user;
 
+#[cfg(feature = "typed")]
+mod typed;
+
 pub(crate) use app::StateError;
 
 pub use app::{App, AppBuilder, Plugin, State};

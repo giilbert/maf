@@ -5,14 +5,14 @@ struct CounterStore {
 }
 
 impl StoreData for CounterStore {
-    type Select = i32;
+    type Select<'a> = Option<&'a i32>;
 
     fn init() -> Self {
         CounterStore { count: 0 }
     }
 
-    fn select(&self, _user: &User) -> &Self::Select {
-        &self.count
+    fn select(&self, user: &User) -> Self::Select<'_> {
+        Some(&self.count)
     }
 
     fn name() -> impl AsRef<str> {
@@ -20,7 +20,10 @@ impl StoreData for CounterStore {
     }
 }
 
-async fn increment_counter(Params(counter): Params<i32>, test: Store<CounterStore>) -> i32 {
+async fn increment_counter(
+    Params(counter): Params<i32>,
+    test: Store<CounterStore>,
+) -> Result<i32, String> {
     let mut store = test.write().await;
 
     store.count += counter;
@@ -30,7 +33,7 @@ async fn increment_counter(Params(counter): Params<i32>, test: Store<CounterStor
         store.count
     );
 
-    store.count
+    Ok(store.count)
 }
 
 async fn counter_read_hook(test: Store<CounterStore>) -> i32 {

@@ -75,10 +75,13 @@ interface bindings {
     
     listen-user: func() -> result<future-user, listen-error>;
     listen-hook-request: func() -> result<future-hook-request, listen-error>;
+
+    report-app-schema: func(schema: string);
 }
 
 world imports {
     import bindings;
 
     export run: func() -> result;
+    export dry-run: func() -> result;
 }

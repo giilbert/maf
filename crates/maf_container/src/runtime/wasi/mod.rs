@@ -3,6 +3,7 @@ mod hooks;
 mod user;
 
 pub use hooks::{FutureHookRequest, HookRequest};
+use schemas::typed::AppSchema;
 pub use user::{FutureMessage, FutureUser, User};
 use wasmtime::component::Resource;
 
@@ -40,6 +41,19 @@ impl bindings::Host for ContainerData {
     async fn listen_hook_request(&mut self) -> Result<Resource<FutureHookRequest>, ListenError> {
         let res = FutureHookRequest::new(self)?;
         Ok(self.resources.push(res)?)
+    }
+
+    async fn report_app_schema(&mut self, schema: String) -> wasmtime::Result<()> {
+        let app_schema = serde_json::from_str::<AppSchema>(&schema)
+            .map_err(|_| anyhow::anyhow!("invalid app schema reported"))?;
+
+        self.app_schema_tx
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("app schema already reported"))?
+            .send(app_schema)
+            .map_err(|_| anyhow::anyhow!("failed to send app schema, receiver dropped"))?;
+
+        Ok(())
     }
 
     fn convert_listen_error(&mut self, err: ListenError) -> anyhow::Result<bindings::ListenError> {

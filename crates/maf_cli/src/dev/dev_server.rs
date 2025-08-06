@@ -6,18 +6,21 @@ use axum::{
     response::Response,
     routing::{get, post},
 };
+use colored::Colorize;
 use maf_container::{
     server::{handle_ws_upgrade, ErrorResponse},
     wasi::bindings::{self, HookRequestCaller},
-    ContainerRuntime,
+    Container, ContainerResourceLimit, ContainerRuntime,
 };
 use schemas::apps::RoomCreationStrategy;
+use uuid::Uuid;
 
 use crate::{
     config::{ProjectConfig, ProjectConfigExt},
     dev::{
         platform::create_platform_api_router,
         rooms::{DevRoomsStorage, InsertRoom},
+        typed,
     },
     print_dimmed, Context,
 };
@@ -77,6 +80,16 @@ pub async fn start_local_server(
         )?),
     };
 
+    // Generate types if the project config is set to do so
+    if let Some(project) = state.project.clone() {
+        let state = state.clone();
+        tokio::spawn(async move {
+            if let Err(e) = generate_types(state, project).await {
+                println!("{}", format!("[dev] Failed to generate types: {e}").red());
+            }
+        });
+    }
+
     // Implement a subset of Platform APIs for the developer server
     let app = axum::Router::new()
         .route(
@@ -95,6 +108,27 @@ pub async fn start_local_server(
 
     println!("[dev] Development server listening on {}", address);
     axum::serve(listener, app).await?;
+
+    Ok(())
+}
+
+async fn generate_types(state: DevServerState, project: ProjectConfig) -> anyhow::Result<()> {
+    let mut container = Container::load_from_binary(
+        &state.runtime,
+        &state.rooms.bundle.wasm_module,
+        Uuid::nil(),
+        ContainerResourceLimit::sensible_default(),
+    )
+    .await?;
+
+    container.dry_run().await?;
+
+    let schema_rx = container.get_app_schema()?;
+    let schema = schema_rx.await?;
+
+    tracing::debug!("{}", format!("App schema received: {schema:?}").dimmed());
+
+    typed::create_types_file_for_project(&project, schema).await?;
 
     Ok(())
 }

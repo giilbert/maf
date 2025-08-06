@@ -1,6 +1,7 @@
+use facet::Facet;
 use maf::*;
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, Facet, serde::Serialize)]
 struct LightsOut {
     /// Indices represent the tiles in a 8x8 grid:
     ///  0  1  2  3  4  5  6  7
@@ -16,9 +17,9 @@ struct LightsOut {
 }
 
 impl StoreData for LightsOut {
-    type Data = LightsOut;
+    type Select<'this> = &'this LightsOut;
 
-    fn init() -> Self::Data {
+    fn init() -> Self {
         LightsOut {
             tiles: vec![false; 64],
             people: 0,
@@ -29,8 +30,8 @@ impl StoreData for LightsOut {
         "LightsOut"
     }
 
-    fn select(data: &Self::Data, _user: &User) -> impl serde::Serialize {
-        data
+    fn select(&self, _user: &User) -> Self::Select<'_> {
+        self
     }
 }
 

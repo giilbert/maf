@@ -1,6 +1,7 @@
 mod dev_server;
 mod platform;
 mod rooms;
+mod typed;
 
 use std::{path::Path, process};
 

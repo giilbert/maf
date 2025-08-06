@@ -429,16 +429,34 @@ impl AppBuilder {
     ///         .build()
     /// }
     /// ```
-    pub fn rpc<Params, Return, Handler, const IS_ASYNC: bool>(
+    pub fn rpc<
+        Params,
+        Return,
+        const IS_ASYNC: bool,
+        #[cfg(feature = "typed")] TypedParams,
+        #[cfg(feature = "typed")] TypedReturn,
+        #[cfg(feature = "typed")] const TYPED_IS_ASYNC: bool,
+        #[cfg(feature = "typed")] const TYPED_IS_RESULT: bool,
+        #[cfg(feature = "typed")] Handler: IntoCallable<RpcRequestContext, Params, Return, RpcError, RpcRequestInit, IS_ASYNC>
+            + crate::typed::ExtractRpcDesc<TypedParams, TypedReturn, TYPED_IS_ASYNC, TYPED_IS_RESULT>,
+    >(
         mut self,
         method: impl ToString,
-        handler: Handler,
+        #[cfg(feature = "typed")] handler: Handler,
+        #[cfg(not(feature = "typed"))] handler: impl IntoCallable<
+            RpcRequestContext,
+            Params,
+            Return,
+            RpcError,
+            RpcRequestInit,
+            IS_ASYNC,
+        >,
     ) -> Self
     where
-        Handler:
-            IntoCallable<RpcRequestContext, Params, Return, RpcError, RpcRequestInit, IS_ASYNC>,
         Return: Serialize + 'static,
     {
+        use std::any::Any;
+
         let method = method.to_string();
         let callable: Arc<AnyCallable<RpcRequestContext, Return, RpcError>> =
             Arc::from(handler.into_callable(RpcRequestInit {
@@ -446,7 +464,7 @@ impl AppBuilder {
             }));
 
         self.rpc_functions.add_rpc_function(RpcFunction {
-            type_id: std::any::TypeId::of::<Handler>(),
+            type_id: handler.type_id(),
             method: method.clone(),
             handler: Box::new(move |ctx| {
                 let callable = callable.clone();
@@ -461,6 +479,8 @@ impl AppBuilder {
                     })
                 })
             }),
+            #[cfg(feature = "typed")]
+            desc: Handler::extract(method.clone()),
         });
         self
     }
@@ -563,9 +583,14 @@ impl AppBuilder {
             hooks: self.hooks,
         };
 
-        App {
+        let app = App {
             inner: Arc::new(inner),
-        }
+        };
+
+        #[cfg(feature = "typed")]
+        app.export_types();
+
+        app
     }
 }
 
@@ -573,7 +598,7 @@ impl AppBuilder {
 macro_rules! register {
     ($func:ident) => {
         pub use $crate::bindings::bindgen::{
-            self, __export_world_imports_cabi, _export_run_cabi, export,
+            self, __export_world_imports_cabi, _export_dry_run_cabi, _export_run_cabi, export,
         };
 
         pub struct GuestImpl {}
@@ -584,6 +609,13 @@ macro_rules! register {
                 $crate::tasks::Runtime::new().global();
                 let app = $func();
                 app.run();
+                Ok(())
+            }
+
+            fn dry_run() -> Result<(), ()> {
+                $crate::bindings::init_panic_hook();
+                $crate::tasks::Runtime::new().global();
+                let _app = $func();
                 Ok(())
             }
         }

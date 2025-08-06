@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 maf_container = { path = "../maf_container" }
+maf_typed = { path = "../maf_typed" }
 schemas = { path = "../schemas" }
 
 anyhow = "^1.0.96"
