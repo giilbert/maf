@@ -430,15 +430,15 @@ impl AppBuilder {
     /// }
     /// ```
     pub fn rpc<
-        // FIXME: WHY ARE TYPE PARAMETERS BAD
         Params,
         Return,
         const IS_ASYNC: bool,
         #[cfg(feature = "typed")] TypedParams,
         #[cfg(feature = "typed")] TypedReturn,
         #[cfg(feature = "typed")] const TYPED_IS_ASYNC: bool,
+        #[cfg(feature = "typed")] const TYPED_IS_RESULT: bool,
         #[cfg(feature = "typed")] Handler: IntoCallable<RpcRequestContext, Params, Return, RpcError, RpcRequestInit, IS_ASYNC>
-            + crate::typed::ExtractRpcDesc<TypedParams, TypedReturn, TYPED_IS_ASYNC>,
+            + crate::typed::ExtractRpcDesc<TypedParams, TypedReturn, TYPED_IS_ASYNC, TYPED_IS_RESULT>,
     >(
         mut self,
         method: impl ToString,

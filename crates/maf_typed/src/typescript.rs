@@ -145,13 +145,6 @@ mod tests {
 
     use super::*;
 
-    fn store_to_schema<T: StoreData>() -> StoreSerialized {
-        StoreSerialized {
-            name: T::name().as_ref().to_string(),
-            select: TypeKind::from(T::Select::SHAPE),
-        }
-    }
-
     #[derive(Serialize, Facet)]
     pub struct Pomodoro {
         pub phase: String,

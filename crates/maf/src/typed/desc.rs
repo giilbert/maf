@@ -28,7 +28,7 @@ pub struct RpcDesc {
     pub result: &'static facet::Shape,
 }
 
-pub trait ExtractRpcDesc<Params, Ret, const IS_ASYNC: bool> {
+pub trait ExtractRpcDesc<Params, Ret, const IS_ASYNC: bool, const IS_RESULT: bool = false> {
     fn extract(name: String) -> RpcDesc;
 }
 
@@ -72,10 +72,28 @@ impl_not_param!(App);
 impl_not_param!(User);
 impl_not_param!(Store<T>, T: StoreData);
 
-// Case where the type is a function that takes no parameters
-impl<Ret, F> ExtractRpcDesc<(), Ret, false> for F
+trait RpcResult<const IS_RESULT: bool> {
+    const SHAPE: &'static facet::Shape;
+}
+
+impl<T> RpcResult<false> for T
 where
-    Ret: for<'a> Facet<'a>,
+    T: for<'a> Facet<'a>,
+{
+    const SHAPE: &'static facet::Shape = T::SHAPE;
+}
+
+impl<T, E> RpcResult<true> for Result<T, E>
+where
+    T: for<'a> Facet<'a>,
+{
+    const SHAPE: &'static facet::Shape = T::SHAPE;
+}
+
+// Case where the type is a function that takes no parameters
+impl<Ret, F, const IS_RESULT: bool> ExtractRpcDesc<(), Ret, false, IS_RESULT> for F
+where
+    Ret: RpcResult<IS_RESULT>,
     F: Fn() -> Ret,
 {
     fn extract(name: String) -> RpcDesc {
@@ -87,9 +105,9 @@ where
     }
 }
 
-impl<Ret, Fut, F> ExtractRpcDesc<(), Ret, true> for F
+impl<Ret, Fut, F, const IS_RESULT: bool> ExtractRpcDesc<(), Ret, true, IS_RESULT> for F
 where
-    Ret: for<'a> Facet<'a>,
+    Ret: RpcResult<IS_RESULT>,
     Fut: std::future::Future<Output = Ret>,
     F: Fn() -> Fut,
 {
@@ -104,10 +122,15 @@ where
 
 macro_rules! impl_extract_rpc_desc {
     ($($members:ident),+) => {
-        impl<$($members),+, Ret, F> ExtractRpcDesc<($($members,)+), Ret, false> for F
+        impl<
+            $($members),+,
+            Ret,
+            F,
+            const IS_RESULT: bool
+        > ExtractRpcDesc<($($members,)+), Ret, false, IS_RESULT> for F
         where
             $($members: GetParamFacet),+,
-            Ret: for<'a> Facet<'a>,
+            Ret: RpcResult<IS_RESULT>,
             F: Fn($($members),+) -> Ret,
         {
             fn extract(name: String) -> RpcDesc {
@@ -125,10 +148,16 @@ macro_rules! impl_extract_rpc_desc {
             }
         }
 
-        impl<$($members),+, Ret, Fut, F> ExtractRpcDesc<($($members,)+), Ret, true> for F
+        impl<
+            $($members),+,
+            Ret,
+            Fut,
+            F,
+            const IS_RESULT: bool
+        > ExtractRpcDesc<($($members,)+), Ret, true, IS_RESULT> for F
         where
             $($members: GetParamFacet),+,
-            Ret: for<'a> Facet<'a>,
+            Ret: RpcResult<IS_RESULT>,
             Fut: std::future::Future<Output = Ret>,
             F: Fn($($members),+) -> Fut,
         {
