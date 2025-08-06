@@ -293,6 +293,46 @@ mod tests {
     }
 
     #[test]
+    fn typescript_format_map() {
+        let codegen = TypeScriptCodegen {
+            schema: AppSchema {
+                stores: vec![],
+                rpcs: vec![],
+            },
+        };
+
+        assert_eq!(
+            codegen.format_type(&TypeKind::Map(Box::new(schemas::typed::MapType {
+                key: TypeKind::Primitive(PrimitiveType::String),
+                value: TypeKind::Primitive(PrimitiveType::Numeric(NumericType::I32)),
+            }))),
+            "Record<string, number>"
+        );
+
+        assert_eq!(
+            codegen.format_type(&TypeKind::Map(Box::new(schemas::typed::MapType {
+                key: TypeKind::Primitive(PrimitiveType::Numeric(NumericType::I32)),
+                value: TypeKind::Record(Box::new(schemas::typed::RecordType {
+                    fields: vec![
+                        (
+                            "name".to_string(),
+                            TypeKind::Primitive(PrimitiveType::String)
+                        ),
+                        (
+                            "value".to_string(),
+                            TypeKind::Primitive(PrimitiveType::Numeric(NumericType::F64))
+                        )
+                    ]
+                })),
+            }))),
+            "Record<number, {
+  name: string;
+  value: number;
+}>"
+        );
+    }
+
+    #[test]
     fn typescript_format_array() {
         let codegen = TypeScriptCodegen {
             schema: AppSchema {
@@ -310,9 +350,23 @@ mod tests {
 
         assert_eq!(
             codegen.format_type(&TypeKind::Array(Box::new(schemas::typed::ArrayType {
-                element: TypeKind::Primitive(PrimitiveType::Numeric(NumericType::I32)),
+                element: TypeKind::Record(Box::new(schemas::typed::RecordType {
+                    fields: vec![
+                        (
+                            "name".to_string(),
+                            TypeKind::Primitive(PrimitiveType::String)
+                        ),
+                        (
+                            "value".to_string(),
+                            TypeKind::Primitive(PrimitiveType::Numeric(NumericType::F64))
+                        )
+                    ]
+                })),
             }))),
-            "number[]"
+            "{
+  name: string;
+  value: number;
+}[]"
         );
     }
 }
