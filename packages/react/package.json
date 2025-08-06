@@ -16,7 +16,6 @@
     "@types/react": "^19"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.84.1",
     "@usemaf/client": "workspace:^",
     "react": "^19.1.0"
   }

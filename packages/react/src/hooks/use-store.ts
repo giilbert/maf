@@ -1,5 +1,5 @@
 import { useEffect, useState, useContext } from "react";
-import { MafContext } from "./maf-provider";
+import { MafContext, useMaf } from "../maf-provider";
 
 export enum MafStatus {
   LOADING = "loading",
@@ -41,20 +41,17 @@ export function useStore<TData, TFallback>(
   const [data, setData] = useState<TData | TFallback>(
     fallback as TFallback extends undefined ? never : TFallback
   );
-
-  const contextData = useContext(MafContext);
+  const client = useMaf();
 
   useEffect(() => {
-    if (contextData !== null) {
-      const { client } = contextData;
-      const store = client.store<TData>(storeName);
-      store.init.then(() => {
-        setData(store.data);
-        setStatus(MafStatus.READY);
-        store.on("change", () => setData(store.data));
-      });
-    }
-  }, [contextData]);
+    const store = client.store<TData>(storeName);
+
+    store.init.then(() => {
+      setData(store.data);
+      setStatus(MafStatus.READY);
+      store.on("change", () => setData(store.data));
+    });
+  }, [client]);
 
   if (status === MafStatus.LOADING) {
     return {

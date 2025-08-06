@@ -1,5 +1,5 @@
-import { useContext, useEffect, useState } from "react";
-import { MafContext } from "./maf-provider";
+import { useEffect, useState } from "react";
+import { useMaf } from "../maf-provider";
 import { SessionInfo } from "@usemaf/client/src/client";
 import { MafStatus } from "./use-store";
 
@@ -9,23 +9,17 @@ export type UseSession =
 
 export function useSession(): UseSession {
   const [status, setStatus] = useState<MafStatus>(MafStatus.LOADING);
-  const contextData = useContext(MafContext);
-  if (!contextData)
-    throw new Error("useSession used outside of a <M>afProvider");
+  const client = useMaf();
 
   useEffect(() => {
-    const { client } = contextData;
-
-    const handleReady = () => {
+    const unsubscribe = client.on("ready", () => {
       setStatus(MafStatus.READY);
-    };
-
-    client.on("ready", handleReady);
+    });
 
     return () => {
-      client.off("ready", handleReady);
+      unsubscribe();
     };
-  }, [contextData]);
+  }, [client]);
 
   if (status === MafStatus.LOADING) {
     return {
@@ -36,6 +30,6 @@ export function useSession(): UseSession {
 
   return {
     status: MafStatus.READY,
-    data: contextData.client.sessionInfo,
+    data: client.sessionInfo,
   };
 }
