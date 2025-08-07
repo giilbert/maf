@@ -80,7 +80,7 @@ pub async fn handle_run(
 pub fn run_build_command(base_path: &Path, command: &str) -> anyhow::Result<()> {
     print_dimmed!("[dev] Running build command `{}`", command);
 
-    println!("\n\n");
+    println!("\n");
 
     let start = std::time::Instant::now();
     let mut command = command.split(" ");
@@ -88,13 +88,28 @@ pub fn run_build_command(base_path: &Path, command: &str) -> anyhow::Result<()> 
 
     let args = command.collect::<Vec<_>>();
 
-    let _status = process::Command::new(executable)
+    let status = process::Command::new(executable)
         .args(args)
         .current_dir(&base_path)
         .spawn()?
         .wait()?;
 
     println!("\n");
+
+    if !status.success() {
+        println!(
+            "{}",
+            format!(
+                "[dev] Build command failed with status code: {}",
+                status
+                    .code()
+                    .map(|n| n.to_string())
+                    .unwrap_or_else(|| "<unknown>".to_string())
+            )
+            .red()
+        );
+        std::process::exit(1);
+    }
 
     print_dimmed!("[dev] Build completed in {:.2?}", start.elapsed());
 
