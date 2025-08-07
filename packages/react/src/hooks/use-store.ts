@@ -1,5 +1,6 @@
-import { useEffect, useState, useContext } from "react";
-import { MafContext, useMaf } from "../maf-provider";
+import { useEffect, useState } from "react";
+import { useMaf } from "../maf-provider";
+import type { StoreKeys, StoreSelect } from "@usemaf/client";
 
 export enum MafStatus {
   LOADING = "loading",
@@ -15,6 +16,20 @@ type UseStoreDiscUnion<TData, TFallback> =
       status: MafStatus.READY;
       data: TData;
     };
+
+export function useStore<TName extends StoreKeys>(
+  storeName: TName
+): UseStoreDiscUnion<StoreSelect<TName>, never>;
+
+export function useStore<TName extends StoreKeys>(
+  storeName: string,
+  fallback?: StoreSelect<TName>
+): UseStoreDiscUnion<StoreSelect<TName>, StoreSelect<TName>>;
+
+export function useStore<TName extends StoreKeys, TFallback>(
+  storeName: TName,
+  fallback?: TFallback
+): UseStoreDiscUnion<StoreSelect<TName>, TFallback>;
 
 export function useStore<TData>(
   storeName: string

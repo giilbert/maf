@@ -21,15 +21,16 @@ interface DefaultMafTypes {
 
 export interface MafTypes extends DefaultMafTypes {}
 
-type TypedStores = MafTypes["generated"]["stores"];
-type StoreKeys = keyof TypedStores;
-type StoreSelect<K extends StoreKeys> = TypedStores[K]["select"];
+export type TypedStores = MafTypes["generated"]["stores"];
+export type StoreKeys = keyof TypedStores;
+export type StoreSelect<K extends StoreKeys> = TypedStores[K]["select"];
 
-type TypedRpcs = MafTypes["generated"]["rpcs"];
-type RpcKeys = keyof TypedRpcs;
-type RpcParams<K extends RpcKeys> = TypedRpcs[K]["params"] extends unknown[]
-  ? TypedRpcs[K]["params"]
-  : [TypedRpcs[K]["params"]];
+export type TypedRpcs = MafTypes["generated"]["rpcs"];
+export type RpcKeys = keyof TypedRpcs;
+export type RpcParams<K extends RpcKeys> =
+  TypedRpcs[K]["params"] extends unknown[]
+    ? TypedRpcs[K]["params"]
+    : [TypedRpcs[K]["params"]];
 
 export class TypedMafClient extends MafUntypedBaseClient {
   constructor(options: MafClientOptions) {
