@@ -1,5 +1,5 @@
 use crate::container::ContainerData;
-use wasmtime as wt;
+use wasmtime::{self as wt, component::HasSelf};
 
 use super::{ContainerRuntime, wasi};
 
@@ -11,8 +11,8 @@ impl ContainerRuntime {
     ) -> anyhow::Result<wt::component::Linker<ContainerData>> {
         let mut linker = wt::component::Linker::new(engine);
 
-        wasmtime_wasi::add_to_linker_async(&mut linker)?;
-        wasi::bindings::add_to_linker(&mut linker, |state| state)?;
+        wasmtime_wasi::p2::add_to_linker_async(&mut linker)?;
+        wasi::bindings::add_to_linker::<_, HasSelf<_>>(&mut linker, |state| state)?;
 
         Ok(linker)
     }

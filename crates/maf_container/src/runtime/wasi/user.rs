@@ -59,7 +59,7 @@ impl bindings::HostFutureUser for ContainerData {
 }
 
 #[async_trait]
-impl wasmtime_wasi::Pollable for FutureUser {
+impl wasmtime_wasi::p2::Pollable for FutureUser {
     async fn ready(&mut self) {
         self.next_user = self.channel.recv().await;
     }
@@ -71,7 +71,7 @@ pub struct FutureMessage {
 }
 
 #[async_trait]
-impl wasmtime_wasi::Pollable for FutureMessage {
+impl wasmtime_wasi::p2::Pollable for FutureMessage {
     async fn ready(&mut self) {
         self.next_message = self.channel.recv().await;
     }

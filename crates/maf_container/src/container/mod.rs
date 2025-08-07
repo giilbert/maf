@@ -17,8 +17,11 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
-use wasmtime as wt;
-use wasmtime_wasi::IoView;
+use wasmtime::{
+    self as wt,
+    component::{HasData, HasSelf},
+};
+use wasmtime_wasi::p2::IoView;
 
 use crate::{
     ContainerRuntime, container::limits::ContainerResourceLimiter, interface::BoxedConnection,
@@ -87,7 +90,7 @@ pub struct ContainerResourceStats {
 /// heavier and should be used when the container's internal state is needed.
 pub struct ContainerData {
     pub resources: wasmtime_wasi::ResourceTable,
-    pub wasi_ctx: wasmtime_wasi::WasiCtx,
+    pub wasi_ctx: wasmtime_wasi::p2::WasiCtx,
     pub connection_tx: mpsc::Sender<BoxedConnection>,
     pub hook_request_tx: mpsc::Sender<HookRequest>,
     pub connection_rx: Option<mpsc::Receiver<BoxedConnection>>,
@@ -138,7 +141,7 @@ impl Container {
         let stdout = ContainerStdoutFactory {
             output_tx: output_tx.clone(),
         };
-        let wasi_ctx = wasmtime_wasi::WasiCtx::builder().stdout(stdout).build();
+        let wasi_ctx = wasmtime_wasi::p2::WasiCtx::builder().stdout(stdout).build();
         let mut store = wt::Store::new(
             &runtime.engine,
             ContainerData {
@@ -287,8 +290,8 @@ impl ContainerData {
     }
 }
 
-impl wasmtime_wasi::WasiView for ContainerData {
-    fn ctx(&mut self) -> &mut wasmtime_wasi::WasiCtx {
+impl wasmtime_wasi::p2::WasiView for ContainerData {
+    fn ctx(&mut self) -> &mut wasmtime_wasi::p2::WasiCtx {
         &mut self.wasi_ctx
     }
 }

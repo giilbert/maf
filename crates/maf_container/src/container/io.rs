@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use bytes::Bytes;
 use tokio::sync::mpsc;
-use wasmtime_wasi::{OutputStream, StdoutStream, StreamResult};
+use wasmtime_wasi::p2::{OutputStream, StdoutStream, StreamResult};
 
 #[derive(Debug, Clone)]
 pub struct ContainerStdoutFactory {
@@ -13,7 +13,7 @@ impl StdoutStream for ContainerStdoutFactory {
         false
     }
 
-    fn stream(&self) -> Box<dyn wasmtime_wasi::OutputStream> {
+    fn stream(&self) -> Box<dyn wasmtime_wasi::p2::OutputStream> {
         Box::new(ContainerStdout {
             buffer_length: 0,
             buffer: Vec::new(),
@@ -39,7 +39,7 @@ impl OutputStream for ContainerStdout {
         Ok(())
     }
 
-    fn flush(&mut self) -> wasmtime_wasi::StreamResult<()> {
+    fn flush(&mut self) -> wasmtime_wasi::p2::StreamResult<()> {
         let buffer = self.buffer.concat();
         let string = String::from_utf8_lossy(&buffer);
 
@@ -52,18 +52,18 @@ impl OutputStream for ContainerStdout {
             let line = self.line_buffer.drain(..=pos).collect::<String>();
             self.output_tx
                 .try_send(line)
-                .map_err(|_| wasmtime_wasi::StreamError::Closed)?;
+                .map_err(|_| wasmtime_wasi::p2::StreamError::Closed)?;
         }
 
         Ok(())
     }
 
-    fn check_write(&mut self) -> wasmtime_wasi::StreamResult<usize> {
+    fn check_write(&mut self) -> wasmtime_wasi::p2::StreamResult<usize> {
         Ok(usize::MAX)
     }
 }
 
 #[async_trait]
-impl wasmtime_wasi::Pollable for ContainerStdout {
+impl wasmtime_wasi::p2::Pollable for ContainerStdout {
     async fn ready(&mut self) {}
 }
