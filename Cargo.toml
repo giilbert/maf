@@ -3,7 +3,8 @@ resolver = "3"
 members = ["crates/*", "crates/maf_container_host/migrations", "www/demo"]
 exclude = [
     # Examples are excluded as feature flags are weird in examples
-    "crates/maf/examples/basic-typed",
     "crates/maf/examples/basic",
+    "crates/maf/examples/basic-typed",
+    "crates/maf/examples/http",
     "crates/maf_cli/src/init/templates/**",
 ]

@@ -17,10 +17,7 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
-use wasmtime::{
-    self as wt,
-    component::{HasData, HasSelf},
-};
+use wasmtime as wt;
 use wasmtime_wasi::p2::IoView;
 
 use crate::{
@@ -91,6 +88,7 @@ pub struct ContainerResourceStats {
 pub struct ContainerData {
     pub resources: wasmtime_wasi::ResourceTable,
     pub wasi_ctx: wasmtime_wasi::p2::WasiCtx,
+    pub wasi_http_ctx: wasmtime_wasi_http::WasiHttpCtx,
     pub connection_tx: mpsc::Sender<BoxedConnection>,
     pub hook_request_tx: mpsc::Sender<HookRequest>,
     pub connection_rx: Option<mpsc::Receiver<BoxedConnection>>,
@@ -142,11 +140,14 @@ impl Container {
             output_tx: output_tx.clone(),
         };
         let wasi_ctx = wasmtime_wasi::p2::WasiCtx::builder().stdout(stdout).build();
+        let wasi_http_ctx = wasmtime_wasi_http::WasiHttpCtx::new();
+
         let mut store = wt::Store::new(
             &runtime.engine,
             ContainerData {
                 resources,
                 wasi_ctx,
+                wasi_http_ctx,
                 connection_tx,
                 hook_request_tx,
                 connection_rx: Some(connection_rx),
@@ -299,5 +300,11 @@ impl wasmtime_wasi::p2::WasiView for ContainerData {
 impl IoView for ContainerData {
     fn table(&mut self) -> &mut wasmtime_wasi::ResourceTable {
         &mut self.resources
+    }
+}
+
+impl wasmtime_wasi_http::WasiHttpView for ContainerData {
+    fn ctx(&mut self) -> &mut wasmtime_wasi_http::WasiHttpCtx {
+        &mut self.wasi_http_ctx
     }
 }
