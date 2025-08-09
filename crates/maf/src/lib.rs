@@ -2,6 +2,7 @@ pub mod app;
 pub mod bindings;
 mod callable;
 pub mod channel;
+pub mod http;
 pub mod packet;
 mod rpc;
 mod store;

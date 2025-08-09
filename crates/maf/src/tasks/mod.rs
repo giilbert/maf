@@ -5,7 +5,12 @@ pub mod timers;
 mod waker;
 
 pub use futures_util;
-use std::future::IntoFuture;
+use std::{
+    future::{Future, IntoFuture},
+    pin::Pin,
+    task::Poll,
+};
+use wasi::io::poll::Pollable;
 
 use runtime::JoinHandle;
 pub use runtime::Runtime;
@@ -26,6 +31,33 @@ pub fn sleep(duration: std::time::Duration) -> SleepFuture {
     SleepFuture::new(duration)
 }
 
-// pub fn sleep_until(deadline: u64) -> SleepFuture {
-//     SleepFuture::new(deadline)
-// }
+#[must_use]
+pub struct WaitForPollable {
+    pollable: Option<Pollable>,
+}
+
+/// Waits for a [`Pollable`] to become ready. Useful for waiting on WASI I/O operations where
+/// getting a result from I/O is handled by a separate method.
+pub fn wait_for(pollable: Pollable) -> WaitForPollable {
+    WaitForPollable {
+        pollable: Some(pollable),
+    }
+}
+
+impl Future for WaitForPollable {
+    type Output = ();
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+        if self.pollable.as_ref().map(|p| p.ready()).unwrap_or(true) {
+            Poll::Ready(())
+        } else {
+            Runtime::new_waker(
+                cx,
+                self.pollable.take().expect("pollable not set"),
+                Some("WaitForPollable"),
+            );
+
+            Poll::Pending
+        }
+    }
+}

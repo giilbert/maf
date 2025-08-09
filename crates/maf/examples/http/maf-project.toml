@@ -1,0 +1,10 @@
+name = "example-http"
+rooms = "AutoCreate"
+
+[debug]
+command = "cargo build --target wasm32-wasip2"
+output = "target/wasm32-wasip2/debug/example_http.wasm"
+
+[release]
+command = "cargo build --target wasm32-wasip2 --release"
+output = "target/wasm32-wasip2/release/example_http.wasm"

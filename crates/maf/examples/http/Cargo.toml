@@ -1,0 +1,10 @@
+[package]
+name = "example-http"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+maf = { path = "../..", default-features = false, features = [] }
+
+[lib]
+crate-type = ["cdylib"]

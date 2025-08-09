@@ -2236,6 +2236,7 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.12",
  "tokio",
+ "url",
  "uuid",
  "wasi 0.14.2+wasi-0.2.4",
  "wit-bindgen",

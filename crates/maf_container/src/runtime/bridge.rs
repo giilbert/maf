@@ -3,7 +3,7 @@ use wasmtime::{
     self as wt,
     component::{HasData, HasSelf},
 };
-use wasmtime_wasi_http::WasiHttpImpl;
+use wasmtime_wasi_http::{WasiHttpImpl, bindings::http::types::LinkOptions};
 use wasmtime_wasi_io::IoImpl;
 
 use super::{ContainerRuntime, wasi};
@@ -21,11 +21,17 @@ impl ContainerRuntime {
         let mut linker = wt::component::Linker::new(engine);
 
         wasmtime_wasi::p2::add_to_linker_async(&mut linker)?;
-        // TODO: Limit HTTP bandwidth?
-        wasmtime_wasi_http::bindings::http::outgoing_handler::add_to_linker::<_, WasiHttp<_>>(
-            &mut linker,
-            |state| WasiHttpImpl(IoImpl(state)),
-        )?;
+        wasmtime_wasi_http::add_only_http_to_linker_async(&mut linker)?;
+        // // TODO: Limit HTTP bandwidth?
+        // wasmtime_wasi_http::bindings::http::outgoing_handler::add_to_linker::<_, WasiHttp<_>>(
+        //     &mut linker,
+        //     |state| WasiHttpImpl(IoImpl(state)),
+        // )?;
+        // wasmtime_wasi_http::bindings::http::types::add_to_linker::<_, WasiHttp<_>>(
+        //     &mut linker,
+        //     &LinkOptions::default(),
+        //     |state| WasiHttpImpl(IoImpl(state)),
+        // )?;
         wasi::bindings::add_to_linker::<_, HasSelf<_>>(&mut linker, |state| state)?;
 
         Ok(linker)
