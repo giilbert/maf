@@ -1,7 +1,7 @@
 use facet::Facet;
 use serde::de::DeserializeOwned;
 
-use crate::{App, Params, Store, StoreData, User};
+use crate::{callable::IntoCallable, store::SelectContext, App, Params, Store, StoreData, User};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct StoreDesc {
@@ -188,9 +188,43 @@ impl_extract_rpc_desc!(T1, T2, T3, T4, T5, T6, T7);
 impl_extract_rpc_desc!(T1, T2, T3, T4, T5, T6, T7, T8);
 impl_extract_rpc_desc!(T1, T2, T3, T4, T5, T6, T7, T8, T9);
 
+pub trait ExtractSelectDesc<Params, Ret, const IS_ASYNC: bool> {
+    fn extract(name: String) -> StoreDesc;
+}
+
+impl<F, Params, Ret, const IS_ASYNC: bool> ExtractSelectDesc<Params, Ret, IS_ASYNC> for F
+where
+    F: IntoCallable<SelectContext, Params, Ret, std::convert::Infallible, (), IS_ASYNC>,
+    Ret: facet::Facet<'static>,
+{
+    fn extract(name: String) -> StoreDesc {
+        let result = Ret::SHAPE;
+        StoreDesc {
+            name,
+            select: result,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::{typed::desc::ExtractRpcDesc, Params, Store, StoreData};
+    use crate::{
+        typed::{desc::ExtractRpcDesc, ExtractSelectDesc},
+        Params, Store, StoreData,
+    };
+
+    struct Test;
+    impl StoreData for Test {
+        type Select<'this> = i32;
+
+        fn init() -> Self {
+            Test
+        }
+
+        fn select(&self, _user: &crate::User) -> Self::Select<'_> {
+            1
+        }
+    }
 
     fn is_extract_rpc_desc<F, Params, Ret, const IS_ASYNC: bool>(_fn: F)
     where
@@ -200,19 +234,6 @@ mod tests {
 
     #[test]
     fn extract_rpc_desc_compiles() {
-        struct Test;
-        impl StoreData for Test {
-            type Select<'this> = i32;
-
-            fn init() -> Self {
-                Test
-            }
-
-            fn select(&self, _user: &crate::User) -> Self::Select<'_> {
-                1
-            }
-        }
-
         fn string_to_string_fn(_params: Params<String>) -> String {
             "hello".to_string()
         }
@@ -231,5 +252,24 @@ mod tests {
         is_extract_rpc_desc(with_store_fn);
         is_extract_rpc_desc(unit_to_unit_fn);
         is_extract_rpc_desc(async_string_to_string_fn);
+    }
+
+    fn is_extract_select_desc<F, Params, Ret, const IS_ASYNC: bool>(_fn: F)
+    where
+        F: ExtractSelectDesc<Params, Ret, IS_ASYNC>,
+    {
+    }
+
+    #[test]
+    fn extract_select_desc_compiles() {
+        fn select_test_store(_store: Store<Test>) -> i32 {
+            42
+        }
+        async fn async_select_test_store(_store: Store<Test>) -> i32 {
+            42
+        }
+
+        is_extract_select_desc(select_test_store);
+        is_extract_select_desc(async_select_test_store);
     }
 }

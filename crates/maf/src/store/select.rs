@@ -21,6 +21,9 @@ pub struct AnySelect {
     ///
     /// TODO: Allow for selects on granular stores by somehow passing the store key in?
     pub(crate) depends_on_stores: HashSet<TypeId>,
+
+    #[cfg(feature = "typed")]
+    pub(crate) desc: crate::typed::StoreDesc,
 }
 
 pub struct SelectContext {

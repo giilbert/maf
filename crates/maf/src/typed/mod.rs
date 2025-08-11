@@ -1,6 +1,6 @@
 mod desc;
 
-pub use desc::{ExtractRpcDesc, RpcDesc, StoreDesc};
+pub use desc::{ExtractRpcDesc, ExtractSelectDesc, RpcDesc, StoreDesc};
 
 use crate::{bindings, App};
 
@@ -38,6 +38,13 @@ impl App {
                         name: store.desc.name.clone(),
                         select: store.desc.select.into(),
                     })
+                    // Selects behave like stores client-side, so we can include them here
+                    .chain(self.inner.selects.iter().map(|(_, select)| {
+                        schemas::typed::StoreSerialized {
+                            name: select.desc.name.clone(),
+                            select: select.desc.select.into(),
+                        }
+                    }))
                     .collect(),
             })
             .expect("Failed to serialize schema"),

@@ -28,6 +28,7 @@ use crate::{
         SelectKey, StoreKey,
     },
     tasks::{self, Runtime},
+    typed::ExtractSelectDesc,
     user::UserMessage,
     Channel, RpcFunction, StoreData, User, UserListener,
 };
@@ -594,7 +595,8 @@ impl AppBuilder {
         handler: Handler,
     ) -> Self
     where
-        Handler: IntoCallable<SelectContext, Params, Ret, std::convert::Infallible, (), IS_ASYNC>,
+        Handler: IntoCallable<SelectContext, Params, Ret, std::convert::Infallible, (), IS_ASYNC>
+            + ExtractSelectDesc<Params, Ret, IS_ASYNC>,
         Params: GetParamSelectDependencies<N_PARAMS>,
         // TODO: can we remove this 'static bound?
         Ret: Serialize + 'static,
@@ -617,7 +619,7 @@ impl AppBuilder {
         self.selects.insert(
             name.clone(),
             AnySelect {
-                name,
+                name: name.clone(),
                 select: Arc::new(move |ctx| {
                     let callable = callable.clone();
                     Box::pin(async move {
@@ -635,6 +637,8 @@ impl AppBuilder {
                         }
                     })
                     .collect(),
+                #[cfg(feature = "typed")]
+                desc: Handler::extract(name.to_string()),
             },
         );
 
