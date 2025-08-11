@@ -12,7 +12,7 @@ use maf_container::{
 };
 use notify::RecommendedWatcher;
 use notify_debouncer_full::{new_debouncer_opt, DebounceEventResult, Debouncer, RecommendedCache};
-use schemas::apps::{generate_room_secret, RoomCreationStrategy, RoomId};
+use maf_schemas::apps::{generate_room_secret, RoomCreationStrategy, RoomId};
 use tokio::sync::{RwLock, RwLockReadGuard};
 
 use crate::{config::ProjectConfig, dev::dev_server::DevServerState, print_dimmed};

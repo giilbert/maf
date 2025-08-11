@@ -10,7 +10,7 @@ use maf_container::{
     server::{ErrorResponse, RoomInner},
     ContainerResourceLimit,
 };
-use schemas::{
+use maf_schemas::{
     apps::{
         AppNameAndOrgSlug, CreateRoomOptions, CreateUserAppRequest, RoomCreationStrategy, RoomInfo,
         RoomKeyHash,

@@ -3,7 +3,7 @@ mod hooks;
 mod user;
 
 pub use hooks::{FutureHookRequest, HookRequest};
-use schemas::typed::AppSchema;
+use maf_schemas::typed::AppSchema;
 pub use user::{FutureMessage, FutureUser, User};
 use wasmtime::component::Resource;
 

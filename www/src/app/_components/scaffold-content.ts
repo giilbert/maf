@@ -44,7 +44,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-maf = "^1"
+maf = "*"
 serde = { version = "^1", features = ["derive"] }
 
 [lib]

@@ -28,7 +28,6 @@ use crate::{
         SelectKey, StoreKey,
     },
     tasks::{self, Runtime},
-    typed::ExtractSelectDesc,
     user::UserMessage,
     Channel, RpcFunction, StoreData, User, UserListener,
 };
@@ -581,7 +580,7 @@ impl AppBuilder {
         Ret,
         #[cfg(not(feature = "typed"))] Handler: IntoCallable<SelectContext, Params, Ret, std::convert::Infallible, (), IS_ASYNC>,
         #[cfg(feature = "typed")] Handler: IntoCallable<SelectContext, Params, Ret, std::convert::Infallible, (), IS_ASYNC>
-            + ExtractSelectDesc<Params, Ret, IS_ASYNC>,
+            + crate::typed::ExtractSelectDesc<Params, Ret, IS_ASYNC>,
         const IS_ASYNC: bool,
         const N_PARAMS: usize,
     >(

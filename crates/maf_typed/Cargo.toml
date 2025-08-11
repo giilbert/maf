@@ -2,9 +2,10 @@
 name = "maf_typed"
 version = "0.1.0"
 edition = "2024"
+publish = false
 
 [dependencies]
-schemas = { path = "../schemas" }
+maf_schemas = { path = "../maf_schemas" }
 
 [dev-dependencies]
 facet = "0.28.0"

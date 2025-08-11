@@ -10,7 +10,7 @@ use maf_container::{
     wasi::bindings::{self, HookRequestCaller},
     ContainerResourceLimit,
 };
-use schemas::{
+use maf_schemas::{
     apps::{AppNameAndOrgSlug, RoomCreationStrategy},
     project_config::ProjectConfigFile,
 };

@@ -10,7 +10,7 @@ use std::{
 };
 
 use io::ContainerStdoutFactory;
-use schemas::typed::AppSchema;
+use maf_schemas::typed::AppSchema;
 use tokio::{
     sync::{mpsc, oneshot},
     time,

@@ -2,11 +2,12 @@
 name = "maf_container_host"
 version = "0.1.0"
 edition = "2021"
+publish = false
 
 [dependencies]
 maf_container = { path = "../maf_container" }
 migrations = { path = "migrations" }
-schemas = { path = "../schemas" }
+maf_schemas = { path = "../maf_schemas" }
 
 anyhow = "^1.0.96"
 async-trait = "0.1.88"

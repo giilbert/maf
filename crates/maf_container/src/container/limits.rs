@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use schemas::apps::RoomId;
+use maf_schemas::apps::RoomId;
 use wasmtime::ResourceLimiterAsync;
 
 use crate::{ContainerResourceLimit, container::ContainerResourceStats};

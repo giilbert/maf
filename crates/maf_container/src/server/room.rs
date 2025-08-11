@@ -1,4 +1,4 @@
-use schemas::apps::RoomId;
+use maf_schemas::apps::RoomId;
 use tokio::sync::oneshot;
 use uuid::Uuid;
 

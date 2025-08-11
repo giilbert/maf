@@ -1,4 +1,4 @@
-use schemas::typed::{AppSchema, NumericType, PrimitiveType, StoreSerialized, TypeKind};
+use maf_schemas::typed::{AppSchema, NumericType, PrimitiveType, StoreSerialized, TypeKind};
 
 #[derive(Debug)]
 pub struct TypeScriptCodegen {
@@ -122,7 +122,7 @@ impl TypeScriptCodegen {
         output
     }
 
-    fn emit_rpc(&self, rpc: &schemas::typed::RpcSerialized) -> String {
+    fn emit_rpc(&self, rpc: &maf_schemas::typed::RpcSerialized) -> String {
         format!(
             "\"{name}\": {{\n  name: \"{name}\";\n  params: {};\n  result: {};\n}};",
             rpc.params
@@ -140,7 +140,7 @@ impl TypeScriptCodegen {
 mod tests {
     use facet::Facet;
     use maf::StoreData;
-    use schemas::typed::TupleType;
+    use maf_schemas::typed::TupleType;
     use serde::Serialize;
 
     use super::*;
@@ -217,18 +217,20 @@ mod tests {
         );
 
         assert_eq!(
-            codegen.format_type(&TypeKind::Record(Box::new(schemas::typed::RecordType {
-                fields: vec![
-                    (
-                        "name".to_string(),
-                        TypeKind::Primitive(PrimitiveType::String)
-                    ),
-                    (
-                        "number".to_string(),
-                        TypeKind::Primitive(PrimitiveType::Numeric(NumericType::F64))
-                    )
-                ],
-            }))),
+            codegen.format_type(&TypeKind::Record(Box::new(
+                maf_schemas::typed::RecordType {
+                    fields: vec![
+                        (
+                            "name".to_string(),
+                            TypeKind::Primitive(PrimitiveType::String)
+                        ),
+                        (
+                            "number".to_string(),
+                            TypeKind::Primitive(PrimitiveType::Numeric(NumericType::F64))
+                        )
+                    ],
+                }
+            ))),
             r#"{
   name: string;
   number: number;
@@ -259,7 +261,7 @@ mod tests {
             codegen.format_type(&TypeKind::Tuple(Box::new(TupleType {
                 elements: vec![
                     TypeKind::Primitive(PrimitiveType::String),
-                    TypeKind::Record(Box::new(schemas::typed::RecordType {
+                    TypeKind::Record(Box::new(maf_schemas::typed::RecordType {
                         fields: vec![
                             (
                                 "string".to_string(),
@@ -295,7 +297,7 @@ mod tests {
         };
 
         assert_eq!(
-            codegen.format_type(&TypeKind::Map(Box::new(schemas::typed::MapType {
+            codegen.format_type(&TypeKind::Map(Box::new(maf_schemas::typed::MapType {
                 key: TypeKind::Primitive(PrimitiveType::String),
                 value: TypeKind::Primitive(PrimitiveType::Numeric(NumericType::I32)),
             }))),
@@ -303,9 +305,9 @@ mod tests {
         );
 
         assert_eq!(
-            codegen.format_type(&TypeKind::Map(Box::new(schemas::typed::MapType {
+            codegen.format_type(&TypeKind::Map(Box::new(maf_schemas::typed::MapType {
                 key: TypeKind::Primitive(PrimitiveType::Numeric(NumericType::I32)),
-                value: TypeKind::Record(Box::new(schemas::typed::RecordType {
+                value: TypeKind::Record(Box::new(maf_schemas::typed::RecordType {
                     fields: vec![
                         (
                             "name".to_string(),
@@ -335,15 +337,15 @@ mod tests {
         };
 
         assert_eq!(
-            codegen.format_type(&TypeKind::Array(Box::new(schemas::typed::ArrayType {
+            codegen.format_type(&TypeKind::Array(Box::new(maf_schemas::typed::ArrayType {
                 element: TypeKind::Primitive(PrimitiveType::String),
             }))),
             "string[]"
         );
 
         assert_eq!(
-            codegen.format_type(&TypeKind::Array(Box::new(schemas::typed::ArrayType {
-                element: TypeKind::Record(Box::new(schemas::typed::RecordType {
+            codegen.format_type(&TypeKind::Array(Box::new(maf_schemas::typed::ArrayType {
+                element: TypeKind::Record(Box::new(maf_schemas::typed::RecordType {
                     fields: vec![
                         (
                             "name".to_string(),

@@ -2226,13 +2226,13 @@ dependencies = [
 
 [[package]]
 name = "maf"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "anyhow",
  "facet",
  "futures-util",
  "http",
- "schemas",
+ "maf_schemas",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
@@ -2269,11 +2269,11 @@ dependencies = [
  "include_dir",
  "indicatif",
  "maf_container",
+ "maf_schemas",
  "maf_typed",
  "notify",
  "notify-debouncer-full",
  "reqwest",
- "schemas",
  "serde",
  "serde_json",
  "tokio",
@@ -2294,8 +2294,8 @@ dependencies = [
  "axum",
  "bytes",
  "futures-util",
+ "maf_schemas",
  "rand 0.9.1",
- "schemas",
  "serde",
  "serde_json",
  "tokio",
@@ -2326,9 +2326,9 @@ dependencies = [
  "fmtsize",
  "futures-util",
  "maf_container",
+ "maf_schemas",
  "migrations",
  "rand 0.9.1",
- "schemas",
  "sea-orm",
  "serde",
  "serde_json",
@@ -2343,12 +2343,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "maf_schemas"
+version = "0.1.0-alpha.1"
+dependencies = [
+ "colored",
+ "facet",
+ "rand 0.9.1",
+ "serde",
+ "uuid",
+]
+
+[[package]]
 name = "maf_typed"
 version = "0.1.0"
 dependencies = [
  "facet",
  "maf",
- "schemas",
+ "maf_schemas",
  "serde",
 ]
 
@@ -3413,17 +3424,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f29ebaa345f945cec9fbbc532eb307f0fdad8161f281b6369539c8d84876b3d"
 dependencies = [
  "windows-sys 0.59.0",
-]
-
-[[package]]
-name = "schemas"
-version = "0.1.0"
-dependencies = [
- "colored",
- "facet",
- "rand 0.9.1",
- "serde",
- "uuid",
 ]
 
 [[package]]

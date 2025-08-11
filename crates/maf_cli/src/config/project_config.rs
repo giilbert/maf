@@ -1,7 +1,7 @@
 use std::{fs, path::PathBuf};
 
 use anyhow::Context;
-use schemas::{apps::RoomCreationStrategy, project_config::ProjectConfigFile};
+use maf_schemas::{apps::RoomCreationStrategy, project_config::ProjectConfigFile};
 
 /// Configuration information for a MAF project, if found in the current directory or any parent
 /// directory.

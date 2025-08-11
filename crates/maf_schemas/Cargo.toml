@@ -1,0 +1,17 @@
+[package]
+name = "maf_schemas"
+version = "0.1.0-alpha.1"
+edition = "2024"
+
+license = "MIT"
+description = "MAF Schemas provides shared schemas for MAF applications and libraries."
+homepage = "https://maf.gilbertz.me"
+repository = "https://github.com/giilbert/maf"
+readme = "../../README.md"
+
+[dependencies]
+colored = "3.0.0"
+facet = "0.28.0"
+rand = "0.9.1"
+serde = { version = "^1", features = ["derive"] }
+uuid = { version = "1.16.0", features = ["serde", "v4"] }

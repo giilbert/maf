@@ -12,7 +12,7 @@ use colored::Colorize;
 use futures_util::{io::Cursor, TryStreamExt};
 use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
 use reqwest::Body;
-use schemas::apps::CreateUserAppRequest;
+use maf_schemas::apps::CreateUserAppRequest;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio_util::{
     codec::{BytesCodec, FramedRead},

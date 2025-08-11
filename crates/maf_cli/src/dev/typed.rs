@@ -1,5 +1,5 @@
 use colored::Colorize;
-use schemas::{project_config::Language, typed::AppSchema};
+use maf_schemas::{project_config::Language, typed::AppSchema};
 
 use crate::config::ProjectConfig;
 

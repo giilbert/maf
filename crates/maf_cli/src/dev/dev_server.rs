@@ -12,7 +12,7 @@ use maf_container::{
     wasi::bindings::{self, HookRequestCaller},
     Container, ContainerResourceLimit, ContainerRuntime,
 };
-use schemas::apps::RoomCreationStrategy;
+use maf_schemas::apps::RoomCreationStrategy;
 use uuid::Uuid;
 
 use crate::{

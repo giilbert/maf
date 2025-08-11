@@ -4,7 +4,7 @@ use std::{
 };
 
 use maf_container::server::RoomInner;
-use schemas::apps::{
+use maf_schemas::apps::{
     generate_room_secret, AppNameAndOrgSlug, RoomCreationStrategy, RoomId, RoomKeyHash,
 };
 use tokio::sync::{RwLock, RwLockReadGuard};
