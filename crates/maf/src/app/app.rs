@@ -501,18 +501,11 @@ impl AppBuilder {
         #[cfg(feature = "typed")] const TYPED_IS_RESULT: bool,
         #[cfg(feature = "typed")] Handler: IntoCallable<RpcRequestContext, Params, Return, RpcError, RpcRequestInit, IS_ASYNC>
             + crate::typed::ExtractRpcDesc<TypedParams, TypedReturn, TYPED_IS_ASYNC, TYPED_IS_RESULT>,
+        #[cfg(not(feature = "typed"))] Handler: IntoCallable<RpcRequestContext, Params, Return, RpcError, RpcRequestInit, IS_ASYNC>,
     >(
         mut self,
         method: impl ToString,
-        #[cfg(feature = "typed")] handler: Handler,
-        #[cfg(not(feature = "typed"))] handler: impl IntoCallable<
-            RpcRequestContext,
-            Params,
-            Return,
-            RpcError,
-            RpcRequestInit,
-            IS_ASYNC,
-        >,
+        handler: Handler,
     ) -> Self
     where
         Return: Serialize + 'static,
@@ -586,7 +579,9 @@ impl AppBuilder {
         Name: ToString,
         Params,
         Ret,
-        Handler,
+        #[cfg(not(feature = "typed"))] Handler: IntoCallable<SelectContext, Params, Ret, std::convert::Infallible, (), IS_ASYNC>,
+        #[cfg(feature = "typed")] Handler: IntoCallable<SelectContext, Params, Ret, std::convert::Infallible, (), IS_ASYNC>
+            + ExtractSelectDesc<Params, Ret, IS_ASYNC>,
         const IS_ASYNC: bool,
         const N_PARAMS: usize,
     >(
@@ -595,8 +590,6 @@ impl AppBuilder {
         handler: Handler,
     ) -> Self
     where
-        Handler: IntoCallable<SelectContext, Params, Ret, std::convert::Infallible, (), IS_ASYNC>
-            + ExtractSelectDesc<Params, Ret, IS_ASYNC>,
         Params: GetParamSelectDependencies<N_PARAMS>,
         // TODO: can we remove this 'static bound?
         Ret: Serialize + 'static,
