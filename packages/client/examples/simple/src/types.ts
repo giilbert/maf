@@ -6,6 +6,10 @@ export type MafStoresList = {
     name: "count";
     select: number | null;
   };
+  "count_times_two": {
+    name: "count_times_two";
+    select: number | null;
+  };
 };
 
 // prettier-ignore

@@ -20,10 +20,29 @@ pub enum TxPacket<'a, T> {
     TypedRpcResponse(TypedRpcResponsePacket),
 }
 
+/// Represents either a borrowed or owned value.
+#[derive(Debug)]
+pub enum Borwned<'a, T> {
+    Borrowed(&'a T),
+    Owned(T),
+}
+
+impl<'a, T: Serialize> Serialize for Borwned<'a, T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            Borwned::Borrowed(value) => value.serialize(serializer),
+            Borwned::Owned(value) => value.serialize(serializer),
+        }
+    }
+}
+
 #[derive(Debug, Serialize)]
 pub struct OneStoreUpdate<'a, T> {
     pub store: &'a str,
-    pub data: &'a T,
+    pub data: Borwned<'a, T>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

@@ -49,6 +49,9 @@ fn build() -> App {
         .store::<CounterStore>()
         .rpc("increment_counter", increment_counter)
         .hook("counter", counter_read_hook)
+        .select("count_times_two", |store: Store<CounterStore>| async move {
+            store.read().await.count * 2
+        })
         .background(|app: App| async move {
             println!("hello world!");
             let mut chan = app.channel::<String>("hello");

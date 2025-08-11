@@ -17,6 +17,11 @@ store.on("change", (data) => {
   console.log("Counter value changed:", data);
 });
 
+const storeTwo = client.store("count_times_two");
+storeTwo.on("change", (data) => {
+  console.log("Count times two value changed:", data);
+});
+
 async function run() {
   await client.connect();
 

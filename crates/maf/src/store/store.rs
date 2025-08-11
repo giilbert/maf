@@ -1,5 +1,5 @@
 use std::{
-    any::Any,
+    any::{Any, TypeId},
     sync::{
         atomic::{self, AtomicBool},
         Arc,
@@ -18,6 +18,7 @@ use super::change_detection::StoreMut;
 
 #[derive(Clone)]
 pub struct AnyStore {
+    pub(crate) type_id: TypeId,
     pub(crate) key: StoreKey,
     pub(crate) dirty: Arc<AtomicBool>,
     pub(crate) data: Arc<RwLock<dyn Any + Send + Sync>>,
@@ -86,6 +87,7 @@ pub trait StoreData: Send + Sync + 'static {
 impl AnyStore {
     pub fn new<T: StoreData>() -> Self {
         Self {
+            type_id: TypeId::of::<T>(),
             key: T::key().into(),
             dirty: Arc::new(AtomicBool::new(false)),
             data: Arc::new(RwLock::new(T::init())),

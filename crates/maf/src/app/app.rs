@@ -1,7 +1,12 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    any::TypeId,
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use anyhow::Context;
 use serde::Serialize;
+use serde_json::Value;
 use tokio::sync::{
     mpsc::{self, error::TryRecvError},
     RwLock, RwLockReadGuard,
@@ -13,12 +18,15 @@ use crate::{
     bindings::bindgen,
     callable::{AnyCallable, IntoCallable},
     channel::UntypedChannelBroadcast,
-    packet::{ChannelSendRx, OneStoreUpdate, RxPacket, TxPacket},
+    packet::{Borwned, ChannelSendRx, OneStoreUpdate, RxPacket, TxPacket},
     rpc::{
         models::{TypedRpcRequestPacket, TypedRpcResponsePacket},
         RpcError, RpcRequestContext, RpcRequestInit, RpcStore,
     },
-    store::{AnyStore, StoreKey},
+    store::{
+        AnySelect, AnyStore, GetParamSelectDependencies, SelectContext, SelectDependencyType,
+        SelectKey, StoreKey,
+    },
     tasks::{self, Runtime},
     user::UserMessage,
     Channel, RpcFunction, StoreData, User, UserListener,
@@ -47,6 +55,8 @@ pub struct AppInner {
     pub(crate) on_connect: Option<Arc<OnConnectDisconnectFn>>,
     pub(crate) on_disconnect: Option<Arc<OnConnectDisconnectFn>>,
     pub(crate) background: Option<Arc<BackgroundFn>>,
+    pub(crate) selects: HashMap<SelectKey, AnySelect>,
+    pub(crate) select_dependencies: HashMap<TypeId, HashSet<SelectKey>>,
 }
 
 #[derive(Debug)]
@@ -67,6 +77,11 @@ pub struct AppBuilder {
     states: StateStore,
     hooks: HookStore,
     stores: HashMap<StoreKey, AnyStore>,
+    selects: HashMap<SelectKey, AnySelect>,
+    /// Used to track what selects each store affects (maps store type id to the names of selects)
+    ///
+    /// TODO: refactor into separate storage
+    select_dependencies: HashMap<TypeId, HashSet<SelectKey>>,
 }
 
 impl App {
@@ -219,6 +234,23 @@ impl App {
         Ok(())
     }
 
+    async fn compute_select_contents(&self, name: &str, user: User) -> anyhow::Result<Value> {
+        let any_select = self
+            .inner
+            .selects
+            .get(name)
+            .ok_or_else(|| anyhow::anyhow!("select not found: {name}"))?;
+
+        let value = (any_select.select)(SelectContext {
+            app: self.clone(),
+            user,
+        })
+        .await
+        .map_err(|e| anyhow::anyhow!("failed to compute select contents for {name}: {e}"))?;
+
+        Ok(value)
+    }
+
     async fn flush_all_store_changes(&self) -> anyhow::Result<()> {
         let mut store_dirty_rx = self.inner.store_dirty_rx.write().await;
 
@@ -248,37 +280,66 @@ impl App {
         let serializer = store.serializer.clone();
         let data = store.data.read_owned().await;
 
+        let select_dependencies = self.inner.select_dependencies.get(&store.type_id);
+
         for (_user_id, user) in self.inner.state.users.read().await.iter() {
+            let mut updates: Vec<OneStoreUpdate<Value>> = vec![];
+
             let serialized = serializer(&*data, &user)
                 .map_err(|_| anyhow::anyhow!("failed to serialize store"))?;
 
-            user.send(TxPacket::StoreUpdate(OneStoreUpdate {
+            updates.push(OneStoreUpdate {
                 store: store_key.as_ref(),
-                data: &serialized,
-            }))
-            .ok();
+                data: Borwned::Borrowed(&serialized),
+            });
+
+            // Refresh any selects that depend on this store
+            if let Some(selects) = select_dependencies {
+                for select_name in selects {
+                    let value = self
+                        .compute_select_contents(&select_name, user.clone())
+                        .await?;
+
+                    updates.push(OneStoreUpdate {
+                        store: select_name.as_ref(),
+                        data: Borwned::Owned(value),
+                    });
+                }
+            }
+
+            user.send(TxPacket::ManyStoreUpdate::<()>(updates)).ok();
         }
 
         Ok(())
     }
 
+    // TODO: allow users to subscribe to stores instead of sending updates optimistically
     async fn refresh_all_stores(&self, user: &User) -> anyhow::Result<()> {
         let stores = self.inner.state.stores.read().await;
 
-        let mut data: Vec<(&StoreKey, serde_json::Value)> = Vec::with_capacity(stores.len());
+        let mut data: Vec<(&str, serde_json::Value)> = Vec::with_capacity(stores.len());
 
         for (store_key, store) in stores.iter() {
             let serialized = (store.serializer)(&*store.data.read().await, user)
                 .context("failed to serialize store")?;
 
-            data.push((store_key, serialized));
+            data.push((store_key.as_ref(), serialized));
+        }
+
+        // Also compute every select
+        for (select_name, ..) in self.inner.selects.iter() {
+            let value = self
+                .compute_select_contents(select_name, user.clone())
+                .await?;
+
+            data.push((select_name, value));
         }
 
         user.send(TxPacket::ManyStoreUpdate::<serde_json::Value>(
             data.iter()
                 .map(|(k, v)| OneStoreUpdate {
                     store: k.as_ref(),
-                    data: v,
+                    data: Borwned::Borrowed(v),
                 })
                 .collect(),
         ))
@@ -519,6 +580,67 @@ impl AppBuilder {
         self
     }
 
+    /// Register a store where its contents are derived with the provided function.
+    pub fn select<
+        Name: ToString,
+        Params,
+        Ret,
+        Handler,
+        const IS_ASYNC: bool,
+        const N_PARAMS: usize,
+    >(
+        mut self,
+        name: Name,
+        handler: Handler,
+    ) -> Self
+    where
+        Handler: IntoCallable<SelectContext, Params, Ret, std::convert::Infallible, (), IS_ASYNC>,
+        Params: GetParamSelectDependencies<N_PARAMS>,
+        // TODO: can we remove this 'static bound?
+        Ret: Serialize + 'static,
+    {
+        let name: Arc<str> = Arc::from(name.to_string());
+        let callable: Arc<AnyCallable<SelectContext, Ret, std::convert::Infallible>> =
+            Arc::from(handler.into_callable(()));
+
+        let dependencies = Params::get_select_dependencies();
+
+        for dependency in &dependencies {
+            if let SelectDependencyType::Store(type_id) = dependency {
+                self.select_dependencies
+                    .entry(*type_id)
+                    .or_default()
+                    .insert(name.clone());
+            }
+        }
+
+        self.selects.insert(
+            name.clone(),
+            AnySelect {
+                name,
+                select: Arc::new(move |ctx| {
+                    let callable = callable.clone();
+                    Box::pin(async move {
+                        let result = callable(ctx).await.expect("Select should not fail");
+                        serde_json::to_value(result)
+                    })
+                }),
+                depends_on_stores: dependencies
+                    .iter()
+                    .filter_map(|d| {
+                        if let SelectDependencyType::Store(type_id) = d {
+                            Some(*type_id)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect(),
+            },
+        );
+
+        self
+    }
+
     /// Declare a store
     pub fn state<T: Send + Sync + 'static>(mut self, state: T) -> Self {
         self.states.insert(state);
@@ -581,6 +703,8 @@ impl AppBuilder {
             on_disconnect: self.on_disconnect,
             background: self.background,
             hooks: self.hooks,
+            selects: self.selects,
+            select_dependencies: self.select_dependencies,
         };
 
         let app = App {
