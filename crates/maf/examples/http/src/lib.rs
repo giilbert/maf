@@ -10,10 +10,15 @@ fn build() -> App {
         .background(|app: App| async move {
             println!("hello world!");
 
-            let res = http::Request::get("https://www.google.com")
+            let res = http::get("https://www.google.com")
                 .send()
                 .await
-                .expect("request failed");
+                .expect("request failed")
+                .text()
+                .await
+                .expect("failed to read response text");
+
+            println!("Response: {}", res);
         })
         .build()
 }

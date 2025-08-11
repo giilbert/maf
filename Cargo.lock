@@ -2231,6 +2231,7 @@ dependencies = [
  "anyhow",
  "facet",
  "futures-util",
+ "http",
  "schemas",
  "serde",
  "serde_json",

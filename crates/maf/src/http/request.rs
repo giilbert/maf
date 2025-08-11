@@ -1,33 +1,41 @@
+use http::{header::IntoHeaderName, HeaderMap};
 use url::{ParseError, Url};
 use wasi::{
     http::{
         outgoing_handler::RequestOptions,
-        types::{ErrorCode, Fields, Method, OutgoingBody, OutgoingRequest, Scheme},
+        types::{ErrorCode, HeaderError, Method, OutgoingBody, OutgoingRequest, Scheme},
     },
     io::streams::StreamError,
 };
 
-use crate::tasks;
+use crate::{
+    http::{header_map_to_fields, response::Response},
+    tasks,
+};
 
 /// Represents an HTTP request that hasn't been sent yet.
 pub struct Request {
     url: Url,
     method: Method,
-    headers: Fields,
+    headers: HeaderMap,
     body: RequestBody,
 }
 
 pub enum RequestBody {
+    /// No body.
     None,
+    /// Body where the entire content is provided at once.
     Full(Vec<u8>),
 }
 
 pub struct RequestBuilder {
-    wip: Request,
+    wip: Result<Request, RequestError>,
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum RequestError {
+    #[error("Invalid URL: {0}")]
+    InvalidUrl(#[from] ParseError),
     #[error("Invalid method: {0:?}")]
     InvalidMethod(Method),
     #[error("Invalid URL scheme: {0}")]
@@ -36,6 +44,8 @@ pub enum RequestError {
     InvalidPath(String),
     #[error("Invalid URL authority: {0}")]
     InvalidAuthority(String),
+    #[error("Invalid header: {0}")]
+    InvalidHeader(HeaderError),
     #[error("Request failed. Error code: {0}")]
     RequestFailed(ErrorCode),
     #[error("Body write failed: {0}")]
@@ -65,19 +75,24 @@ impl IntoUrl for Url {
 }
 
 impl Request {
-    pub fn get(url: impl IntoUrl) -> RequestBuilder {
+    pub fn new(url: impl IntoUrl) -> RequestBuilder {
         RequestBuilder {
-            wip: Request {
-                url: url.into_url().expect("Invalid URL"),
-                method: Method::Get,
-                headers: Fields::new(),
-                body: RequestBody::None,
-            },
+            wip: url
+                .into_url()
+                .map(|url| Request {
+                    url,
+                    method: Method::Get,
+                    headers: HeaderMap::new(),
+                    body: RequestBody::None,
+                })
+                .map_err(RequestError::InvalidUrl),
         }
     }
 
-    pub async fn send(self) -> Result<(), RequestError> {
-        let req = OutgoingRequest::new(self.headers);
+    pub async fn send(self) -> Result<Response, RequestError> {
+        let req = OutgoingRequest::new(
+            header_map_to_fields(&self.headers).map_err(RequestError::InvalidHeader)?,
+        );
 
         req.set_method(&self.method)
             .map_err(|_| RequestError::InvalidMethod(self.method))?;
@@ -154,49 +169,94 @@ impl Request {
             .expect("Response should not have been taken");
 
         let response = response.map_err(RequestError::RequestFailed)?;
-
-        let headers = response.headers();
-        let status = response.status();
-        let body = response.consume().expect("Response already consumed");
-
-        println!("Response status: {}", status);
-        println!("Response headers: {:?}", headers.entries());
-
-        let stream = body.stream().expect("Body stream should be available");
-        let mut buffer = Vec::new();
-
-        loop {
-            tasks::wait_for(stream.subscribe()).await;
-
-            match stream.read(u64::MAX) {
-                Ok(data) => buffer.extend_from_slice(&data),
-                Err(StreamError::Closed) => break,
-                Err(e) => return Err(RequestError::Body(e)),
-            }
-        }
-
-        println!("Response body: {:?}", String::from_utf8_lossy(&buffer));
-
-        Ok(())
+        Ok(Response::from(response))
     }
 }
 
 impl RequestBuilder {
+    /// Sets the method of the request.
     pub fn method(mut self, method: Method) -> Self {
-        self.wip.method = method;
+        self.wip.as_mut().map(|req| req.method = method).ok();
         self
     }
 
+    /// Sets the raw body of the request.
     pub fn body(mut self, body: RequestBody) -> Self {
-        self.wip.body = body;
+        match &body {
+            RequestBody::None => (),
+            RequestBody::Full(bytes) => {
+                self = self.header(http::header::CONTENT_LENGTH, bytes.len().to_string());
+            }
+        };
+        self.wip.as_mut().map(|req| req.body = body).ok();
         self
     }
 
-    pub fn build(self) -> Request {
+    /// Sets the body of the request as a JSON object.
+    ///
+    /// This will serialize the provided object into JSON, set the `Content-Type`` header to
+    /// `application/json`, and the `Content-Length` header to the length of the serialized JSON.
+    ///
+    /// If the serialization fails, the builder will return an error once [`RequestBuilder::build`]
+    /// is called.
+    pub fn json(mut self, json: impl serde::Serialize) -> Self {
+        match serde_json::to_vec(&json) {
+            Ok(data) => self
+                .header(http::header::CONTENT_TYPE, "application/json")
+                .body(RequestBody::Full(data)),
+            Err(_) => {
+                self.wip = Err(RequestError::InvalidHeader(HeaderError::InvalidSyntax));
+                self
+            }
+        }
+    }
+
+    /// Sets the body of the request as plain text.
+    ///
+    /// This will set the `Content-Type` header to `text/plain` and the `Content-Length` header to
+    /// the length of the text.
+    pub fn text(self, text: impl AsRef<str>) -> Self {
+        self.header(http::header::CONTENT_TYPE, "text/plain")
+            .body(RequestBody::Full(text.as_ref().as_bytes().to_vec()))
+    }
+
+    /// Sets a single header by name and value.
+    ///
+    /// If the header value is invalid, the builder will return an error once
+    /// [`RequestBuilder::build`] is called.
+    pub fn header(mut self, key: impl IntoHeaderName, value: impl AsRef<str>) -> Self {
+        match &mut self.wip {
+            Ok(req) => {
+                req.headers.insert(
+                    key,
+                    match value.as_ref().parse() {
+                        Ok(v) => v,
+                        Err(_) => {
+                            self.wip = Err(RequestError::InvalidHeader(HeaderError::InvalidSyntax));
+                            return self;
+                        }
+                    },
+                );
+            }
+            Err(_) => {}
+        }
+
+        self
+    }
+
+    /// Sets multiple headers at once through a [`HeaderMap`].
+    pub fn headers(mut self, headers: HeaderMap) -> Self {
+        self.wip.as_mut().map(|req| req.headers = headers).ok();
+        self
+    }
+
+    #[must_use = "RequestBuilder::build() does not send the request"]
+    pub fn build(self) -> Result<Request, RequestError> {
         self.wip
     }
 
-    pub fn send(self) -> impl std::future::Future<Output = Result<(), RequestError>> {
-        async move { self.build().send().await }
+    #[must_use]
+    pub fn send(self) -> impl std::future::Future<Output = Result<Response, RequestError>> {
+        async move { self.build()?.send().await }
     }
 }
