@@ -1,5 +1,8 @@
 use std::{any::TypeId, collections::HashSet, future::Future, pin::Pin, sync::Arc};
 
+#[cfg(feature = "typed")]
+use schemars::SchemaGenerator;
+
 use crate::{callable::CallableFetch, App, Store, StoreData, User};
 
 pub type SelectKey = Arc<str>;
@@ -23,7 +26,8 @@ pub struct AnySelect {
     pub(crate) depends_on_stores: HashSet<TypeId>,
 
     #[cfg(feature = "typed")]
-    pub(crate) desc: crate::typed::StoreDesc,
+    pub(crate) desc:
+        Arc<dyn Fn(&mut SchemaGenerator) -> crate::typed::StoreDesc + Send + Sync + 'static>,
 }
 
 pub struct SelectContext {

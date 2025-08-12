@@ -6,6 +6,8 @@ use std::{
     },
 };
 
+#[cfg(feature = "typed")]
+use schemars::{JsonSchema, SchemaGenerator};
 use serde::Serialize;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
@@ -30,7 +32,8 @@ pub struct AnyStore {
     >,
 
     #[cfg(feature = "typed")]
-    pub(crate) desc: crate::typed::StoreDesc,
+    pub(crate) desc:
+        Arc<dyn Fn(&mut SchemaGenerator) -> crate::typed::StoreDesc + Send + Sync + 'static>,
 }
 
 impl std::fmt::Debug for AnyStore {
@@ -68,7 +71,7 @@ pub trait StoreData: Send + Sync + 'static {
     #[cfg(not(feature = "typed"))]
     type Select<'this>: Serialize;
     #[cfg(feature = "typed")]
-    type Select<'this>: Serialize + facet::Facet<'this>;
+    type Select<'this>: Serialize + JsonSchema;
 
     fn name() -> impl AsRef<str> + Send {
         std::any::type_name::<Self>()
@@ -100,7 +103,7 @@ impl AnyStore {
                 serde_json::to_value(T::select(&data, user)).map_err(Into::into)
             }),
             #[cfg(feature = "typed")]
-            desc: crate::typed::StoreDesc::new::<T>(),
+            desc: Arc::new(|generator| crate::typed::StoreDesc::new::<T>(generator)),
         }
     }
 }

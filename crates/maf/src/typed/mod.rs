@@ -22,14 +22,19 @@ impl App {
         //     println!("rpc: method = {:?} desc = {:?}", rpc.method, rpc.desc);
         // }
 
+        let mut generator = schemars::SchemaGenerator::default();
+
         bindings::bindgen::report_app_schema(
             &serde_json::to_string_pretty(&maf_schemas::typed::AppSchema {
                 rpcs: rpcs
                     .values()
-                    .map(|rpc| maf_schemas::typed::RpcSerialized {
-                        name: rpc.method.to_string(),
-                        params: rpc.desc.params.map(|p| p.into()),
-                        result: Some(rpc.desc.result.into()),
+                    .map(|rpc| {
+                        let desc = (rpc.desc)(&mut generator);
+                        maf_schemas::typed::RpcSerialized {
+                            name: rpc.method.to_string(),
+                            params: desc.params.map(|p| p.into()),
+                            result: Some(desc.result.into()),
+                        }
                     })
                     .collect(),
                 stores: stores

@@ -534,7 +534,7 @@ impl AppBuilder {
                 })
             }),
             #[cfg(feature = "typed")]
-            desc: Handler::extract(method.clone()),
+            desc: Arc::new(move |generator| Handler::extract(generator, method.clone())),
         });
         self
     }
@@ -630,7 +630,7 @@ impl AppBuilder {
                     })
                     .collect(),
                 #[cfg(feature = "typed")]
-                desc: Handler::extract(name.to_string()),
+                desc: Arc::new(move |generator| Handler::extract(generator, name.to_string())),
             },
         );
 
