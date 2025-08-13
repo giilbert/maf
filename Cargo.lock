@@ -2226,7 +2226,7 @@ dependencies = [
 
 [[package]]
 name = "maf"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "anyhow",
  "facet",
@@ -2344,7 +2344,7 @@ dependencies = [
 
 [[package]]
 name = "maf_schemas"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "colored",
  "facet",
