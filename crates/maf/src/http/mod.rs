@@ -5,6 +5,7 @@ use std::str::FromStr;
 
 use http::{HeaderMap, HeaderName};
 pub use request::*;
+pub use response::*;
 use wasi::http::types::Fields;
 
 macro_rules! impl_http_method_builder {
