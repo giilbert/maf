@@ -11,8 +11,9 @@ use wasi::http::types::Fields;
 macro_rules! impl_http_method_builder {
     ($name:ident, $method:expr) => {
         #[allow(unused)]
-        pub fn $name(url: impl IntoUrl) -> RequestBuilder {
-            Request::new(url)
+        pub fn $name(url: impl IntoUri) -> RequestBuilder {
+            use wasi::http::types::Method;
+            Request::new($method, url)
         }
     };
 }

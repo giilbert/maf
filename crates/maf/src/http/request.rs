@@ -1,5 +1,6 @@
-use http::{header::IntoHeaderName, HeaderMap};
-use url::{ParseError, Url};
+use std::str::FromStr;
+
+use http::{header::IntoHeaderName, uri::InvalidUri, HeaderMap, Uri};
 use wasi::{
     http::{
         outgoing_handler::RequestOptions,
@@ -14,13 +15,15 @@ use crate::{
 };
 
 /// Represents an HTTP request that hasn't been sent yet.
+#[derive(Debug)]
 pub struct Request {
-    url: Url,
+    uri: Uri,
     method: Method,
     headers: HeaderMap,
     body: RequestBody,
 }
 
+#[derive(Debug)]
 pub enum RequestBody {
     /// No body.
     None,
@@ -34,8 +37,8 @@ pub struct RequestBuilder {
 
 #[derive(Debug, thiserror::Error)]
 pub enum RequestError {
-    #[error("Invalid URL: {0}")]
-    InvalidUrl(#[from] ParseError),
+    #[error("Invalid URI: {0}")]
+    InvalidUri(#[from] InvalidUri),
     #[error("Invalid method: {0:?}")]
     InvalidMethod(Method),
     #[error("Invalid URL scheme: {0}")]
@@ -52,76 +55,90 @@ pub enum RequestError {
     Body(StreamError),
 }
 
-pub trait IntoUrl {
-    fn into_url(self) -> Result<Url, ParseError>;
+pub trait IntoUri {
+    fn into_uri(self) -> Result<Uri, InvalidUri>;
 }
 
-impl IntoUrl for &'_ str {
-    fn into_url(self) -> Result<Url, ParseError> {
-        Url::parse(self)
+impl IntoUri for &'_ str {
+    fn into_uri(self) -> Result<Uri, InvalidUri> {
+        Uri::from_str(self)
     }
 }
 
-impl IntoUrl for String {
-    fn into_url(self) -> Result<Url, ParseError> {
-        Url::parse(&self)
+impl IntoUri for String {
+    fn into_uri(self) -> Result<Uri, InvalidUri> {
+        Uri::from_str(&self)
     }
 }
 
-impl IntoUrl for Url {
-    fn into_url(self) -> Result<Url, ParseError> {
+impl IntoUri for Uri {
+    fn into_uri(self) -> Result<Uri, InvalidUri> {
         Ok(self)
     }
 }
 
 impl Request {
-    pub fn new(url: impl IntoUrl) -> RequestBuilder {
+    pub fn new(method: Method, url: impl IntoUri) -> RequestBuilder {
         RequestBuilder {
             wip: url
-                .into_url()
+                .into_uri()
                 .map(|url| Request {
-                    url,
-                    method: Method::Get,
+                    uri: url.into(),
+                    method,
                     headers: HeaderMap::new(),
                     body: RequestBody::None,
                 })
-                .map_err(RequestError::InvalidUrl),
+                .map_err(RequestError::InvalidUri),
         }
     }
 
     pub async fn send(self) -> Result<Response, RequestError> {
+        println!("{:?}", self);
+
         let req = OutgoingRequest::new(
             header_map_to_fields(&self.headers).map_err(RequestError::InvalidHeader)?,
         );
 
         req.set_method(&self.method)
             .map_err(|_| RequestError::InvalidMethod(self.method))?;
-        req.set_scheme(Some(&match self.url.scheme() {
-            "http" => Scheme::Http,
-            "https" => Scheme::Https,
-            other => Scheme::Other(other.to_string()),
-        }))
-        .map_err(|_| RequestError::InvalidScheme(self.url.scheme().to_string()))?;
-        req.set_path_with_query(Some(&format!(
-            "{}{}{}{}",
-            self.url.host_str().unwrap_or_default(),
-            self.url
-                .port()
-                .map(|port| format!(":{port}"))
+
+        let scheme_owned = Scheme::Other(
+            self.uri
+                .scheme_str()
+                .map(|s| s.to_string())
                 .unwrap_or_default(),
-            self.url.path(),
-            self.url
-                .query()
-                .map(|q| format!("?{}", q))
-                .unwrap_or_default()
-        )))
-        .map_err(|_| RequestError::InvalidPath(self.url.path().to_string()))?;
-        req.set_authority(if self.url.has_authority() {
-            Some(self.url.authority())
-        } else {
-            None
+        );
+        req.set_scheme(match self.uri.scheme() {
+            Some(scheme) => {
+                if scheme == &http::uri::Scheme::HTTP {
+                    Some(&Scheme::Http)
+                } else if scheme == &http::uri::Scheme::HTTPS {
+                    Some(&Scheme::Https)
+                } else {
+                    Some(&scheme_owned)
+                }
+            }
+            None => None,
         })
-        .map_err(|_| RequestError::InvalidAuthority(self.url.authority().to_string()))?;
+        .map_err(|_| {
+            RequestError::InvalidScheme(
+                self.uri.scheme().map(|s| s.to_string()).unwrap_or_default(),
+            )
+        })?;
+        // req.set_path_with_query(Some(&self.uri.path_and_query()))
+        if let Some(path_and_query) = self.uri.path_and_query() {
+            req.set_path_with_query(Some(path_and_query.as_str()))
+                .map_err(|_| RequestError::InvalidPath(path_and_query.to_string()))?;
+        }
+        req.set_authority(self.uri.authority().map(|a| a.as_str()))
+            .map_err(|_| {
+                RequestError::InvalidAuthority(
+                    self.uri
+                        .authority()
+                        .map(|a| a.to_string())
+                        .unwrap_or_default(),
+                )
+            })?;
 
         let options = RequestOptions::new();
 
@@ -135,7 +152,7 @@ impl Request {
             RequestBody::None => {}
             RequestBody::Full(data) => {
                 let body_stream = body.write().expect("Body should be writable");
-                let left = &data[..];
+                let mut left = &data[..];
 
                 loop {
                     tasks::wait_for(body_stream.subscribe()).await;
@@ -151,12 +168,15 @@ impl Request {
                     body_stream
                         .write(&left[..write_amount])
                         .map_err(RequestError::Body)?;
+
+                    left = &left[write_amount..];
                 }
 
                 if !left.is_empty() {
                     return Err(RequestError::Body(StreamError::Closed));
                 }
 
+                drop(body_stream);
                 OutgoingBody::finish(body, None).map_err(RequestError::RequestFailed)?;
             }
         }
