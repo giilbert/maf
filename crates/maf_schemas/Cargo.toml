@@ -13,5 +13,6 @@ readme = "../../README.md"
 colored = "3.0.0"
 facet = "0.28.0"
 rand = "0.9.1"
-serde = { version = "^1", features = ["derive"] }
+schemars = "1.0.4"
+serde = { version = "^1", features = ["derive", "rc"] }
 uuid = { version = "1.16.0", features = ["serde", "v4"] }

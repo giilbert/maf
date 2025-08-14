@@ -2355,6 +2355,7 @@ dependencies = [
  "colored",
  "facet",
  "rand 0.9.1",
+ "schemars",
  "serde",
  "uuid",
 ]
@@ -2363,10 +2364,12 @@ dependencies = [
 name = "maf_typed"
 version = "0.1.0"
 dependencies = [
- "facet",
+ "anyhow",
  "maf",
  "maf_schemas",
+ "schemars",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

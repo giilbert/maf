@@ -497,9 +497,8 @@ impl AppBuilder {
         #[cfg(feature = "typed")] TypedParams,
         #[cfg(feature = "typed")] TypedReturn,
         #[cfg(feature = "typed")] const TYPED_IS_ASYNC: bool,
-        #[cfg(feature = "typed")] const TYPED_IS_RESULT: bool,
         #[cfg(feature = "typed")] Handler: IntoCallable<RpcRequestContext, Params, Return, RpcError, RpcRequestInit, IS_ASYNC>
-            + crate::typed::ExtractRpcDesc<TypedParams, TypedReturn, TYPED_IS_ASYNC, TYPED_IS_RESULT>,
+            + crate::typed::ExtractRpcDesc<TypedParams, TypedReturn, TYPED_IS_ASYNC>,
         #[cfg(not(feature = "typed"))] Handler: IntoCallable<RpcRequestContext, Params, Return, RpcError, RpcRequestInit, IS_ASYNC>,
     >(
         mut self,

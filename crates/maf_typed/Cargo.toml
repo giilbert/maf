@@ -5,9 +5,11 @@ edition = "2024"
 publish = false
 
 [dependencies]
+anyhow = "^1.0.96"
 maf_schemas = { path = "../maf_schemas" }
+schemars = "1.0.4"
+serde = { version = "^1", features = ["derive", "rc"] }
+serde_json = "1.0.140"
 
 [dev-dependencies]
-facet = "0.28.0"
 maf = { path = "../maf", features = ["typed"] }
-serde = { version = "^1", features = ["derive"] }

@@ -23,6 +23,31 @@ impl App {
         // }
 
         let mut generator = schemars::SchemaGenerator::default();
+        let select_stores = self
+            .inner
+            .selects
+            .iter()
+            .map(|(_, select)| {
+                let desc = (select.desc)(&mut generator);
+                maf_schemas::typed::StoreSerialized {
+                    name: desc.name,
+                    select: desc.select,
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let stores = stores
+            .iter()
+            .map(|(_, store)| {
+                let desc = (store.desc)(&mut generator);
+                maf_schemas::typed::StoreSerialized {
+                    name: desc.name,
+                    select: desc.select,
+                }
+            })
+            // Selects behave like stores client-side, so we can include them here
+            .chain(select_stores.into_iter())
+            .collect();
 
         bindings::bindgen::report_app_schema(
             &serde_json::to_string_pretty(&maf_schemas::typed::AppSchema {
@@ -32,25 +57,12 @@ impl App {
                         let desc = (rpc.desc)(&mut generator);
                         maf_schemas::typed::RpcSerialized {
                             name: rpc.method.to_string(),
-                            params: desc.params.map(|p| p.into()),
-                            result: Some(desc.result.into()),
+                            params: desc.params,
+                            result: desc.result,
                         }
                     })
                     .collect(),
-                stores: stores
-                    .iter()
-                    .map(|(_, store)| maf_schemas::typed::StoreSerialized {
-                        name: store.desc.name.clone(),
-                        select: store.desc.select.into(),
-                    })
-                    // Selects behave like stores client-side, so we can include them here
-                    .chain(self.inner.selects.iter().map(|(_, select)| {
-                        maf_schemas::typed::StoreSerialized {
-                            name: select.desc.name.clone(),
-                            select: select.desc.select.into(),
-                        }
-                    }))
-                    .collect(),
+                stores,
             })
             .expect("Failed to serialize schema"),
         );

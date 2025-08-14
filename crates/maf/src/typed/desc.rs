@@ -30,7 +30,7 @@ pub struct RpcDesc {
     pub result: Arc<Schema>,
 }
 
-pub trait ExtractRpcDesc<Params, Ret, const IS_ASYNC: bool, const IS_RESULT: bool = false> {
+pub trait ExtractRpcDesc<Params, Ret, const IS_ASYNC: bool> {
     fn extract(generator: &mut SchemaGenerator, name: String) -> RpcDesc;
 }
 
@@ -74,20 +74,11 @@ impl_not_param!(App);
 impl_not_param!(User);
 impl_not_param!(Store<T>, T: StoreData);
 
-trait RpcResult<const IS_RESULT: bool> {
+trait RpcResult {
     fn schema(generator: &mut SchemaGenerator) -> Arc<Schema>;
 }
 
-impl<T> RpcResult<false> for T
-where
-    T: JsonSchema,
-{
-    fn schema(generator: &mut SchemaGenerator) -> Arc<Schema> {
-        Arc::new(T::json_schema(generator))
-    }
-}
-
-impl<T, E> RpcResult<true> for Result<T, E>
+impl<T> RpcResult for T
 where
     T: JsonSchema,
 {
@@ -97,9 +88,9 @@ where
 }
 
 // Case where the type is a function that takes no parameters
-impl<Ret, F, const IS_RESULT: bool> ExtractRpcDesc<(), Ret, false, IS_RESULT> for F
+impl<Ret, F> ExtractRpcDesc<(), Ret, false> for F
 where
-    Ret: RpcResult<IS_RESULT>,
+    Ret: RpcResult,
     F: Fn() -> Ret,
 {
     fn extract(generator: &mut SchemaGenerator, name: String) -> RpcDesc {
@@ -111,9 +102,9 @@ where
     }
 }
 
-impl<Ret, Fut, F, const IS_RESULT: bool> ExtractRpcDesc<(), Ret, true, IS_RESULT> for F
+impl<Ret, Fut, F> ExtractRpcDesc<(), Ret, true> for F
 where
-    Ret: RpcResult<IS_RESULT>,
+    Ret: RpcResult,
     Fut: std::future::Future<Output = Ret>,
     F: Fn() -> Fut,
 {
@@ -132,11 +123,10 @@ macro_rules! impl_extract_rpc_desc {
             $($members),+,
             Ret,
             F,
-            const IS_RESULT: bool
-        > ExtractRpcDesc<($($members,)+), Ret, false, IS_RESULT> for F
+        > ExtractRpcDesc<($($members,)+), Ret, false> for F
         where
             $($members: GetParamFacet),+,
-            Ret: RpcResult<IS_RESULT>,
+            Ret: RpcResult,
             F: Fn($($members),+) -> Ret,
         {
             fn extract(generator: &mut SchemaGenerator, name: String) -> RpcDesc {
@@ -159,11 +149,10 @@ macro_rules! impl_extract_rpc_desc {
             Ret,
             Fut,
             F,
-            const IS_RESULT: bool
-        > ExtractRpcDesc<($($members,)+), Ret, true, IS_RESULT> for F
+        > ExtractRpcDesc<($($members,)+), Ret, true> for F
         where
             $($members: GetParamFacet),+,
-            Ret: RpcResult<IS_RESULT>,
+            Ret: RpcResult,
             Fut: std::future::Future<Output = Ret>,
             F: Fn($($members),+) -> Fut,
         {
