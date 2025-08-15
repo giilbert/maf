@@ -155,6 +155,31 @@ impl TypeScriptCodegen {
                     self.indent(lines.join(";\n"))
                 })
             }
+
+            // Tuple types are represented as arrays with a fixed number of items
+            "array"
+                if value.get("minItems") == value.get("maxItems")
+                    && value.get("minItems").is_some_and(|v| v.is_number()) =>
+            {
+                let items = value
+                    .get("prefixItems")
+                    .and_then(|v| v.as_array())
+                    .context("Expected 'prefixItems' to be an array for tuple type")?;
+
+                let item_types = items
+                    .iter()
+                    .map(|item| self.format_type(item))
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                let is_multilined = item_types.iter().any(|s| s.contains('\n'));
+
+                if is_multilined {
+                    format!("[\n{}\n]", self.indent(item_types.join(",\n")))
+                } else {
+                    format!("[{}]", item_types.join(", "))
+                }
+            }
+
             "array" => {
                 let item_type = self.format_type(
                     value
@@ -176,6 +201,9 @@ impl TypeScriptCodegen {
     }
 
     pub(super) fn format_type(&self, value: &Value) -> anyhow::Result<String> {
+        #[cfg(test)]
+        println!("format_type: {value:#?}");
+
         // Reference: https://json-schema.org/draft/2020-12/json-schema-core
 
         // If `type` is an array of types, it means the value can be any of those types.
@@ -384,6 +412,26 @@ mod tests {
     field3?: boolean | null;
   }
   | null"#
+        );
+    }
+
+    #[test]
+    fn serialize_tuples() {
+        assert_eq!(format_schema::<(String, i32)>(), "[string, number]");
+        assert_eq!(
+            format_schema::<(String, i32, Option<bool>)>(),
+            "[string, number, boolean | null]"
+        );
+        assert_eq!(
+            format_schema::<(i32, TestObject)>(),
+            r#"[
+  number,
+  {
+    field1: string;
+    field2: number;
+    field3?: boolean | null;
+  }
+]"#
         );
     }
 }
