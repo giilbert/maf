@@ -122,6 +122,29 @@ impl TypeScriptCodegen {
                 format!("Record<string, {additional_type_str}>")
             }
 
+            "object" if value.get("oneOf").is_some_and(|v| v.is_array()) => {
+                let variants = value
+                    .get("oneOf")
+                    .and_then(|v| v.as_array())
+                    .expect("'oneOf' should be an array");
+
+                let variant_types = variants
+                    .iter()
+                    .map(|variant| self.format_type(variant))
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                // If any of the variant types are multilined, we format each variant on its own line
+                let multilined = variant_types.iter().any(|s| s.contains('\n'));
+
+                if multilined {
+                    self.indent(format!("\n| ",) + &variant_types.join("\n| "))
+                        .trim_start_matches(&self.indent)
+                        .to_string()
+                } else {
+                    variant_types.join(" | ")
+                }
+            }
+
             "object"
                 if value
                     .get("properties")
@@ -202,7 +225,7 @@ impl TypeScriptCodegen {
 
     pub(super) fn format_type(&self, value: &Value) -> anyhow::Result<String> {
         #[cfg(test)]
-        println!("format_type: {value:#?}");
+        println!("format_type({value:#?})");
 
         // Reference: https://json-schema.org/draft/2020-12/json-schema-core
 
@@ -233,27 +256,10 @@ impl TypeScriptCodegen {
 
         let kind = value
             .get("type")
-            .context("Missing 'type' in schema")?
-            .as_str()
-            .context("'type' in schema is not a string")?;
+            .and_then(|v| v.as_str())
+            .unwrap_or("object"); // Default to object if type is not specified
 
         self.format_type_kind(kind, value)
-
-        //     TypeKind::Tuple(tuple) => {
-        //         let type_strings = tuple
-        //             .elements
-        //             .iter()
-        //             .map(|elem| self.format_type(elem))
-        //             .collect::<Vec<_>>();
-
-        //         let multilined = type_strings.iter().any(|s| s.contains('\n'));
-
-        //         if multilined {
-        //             format!("[\n{}\n]", self.indent(type_strings.join(",\n")))
-        //         } else {
-        //             format!("[{}]", type_strings.join(", "))
-        //         }
-        //     }
     }
 
     fn emit_store(&self, store: &StoreSerialized) -> anyhow::Result<String> {
@@ -432,6 +438,20 @@ mod tests {
     field3?: boolean | null;
   }
 ]"#
+        );
+    }
+
+    #[test]
+    fn serialize_results() {
+        assert_eq!(
+            format_schema::<Result<String, String>>(),
+            r#"
+  | {
+    Ok: string;
+  }
+  | {
+    Err: string;
+  }"#
         );
     }
 }
