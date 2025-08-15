@@ -1,7 +1,7 @@
-use facet::Facet;
 use maf::*;
+use schemars::JsonSchema;
 
-#[derive(Debug, Clone, Facet, serde::Serialize)]
+#[derive(Debug, Clone, JsonSchema, serde::Serialize)]
 struct LightsOut {
     /// Indices represent the tiles in a 8x8 grid:
     ///  0  1  2  3  4  5  6  7

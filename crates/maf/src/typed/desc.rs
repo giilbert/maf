@@ -34,14 +34,14 @@ pub trait ExtractRpcDesc<Params, Ret, const IS_ASYNC: bool> {
     fn extract(generator: &mut SchemaGenerator, name: String) -> RpcDesc;
 }
 
-trait GetParamFacet {
+trait GetParamSchema {
     const IS_PARAM: bool = false;
     fn get_param_schema(_generator: &mut SchemaGenerator) -> Arc<Schema> {
-        panic!("get_param_facet called on non-param type")
+        panic!("get_param_schema called on non-param type")
     }
 }
 
-impl<T> GetParamFacet for Params<T>
+impl<T> GetParamSchema for Params<T>
 where
     T: DeserializeOwned + JsonSchema,
 {
@@ -57,14 +57,14 @@ where
 macro_rules! impl_not_param {
     // Case where the type does not have a type parameter
     ($t:ty) => {
-        impl GetParamFacet for $t {
+        impl GetParamSchema for $t {
             const IS_PARAM: bool = false;
         }
     };
 
     // Case where the type has a type parameter
     ($t:ty, $($param:tt)*) => {
-        impl<$($param)*> GetParamFacet for $t {
+        impl<$($param)*> GetParamSchema for $t {
             const IS_PARAM: bool = false;
         }
     };
@@ -125,7 +125,7 @@ macro_rules! impl_extract_rpc_desc {
             F,
         > ExtractRpcDesc<($($members,)+), Ret, false> for F
         where
-            $($members: GetParamFacet),+,
+            $($members: GetParamSchema),+,
             Ret: RpcResult,
             F: Fn($($members),+) -> Ret,
         {
@@ -151,7 +151,7 @@ macro_rules! impl_extract_rpc_desc {
             F,
         > ExtractRpcDesc<($($members,)+), Ret, true> for F
         where
-            $($members: GetParamFacet),+,
+            $($members: GetParamSchema),+,
             Ret: RpcResult,
             Fut: std::future::Future<Output = Ret>,
             F: Fn($($members),+) -> Fut,
