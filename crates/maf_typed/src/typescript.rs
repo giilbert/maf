@@ -2,17 +2,20 @@ use std::collections::HashSet;
 
 use anyhow::Context;
 use maf_schemas::typed::{AppSchema, StoreSerialized};
-use schemars::Schema;
 use serde_json::Value;
 
 #[derive(Debug)]
 pub struct TypeScriptCodegen {
     pub(crate) schema: AppSchema,
+    indent: String,
 }
 
 impl TypeScriptCodegen {
     pub fn new(schema: AppSchema) -> Self {
-        Self { schema }
+        Self {
+            schema,
+            indent: "  ".to_string(),
+        }
     }
 
     pub fn emit(&self) -> anyhow::Result<String> {
@@ -52,7 +55,7 @@ impl TypeScriptCodegen {
         input
             .as_ref()
             .lines()
-            .map(|line| format!("  {}", line))
+            .map(|line| format!("{}{}", self.indent, line))
             .collect::<Vec<_>>()
             .join("\n")
     }
@@ -88,14 +91,43 @@ impl TypeScriptCodegen {
     }
 
     pub(super) fn format_type_kind(&self, kind: &str, value: &Value) -> anyhow::Result<String> {
-        println!("format_type: {value:#?}");
-
         if let Ok(primitive_type) = self.format_primitive_type(kind, Some(value)) {
             return Ok(primitive_type);
         }
 
         Ok(match kind {
-            "object" => {
+            "object" if value.get("additionalProperties").is_some() => {
+                let additional_type = value
+                    .get("additionalProperties")
+                    .expect("'additionalProperties' should exist");
+
+                // Do we care about the keys of patternProperties? The value of patternProperties
+                // is always a type describing the type of the record's keys
+                let pattern_properties = value
+                    .get("patternProperties")
+                    .and_then(|v| v.as_object())
+                    .map(|obj| obj.values().collect::<Vec<_>>())
+                    .unwrap_or_default();
+
+                let additional_type_str = if additional_type.is_boolean() {
+                    pattern_properties
+                        .iter()
+                        .map(|v| self.format_type(v))
+                        .collect::<Result<Vec<_>, _>>()?
+                        .join(" | ")
+                } else {
+                    self.format_type(additional_type)?
+                };
+
+                format!("Record<string, {additional_type_str}>")
+            }
+
+            "object"
+                if value
+                    .get("properties")
+                    .and_then(|v| v.as_object())
+                    .is_some() =>
+            {
                 let required = value
                     .get("required")
                     .and_then(|v| v.as_array())
@@ -107,34 +139,69 @@ impl TypeScriptCodegen {
                 let fields = value
                     .get("properties")
                     .and_then(|v| v.as_object())
-                    .context("Missing 'properties' in object schema")?;
-
-                println!("required: {required:?}");
-                println!("fields: {fields:#?}");
+                    .expect("'properties' should exist");
 
                 format!("{{\n{};\n}}", {
                     let mut lines = Vec::new();
                     for (key, value) in fields {
                         let ts_type = self.format_type(value)?;
                         let optional = if required.contains(key) { "" } else { "?" };
-                        lines.push(format!("{}{}: {}", key, optional, ts_type));
+                        lines.push(format!(
+                            "{key}{optional}:{spacing}{ts_type}",
+                            // If the first character is a newline, we don't add extra spacing
+                            spacing = if ts_type.starts_with('\n') { "" } else { " " },
+                        ));
                     }
                     self.indent(lines.join(";\n"))
                 })
             }
+            "array" => {
+                let item_type = self.format_type(
+                    value
+                        .get("items")
+                        .context("Missing 'items' in array schema")?,
+                );
+
+                format!("{}[]", item_type?)
+            }
 
             _ => {
                 // Handle other types like arrays, objects, etc.
-                return Err(anyhow::anyhow!("Unsupported type: {}", kind));
+                return Err(anyhow::anyhow!(
+                    "Unsupported type '{}' formatting {value:#?}",
+                    kind
+                ));
             }
         })
     }
 
     pub(super) fn format_type(&self, value: &Value) -> anyhow::Result<String> {
-        // From https://json-schema.org/draft/2020-12/json-schema-core
+        // Reference: https://json-schema.org/draft/2020-12/json-schema-core
 
         // If `type` is an array of types, it means the value can be any of those types.
-        if let Some(Value::Array(types)) = value.get("type") {}
+        if let Some(Value::Array(types)) = value.get("type") {
+            let mut type_strings = Vec::new();
+            for t in types {
+                if let Value::String(kind) = t {
+                    let type_string = self.format_type_kind(kind, value)?;
+                    type_strings.push(type_string);
+                } else {
+                    anyhow::bail!("Expected string in 'type' array. Got: {:?}", t);
+                }
+            }
+
+            // If the type strings are multiple lines, format them like | <type> on each line
+            let multilined = type_strings.iter().any(|s| s.contains('\n'));
+
+            if multilined {
+                return Ok(self
+                    .indent(format!("\n| ",) + &type_strings.join("\n| "))
+                    .trim_start_matches(&self.indent)
+                    .to_string());
+            } else {
+                return Ok(type_strings.join(" | "));
+            }
+        }
 
         let kind = value
             .get("type")
@@ -143,12 +210,6 @@ impl TypeScriptCodegen {
             .context("'type' in schema is not a string")?;
 
         self.format_type_kind(kind, value)
-
-        // match kind {
-        //     TypeKind::Nullable(inner) => {
-        //         let inner_type = self.format_type(inner);
-        //         format!("{} | null", inner_type)
-        //     }
 
         //     TypeKind::Tuple(tuple) => {
         //         let type_strings = tuple
@@ -165,18 +226,6 @@ impl TypeScriptCodegen {
         //             format!("[{}]", type_strings.join(", "))
         //         }
         //     }
-
-        //     TypeKind::Map(map) => {
-        //         let key_type = self.format_type(&map.key);
-        //         let value_type = self.format_type(&map.value);
-        //         format!("Record<{}, {}>", key_type, value_type)
-        //     }
-
-        //     TypeKind::Array(array) => {
-        //         let element_type = self.format_type(&array.element);
-        //         format!("{}[]", element_type)
-        //     }
-        // }
     }
 
     fn emit_store(&self, store: &StoreSerialized) -> anyhow::Result<String> {
@@ -220,12 +269,29 @@ mod tests {
     }
 
     fn format_schema<T: JsonSchema>() -> String {
-        let settings = SchemaSettings::default();
+        let mut settings = SchemaSettings::default();
+        settings.inline_subschemas = true;
         let mut generator = schemars::SchemaGenerator::new(settings);
         let schema = T::json_schema(&mut generator);
         create_default_codegen()
             .format_type(&schema.as_value())
             .unwrap()
+    }
+
+    #[allow(dead_code)]
+    #[derive(JsonSchema)]
+    struct TestObject {
+        field1: String,
+        field2: i32,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        field3: Option<bool>,
+    }
+
+    #[allow(dead_code)]
+    #[derive(JsonSchema)]
+    struct NestedObject {
+        nested: TestObject,
+        optional: Option<TestObject>,
     }
 
     #[test]
@@ -242,20 +308,82 @@ mod tests {
 
     #[test]
     fn serialize_objects() {
-        #[allow(dead_code)]
-        #[derive(JsonSchema)]
-        struct TestObject {
-            field1: String,
-            field2: i32,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            field3: Option<bool>,
-        }
-
         let expected = r#"{
+  field1: string;
+  field2: number;
+  field3?: boolean | null;
+}"#;
+
+        assert_eq!(format_schema::<TestObject>(), expected);
+
+        let expected_nested = r#"{
+  nested: {
     field1: string;
     field2: number;
-    field3?: boolean;
+    field3?: boolean | null;
+  };
+  optional?:
+    | {
+      field1: string;
+      field2: number;
+      field3?: boolean | null;
+    }
+    | null;
 }"#;
-        assert_eq!(format_schema::<TestObject>(), expected);
+        assert_eq!(format_schema::<NestedObject>(), expected_nested);
+    }
+
+    #[test]
+    fn serialize_arrays() {
+        assert_eq!(format_schema::<Vec<String>>(), "string[]");
+        assert_eq!(format_schema::<Vec<i32>>(), "number[]");
+        assert_eq!(
+            format_schema::<Vec<TestObject>>(),
+            r#"{
+  field1: string;
+  field2: number;
+  field3?: boolean | null;
+}[]"#
+        );
+    }
+
+    #[test]
+    fn serialize_hashmaps() {
+        assert_eq!(
+            format_schema::<std::collections::HashMap<String, i32>>(),
+            "Record<string, number>"
+        );
+
+        assert_eq!(
+            format_schema::<std::collections::HashMap<String, TestObject>>(),
+            r#"Record<string, {
+  field1: string;
+  field2: number;
+  field3?: boolean | null;
+}>"#
+        );
+
+        // NOTE: JSON object keys are always strings, so even if the Rust type uses i32 as key,
+        // it will be serialized and typed as string in TypeScript
+        assert_eq!(
+            format_schema::<std::collections::HashMap<i32, Vec<i32>>>(),
+            "Record<string, number[]>"
+        );
+    }
+
+    #[test]
+    fn serialize_options() {
+        assert_eq!(format_schema::<Option<String>>(), "string | null");
+        assert_eq!(format_schema::<Option<i32>>(), "number | null");
+        assert_eq!(
+            format_schema::<Option<TestObject>>(),
+            r#"
+  | {
+    field1: string;
+    field2: number;
+    field3?: boolean | null;
+  }
+  | null"#
+        );
     }
 }

@@ -9,7 +9,7 @@ pub async fn create_types_file_for_project(
 ) -> anyhow::Result<()> {
     if let Some(typed_config) = &config.data.typed {
         let contents = match typed_config.language {
-            Language::TypeScript => maf_typed::TypeScriptCodegen::new(schema).emit(),
+            Language::TypeScript => maf_typed::TypeScriptCodegen::new(schema).emit()?,
         };
 
         let config_path = tokio::fs::canonicalize(config.base.join(&typed_config.out))
