@@ -55,7 +55,7 @@ impl StateStore {
 }
 
 impl<T: 'static> State<T> {
-    pub async fn read(&self) -> RwLockReadGuard<T> {
+    pub async fn read(&self) -> RwLockReadGuard<'_, T> {
         RwLockReadGuard::map(self.inner.data.read().await, |inner| {
             inner
                 .downcast_ref::<T>()
@@ -63,7 +63,7 @@ impl<T: 'static> State<T> {
         })
     }
 
-    pub async fn write(&self) -> RwLockMappedWriteGuard<T> {
+    pub async fn write(&self) -> RwLockMappedWriteGuard<'_, T> {
         RwLockWriteGuard::map(self.inner.data.write().await, |inner| {
             inner
                 .downcast_mut::<T>()

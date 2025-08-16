@@ -121,7 +121,7 @@ impl AsRef<str> for StoreKey {
 }
 
 impl<T: StoreData> Store<T> {
-    pub async fn read(&self) -> RwLockReadGuard<T> {
+    pub async fn read(&self) -> RwLockReadGuard<'_, T> {
         RwLockReadGuard::map(self.inner.data.read().await, |inner| {
             inner
                 .downcast_ref::<T>()
@@ -129,7 +129,7 @@ impl<T: StoreData> Store<T> {
         })
     }
 
-    pub async fn write(&self) -> StoreMut<T> {
+    pub async fn write(&self) -> StoreMut<'_, T> {
         StoreMut::new(
             &self.app,
             &self.inner,

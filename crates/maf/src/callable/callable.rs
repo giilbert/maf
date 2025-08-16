@@ -26,6 +26,7 @@ macro_rules! impl_into_callable {
             F: (Fn($($members),*) -> Ret) + Copy + Send + Sync + 'static,
             $($members: CallableParam<Ctx, Init>),*,
             $(Err: From<$members::Error>),*,
+            // TODO: Replace the trait bound with not just items that can be serialized.
             Ret: serde::Serialize,
             Init: Send + Sync + 'static,
             Ctx: 'static,
@@ -58,6 +59,7 @@ macro_rules! impl_into_callable {
             F: (Fn($($members),*) -> Fut) + Copy + Send + Sync + 'static,
             $($members: CallableParam<Ctx, Init>),*,
             $(Err: From<$members::Error>),*,
+            // TODO: Replace the trait bound with not just items that can be serialized.
             Ret: serde::Serialize,
             Init: Send + Sync + 'static,
             Ctx: 'static,
@@ -107,6 +109,7 @@ where
     F: (Fn(T1) -> Ret) + Copy + Send + Sync + 'static,
     T1: CallableParam<Ctx, Init>,
     Err: From<T1::Error>,
+    // TODO: Replace the trait bound with not just items that can be serialized.
     Ret: serde::Serialize,
     Init: Send + Sync + 'static,
     Ctx: 'static,
@@ -130,6 +133,7 @@ where
     F: (Fn(T1) -> Fut) + Copy + Send + Sync + 'static,
     T1: CallableParam<Ctx, Init>,
     Err: From<T1::Error>,
+    // TODO: Replace the trait bound with not just items that can be serialized.
     Ret: serde::Serialize,
     Init: Send + Sync + 'static,
     Ctx: 'static,

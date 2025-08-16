@@ -15,6 +15,7 @@ use crate::{
 
 use super::{App, AppState};
 
+#[allow(unused)]
 pub struct HookRequest {
     pub caller: bindgen::HookRequestCaller,
     pub method: String,
@@ -132,6 +133,7 @@ pub enum HookError {
     Infalliable(#[from] std::convert::Infallible),
 }
 
+#[allow(unused)]
 pub struct HookFunction {
     pub type_id: TypeId,
     pub method: String,

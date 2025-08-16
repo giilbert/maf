@@ -109,7 +109,7 @@ impl User {
         }
     }
 
-    pub(crate) fn listen_messages(&self) -> Result<UserMessageListener, bindgen::ListenError> {
+    pub(crate) fn listen_messages(&self) -> Result<UserMessageListener<'_>, bindgen::ListenError> {
         let future_message = self.inner.listen_message()?;
 
         Ok(UserMessageListener {
@@ -234,7 +234,7 @@ pub(crate) struct UserMessageListener<'a> {
 }
 
 impl<'a> UserMessageListener<'a> {
-    pub fn next(&self) -> UserNextMessageFuture {
+    pub fn next(&self) -> UserNextMessageFuture<'_> {
         UserNextMessageFuture {
             user: self.user,
             listener: &self.listener,
