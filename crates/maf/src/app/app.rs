@@ -29,7 +29,7 @@ use crate::{
     },
     tasks::{self, Runtime},
     user::UserMessage,
-    Channel, RpcFunction, StoreData, User, UserListener,
+    Channel, RpcFunction, Store, StoreData, User, UserListener,
 };
 
 use super::{
@@ -87,6 +87,10 @@ pub struct AppBuilder {
 impl App {
     pub fn builder() -> AppBuilder {
         AppBuilder::default()
+    }
+
+    pub async fn store<T: StoreData>(&self) -> Store<T> {
+        Store::<T>::new(self.clone()).await
     }
 
     async fn handle_connections(self) -> Result<(), bindgen::ListenError> {

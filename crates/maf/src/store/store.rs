@@ -121,6 +121,25 @@ impl AsRef<str> for StoreKey {
 }
 
 impl<T: StoreData> Store<T> {
+    pub async fn new(app: App) -> Self {
+        let key = T::key().into();
+        let inner = app
+            .inner
+            .state
+            .stores
+            .read()
+            .await
+            .get(&key)
+            .cloned()
+            .expect("store not found");
+
+        Store {
+            app,
+            inner,
+            _phantom: std::marker::PhantomData,
+        }
+    }
+
     pub async fn read(&self) -> RwLockReadGuard<'_, T> {
         RwLockReadGuard::map(self.inner.data.read().await, |inner| {
             inner
