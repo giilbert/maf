@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{cell::RefCell, collections::HashSet};
 
 use anyhow::Context;
 use maf_schemas::typed::{AppSchema, StoreSerialized};
@@ -6,6 +6,7 @@ use serde_json::Value;
 
 #[derive(Debug)]
 pub struct TypeScriptCodegen {
+    pub(crate) warnings: RefCell<Vec<String>>,
     pub(crate) schema: AppSchema,
     indent: String,
 }
@@ -13,9 +14,18 @@ pub struct TypeScriptCodegen {
 impl TypeScriptCodegen {
     pub fn new(schema: AppSchema) -> Self {
         Self {
+            warnings: RefCell::new(Vec::new()),
             schema,
             indent: "  ".to_string(),
         }
+    }
+
+    pub fn clear_warnings(&self) -> Vec<String> {
+        self.warnings.borrow_mut().drain(..).collect()
+    }
+
+    fn warn(&self, warning: impl Into<String>) {
+        self.warnings.borrow_mut().push(warning.into());
     }
 
     pub fn emit(&self) -> anyhow::Result<String> {
@@ -215,10 +225,12 @@ impl TypeScriptCodegen {
 
             _ => {
                 // Handle other types like arrays, objects, etc.
-                return Err(anyhow::anyhow!(
-                    "Unsupported type '{}' formatting {value:#?}",
-                    kind
+                self.warn(format!(
+                    "Unable to format type: '{:?}'. Defaulting to 'unknown'.",
+                    value
                 ));
+
+                "unknown".to_string()
             }
         })
     }
@@ -292,6 +304,7 @@ impl TypeScriptCodegen {
 
 #[cfg(test)]
 mod tests {
+
     use schemars::{JsonSchema, generate::SchemaSettings};
 
     fn create_default_codegen() -> super::TypeScriptCodegen {
@@ -302,14 +315,21 @@ mod tests {
         super::TypeScriptCodegen::new(schema)
     }
 
-    fn format_schema<T: JsonSchema>() -> String {
+    fn format_schema<T: JsonSchema>(assert_no_warnings: bool) -> String {
         let mut settings = SchemaSettings::default();
         settings.inline_subschemas = true;
         let mut generator = schemars::SchemaGenerator::new(settings);
+
         let schema = T::json_schema(&mut generator);
-        create_default_codegen()
-            .format_type(&schema.as_value())
-            .unwrap()
+        let codegen = create_default_codegen();
+        let types = codegen.format_type(&schema.as_value()).unwrap();
+
+        if assert_no_warnings {
+            let warnings = codegen.clear_warnings();
+            assert!(warnings.is_empty(), "Codegen warnings: {:?}", warnings);
+        }
+
+        types
     }
 
     #[allow(dead_code)]
@@ -330,14 +350,14 @@ mod tests {
 
     #[test]
     fn serialize_primitives() {
-        assert_eq!(format_schema::<bool>(), "boolean");
-        assert_eq!(format_schema::<f64>(), "number");
-        assert_eq!(format_schema::<i32>(), "number");
-        assert_eq!(format_schema::<u32>(), "number");
-        assert_eq!(format_schema::<i64>(), "bigint");
-        assert_eq!(format_schema::<u64>(), "bigint");
-        assert_eq!(format_schema::<String>(), "string");
-        assert_eq!(format_schema::<()>(), "null");
+        assert_eq!(format_schema::<bool>(true), "boolean");
+        assert_eq!(format_schema::<f64>(true), "number");
+        assert_eq!(format_schema::<i32>(true), "number");
+        assert_eq!(format_schema::<u32>(true), "number");
+        assert_eq!(format_schema::<i64>(true), "bigint");
+        assert_eq!(format_schema::<u64>(true), "bigint");
+        assert_eq!(format_schema::<String>(true), "string");
+        assert_eq!(format_schema::<()>(true), "null");
     }
 
     #[test]
@@ -348,7 +368,7 @@ mod tests {
   field3?: boolean | null;
 }"#;
 
-        assert_eq!(format_schema::<TestObject>(), expected);
+        assert_eq!(format_schema::<TestObject>(true), expected);
 
         let expected_nested = r#"{
   nested: {
@@ -364,15 +384,15 @@ mod tests {
     }
     | null;
 }"#;
-        assert_eq!(format_schema::<NestedObject>(), expected_nested);
+        assert_eq!(format_schema::<NestedObject>(true), expected_nested);
     }
 
     #[test]
     fn serialize_arrays() {
-        assert_eq!(format_schema::<Vec<String>>(), "string[]");
-        assert_eq!(format_schema::<Vec<i32>>(), "number[]");
+        assert_eq!(format_schema::<Vec<String>>(true), "string[]");
+        assert_eq!(format_schema::<Vec<i32>>(true), "number[]");
         assert_eq!(
-            format_schema::<Vec<TestObject>>(),
+            format_schema::<Vec<TestObject>>(true),
             r#"{
   field1: string;
   field2: number;
@@ -384,12 +404,12 @@ mod tests {
     #[test]
     fn serialize_hashmaps() {
         assert_eq!(
-            format_schema::<std::collections::HashMap<String, i32>>(),
+            format_schema::<std::collections::HashMap<String, i32>>(true),
             "Record<string, number>"
         );
 
         assert_eq!(
-            format_schema::<std::collections::HashMap<String, TestObject>>(),
+            format_schema::<std::collections::HashMap<String, TestObject>>(true),
             r#"Record<string, {
   field1: string;
   field2: number;
@@ -400,17 +420,17 @@ mod tests {
         // NOTE: JSON object keys are always strings, so even if the Rust type uses i32 as key,
         // it will be serialized and typed as string in TypeScript
         assert_eq!(
-            format_schema::<std::collections::HashMap<i32, Vec<i32>>>(),
+            format_schema::<std::collections::HashMap<i32, Vec<i32>>>(true),
             "Record<string, number[]>"
         );
     }
 
     #[test]
     fn serialize_options() {
-        assert_eq!(format_schema::<Option<String>>(), "string | null");
-        assert_eq!(format_schema::<Option<i32>>(), "number | null");
+        assert_eq!(format_schema::<Option<String>>(true), "string | null");
+        assert_eq!(format_schema::<Option<i32>>(true), "number | null");
         assert_eq!(
-            format_schema::<Option<TestObject>>(),
+            format_schema::<Option<TestObject>>(true),
             r#"
   | {
     field1: string;
@@ -423,13 +443,13 @@ mod tests {
 
     #[test]
     fn serialize_tuples() {
-        assert_eq!(format_schema::<(String, i32)>(), "[string, number]");
+        assert_eq!(format_schema::<(String, i32)>(true), "[string, number]");
         assert_eq!(
-            format_schema::<(String, i32, Option<bool>)>(),
+            format_schema::<(String, i32, Option<bool>)>(true),
             "[string, number, boolean | null]"
         );
         assert_eq!(
-            format_schema::<(i32, TestObject)>(),
+            format_schema::<(i32, TestObject)>(true),
             r#"[
   number,
   {
@@ -444,7 +464,7 @@ mod tests {
     #[test]
     fn serialize_results() {
         assert_eq!(
-            format_schema::<Result<String, String>>(),
+            format_schema::<Result<String, String>>(true),
             r#"
   | {
     Ok: string;

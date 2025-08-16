@@ -9,7 +9,24 @@ pub async fn create_types_file_for_project(
 ) -> anyhow::Result<()> {
     if let Some(typed_config) = &config.data.typed {
         let contents = match typed_config.language {
-            Language::TypeScript => maf_typed::TypeScriptCodegen::new(schema).emit()?,
+            Language::TypeScript => {
+                let codegen = maf_typed::TypeScriptCodegen::new(schema);
+                let types = codegen.emit()?;
+
+                let warnings = codegen.clear_warnings();
+
+                if !warnings.is_empty() {
+                    println!(
+                        "{}",
+                        format!("[dev] Warnings while generating types:").yellow()
+                    );
+                    for warning in warnings {
+                        println!("{}", format!("[dev] - {}", warning).yellow());
+                    }
+                }
+
+                types
+            }
         };
 
         let config_path = tokio::fs::canonicalize(config.base.join(&typed_config.out))
