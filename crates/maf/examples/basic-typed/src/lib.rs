@@ -20,10 +20,7 @@ impl StoreData for CounterStore {
     }
 }
 
-async fn increment_counter(
-    Params(counter): Params<i32>,
-    test: Store<CounterStore>,
-) -> Result<i32, String> {
+async fn increment_counter(Params(counter): Params<i32>, test: Store<CounterStore>) -> i32 {
     let mut store = test.write().await;
 
     store.count += counter;
@@ -33,7 +30,7 @@ async fn increment_counter(
         store.count
     );
 
-    Ok(store.count)
+    store.count
 }
 
 async fn counter_read_hook(test: Store<CounterStore>) -> i32 {

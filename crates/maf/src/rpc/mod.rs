@@ -24,6 +24,8 @@
 pub mod models;
 mod params;
 
+#[cfg(feature = "typed")]
+use std::sync::Arc;
 use std::{any::TypeId, collections::HashMap};
 
 pub use params::Params;
@@ -42,7 +44,9 @@ pub struct RpcFunction {
     pub(crate) handler: AnyCallable<RpcRequestContext, TypedRpcResponsePacket, RpcError>,
 
     #[cfg(feature = "typed")]
-    pub(crate) desc: crate::typed::RpcDesc,
+    pub(crate) desc: Arc<
+        dyn Fn(&mut schemars::SchemaGenerator) -> crate::typed::RpcDesc + Send + Sync + 'static,
+    >,
 }
 
 impl std::fmt::Debug for RpcFunction {
