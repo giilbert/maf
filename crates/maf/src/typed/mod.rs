@@ -2,7 +2,7 @@ mod desc;
 
 pub use desc::{ExtractRpcDesc, ExtractSelectDesc, RpcDesc, StoreDesc};
 
-use crate::{bindings, App};
+use crate::{platform::Platform, App};
 
 impl App {
     pub(crate) fn export_types(&self) {
@@ -49,7 +49,7 @@ impl App {
             .chain(select_stores.into_iter())
             .collect();
 
-        bindings::bindgen::report_app_schema(
+        self.inner.platform.report_app_schema(
             &serde_json::to_string_pretty(&maf_schemas::typed::AppSchema {
                 rpcs: rpcs
                     .values()

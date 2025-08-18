@@ -4,6 +4,7 @@ mod callable;
 pub mod channel;
 pub mod http;
 pub mod packet;
+pub mod platform;
 mod rpc;
 mod store;
 pub mod tasks;
@@ -18,7 +19,7 @@ pub use app::{App, AppBuilder, Plugin, State};
 pub use channel::{Channel, RecvError};
 pub use rpc::{Params, RpcFunction, RpcRequest};
 pub use store::{Store, StoreData};
-pub use user::{SendError, User, UserListener};
+pub use user::User;
 pub use uuid::Uuid;
 
 pub use serde;

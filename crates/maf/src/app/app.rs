@@ -14,11 +14,14 @@ use tokio::sync::{
 use uuid::Uuid;
 
 use crate::{
-    app::{background::BackgroundFnContext, hooks::HooksListener},
-    bindings::bindgen,
+    app::{
+        background::BackgroundFnContext,
+        hooks::{HookBody, HookRequest, HookResponse},
+    },
     callable::{AnyCallable, IntoCallable},
     channel::UntypedChannelBroadcast,
     packet::{Borwned, ChannelSendRx, OneStoreUpdate, RxPacket, TxPacket},
+    platform::{ListenError, Platform, TargetPlatform},
     rpc::{
         models::{TypedRpcRequestPacket, TypedRpcResponsePacket},
         RpcError, RpcRequestContext, RpcRequestInit, RpcStore,
@@ -28,13 +31,13 @@ use crate::{
         SelectKey, StoreKey,
     },
     tasks::{self, Runtime},
-    user::UserMessage,
-    Channel, RpcFunction, Store, StoreData, User, UserListener,
+    user::{UserMessage, UserNextMessageError},
+    Channel, RpcFunction, Store, StoreData, User,
 };
 
 use super::{
     background::{BackgroundFn, BackgroundFnError},
-    hooks::{HookContext, HookError, HookFunction, HookInit, HookResponse, HookStore},
+    hooks::{HookContext, HookError, HookFunction, HookStore},
     on_connect_disconnect::{
         OnConnectDiconnectContext, OnConnectDisconnectError, OnConnectDisconnectFn,
     },
@@ -57,6 +60,7 @@ pub struct AppInner {
     pub(crate) background: Option<Arc<BackgroundFn>>,
     pub(crate) selects: HashMap<SelectKey, AnySelect>,
     pub(crate) select_dependencies: HashMap<TypeId, HashSet<SelectKey>>,
+    pub(crate) platform: TargetPlatform,
 }
 
 #[derive(Debug)]
@@ -82,6 +86,7 @@ pub struct AppBuilder {
     ///
     /// TODO: refactor into separate storage
     select_dependencies: HashMap<TypeId, HashSet<SelectKey>>,
+    platform: Option<TargetPlatform>,
 }
 
 impl App {
@@ -93,12 +98,14 @@ impl App {
         Store::<T>::new(self.clone()).await
     }
 
-    async fn handle_connections(self) -> Result<(), bindgen::ListenError> {
-        let users = UserListener::new(self.inner.state.clone())?;
-
+    async fn handle_connections(self) -> anyhow::Result<()> {
         // TODO: handle errors
         loop {
-            let user = users.next().await?;
+            let user = User::new(
+                self.inner.state.clone(),
+                self.inner.platform.next_user().await?,
+            );
+
             self.inner
                 .state
                 .users
@@ -131,10 +138,23 @@ impl App {
                     None => (),
                 }
 
-                user_clone
-                    .handle_messages(app.clone())
-                    .await
-                    .expect("failed to handle user messages");
+                loop {
+                    let message = match user_clone.next_message().await {
+                        Ok(message) => message,
+                        Err(UserNextMessageError::Listen(ListenError::Closed)) => {
+                            // User has disconnected
+                            break;
+                        }
+                        Err(e) => {
+                            println!("failed to get next message: {e}");
+                            continue;
+                        }
+                    };
+
+                    if let Err(e) = app.handle_message(message).await {
+                        println!("failed to handle message: {e}");
+                    }
+                }
 
                 // println!("user disconnected: {}", user_clone.meta.id());
 
@@ -165,11 +185,11 @@ impl App {
         }
     }
 
-    async fn handle_hook_requests(self) -> Result<(), bindgen::ListenError> {
-        let hooks = HooksListener::new(self.inner.state.clone())?;
-
+    async fn handle_hook_requests(self) -> anyhow::Result<()> {
         loop {
-            let request = hooks.next().await?;
+            let request_raw = self.inner.platform.next_hook_request().await?;
+            let request = HookRequest::new(self.inner.state.clone(), request_raw)?;
+
             let app = self.clone();
             tasks::spawn(async move {
                 if let Err(e) = app
@@ -657,13 +677,13 @@ impl AppBuilder {
         handler: Handler,
     ) -> Self
     where
-        Handler: IntoCallable<HookContext, Params, Return, HookError, HookInit, IS_ASYNC>,
+        Handler: IntoCallable<HookContext, Params, Return, HookError, (), IS_ASYNC>,
         Return: Serialize + 'static,
     {
         let method = method.to_string();
 
         let callable: Arc<AnyCallable<HookContext, Return, HookError>> =
-            Arc::from(handler.into_callable(HookInit {}));
+            Arc::from(handler.into_callable(()));
 
         self.hooks.add_hook_function(HookFunction {
             type_id: std::any::TypeId::of::<Handler>(),
@@ -675,7 +695,7 @@ impl AppBuilder {
                     let result = callable(ctx).await?;
 
                     Ok(HookResponse {
-                        body: bindgen::HookBody::Json(serde_json::to_string(&result)?),
+                        body: HookBody::Json(serde_json::to_string(&result)?),
                     })
                 })
             }),
@@ -708,6 +728,9 @@ impl AppBuilder {
             hooks: self.hooks,
             selects: self.selects,
             select_dependencies: self.select_dependencies,
+            platform: self.platform.unwrap_or_else(|| {
+                TargetPlatform::init(()).expect("Failed to initialize platform")
+            }),
         };
 
         let app = App {

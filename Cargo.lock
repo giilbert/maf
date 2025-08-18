@@ -2291,6 +2291,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "maf_rust_native"
+version = "0.1.0"
+
+[[package]]
 name = "maf_schemas"
 version = "0.1.0-alpha.2"
 dependencies = [

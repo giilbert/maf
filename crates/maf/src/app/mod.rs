@@ -1,6 +1,6 @@
 mod app;
 mod background;
-mod hooks;
+pub(crate) mod hooks;
 mod on_connect_disconnect;
 mod plugin;
 mod state;

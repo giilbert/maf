@@ -35,7 +35,8 @@ use params::ParamsError;
 
 use crate::{
     callable::{AnyCallable, CallableFetch},
-    App, SendError, StateError, User,
+    platform::SendError,
+    App, StateError, User,
 };
 
 pub struct RpcFunction {
