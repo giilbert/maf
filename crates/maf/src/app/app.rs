@@ -255,7 +255,10 @@ impl App {
         Ok(value)
     }
 
-    async fn flush_all_store_changes(&self) -> anyhow::Result<()> {
+    /// TODO: This api shouldnt be public
+    /// FIXME: This is a temporary workaround to flush store changes where change detection does not
+    /// work, such as in .background tasks
+    pub async fn flush_all_store_changes(&self) -> anyhow::Result<()> {
         let mut store_dirty_rx = self.inner.store_dirty_rx.write().await;
 
         loop {
@@ -274,7 +277,8 @@ impl App {
         Ok(())
     }
 
-    async fn flush_store_change(&self, store_key: StoreKey) -> anyhow::Result<()> {
+    /// TODO: See comment above
+    pub async fn flush_store_change(&self, store_key: StoreKey) -> anyhow::Result<()> {
         let store = RwLockReadGuard::try_map(self.inner.state.stores.read().await, |stores| {
             stores.get(&store_key)
         })
