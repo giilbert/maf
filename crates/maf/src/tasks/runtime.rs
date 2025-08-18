@@ -62,11 +62,11 @@ impl Runtime {
         }
     }
 
-    pub(crate) fn inner(&self) -> Ref<RuntimeInner> {
+    pub(crate) fn inner(&self) -> Ref<'_, RuntimeInner> {
         self.inner.borrow()
     }
 
-    pub(crate) fn inner_mut(&self) -> RefMut<RuntimeInner> {
+    pub(crate) fn inner_mut(&self) -> RefMut<'_, RuntimeInner> {
         self.inner.borrow_mut()
     }
 

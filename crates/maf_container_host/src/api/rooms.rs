@@ -45,7 +45,7 @@ pub struct RoomsStorage {
 }
 
 impl RoomsStorage {
-    pub async fn get(&self, room_id: &RoomId) -> Option<RwLockReadGuard<Room>> {
+    pub async fn get(&self, room_id: &RoomId) -> Option<RwLockReadGuard<'_, Room>> {
         RwLockReadGuard::try_map(self.inner.read().await, |rooms| rooms.get(room_id)).ok()
     }
 
@@ -53,7 +53,7 @@ impl RoomsStorage {
         &self,
         app: &AppNameAndOrgSlug,
         key: &str,
-    ) -> Option<RwLockReadGuard<Room>> {
+    ) -> Option<RwLockReadGuard<'_, Room>> {
         // If the key is a UUID, we try to get the room by ID.
         if let Ok(uuid) = RoomId::parse_str(key) {
             return self.get(&uuid).await;

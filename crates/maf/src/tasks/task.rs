@@ -53,11 +53,11 @@ impl TaskHandle {
     }
 
     #[allow(unused)]
-    pub fn inner(&self) -> Ref<Task> {
+    pub fn inner(&self) -> Ref<'_, Task> {
         self.inner.borrow()
     }
 
-    pub fn inner_mut(&self) -> RefMut<Task> {
+    pub fn inner_mut(&self) -> RefMut<'_, Task> {
         self.inner.borrow_mut()
     }
 

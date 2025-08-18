@@ -28,6 +28,7 @@ impl<T> GenVec<T> {
     }
 
     /// Returns the number of items in the vector, excluding free indices.
+    #[allow(dead_code)]
     pub fn items(&self) -> usize {
         self.storage.len() - self.free_list.len()
     }
@@ -113,7 +114,7 @@ impl<T> GenVec<T> {
     }
 
     #[allow(dead_code)]
-    pub fn iter(&self) -> Iter<T> {
+    pub fn iter(&self) -> Iter<'_, T> {
         Iter {
             storage: &self.storage,
             current: 0,
@@ -121,7 +122,7 @@ impl<T> GenVec<T> {
     }
 
     #[allow(dead_code)]
-    pub fn iter_mut(&mut self) -> IterMut<T> {
+    pub fn iter_mut(&mut self) -> IterMut<'_, T> {
         let len = self.storage.len();
         // SAFETY: self.storage is guaranteed to be non-null and valid.
         let start = unsafe { NonNull::new_unchecked(self.storage.as_mut_ptr()) };

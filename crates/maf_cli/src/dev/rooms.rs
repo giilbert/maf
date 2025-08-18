@@ -10,12 +10,10 @@ use maf_container::{
     server::{Bundle, RoomInner},
     ContainerResourceLimit,
 };
-use notify::RecommendedWatcher;
-use notify_debouncer_full::{new_debouncer_opt, DebounceEventResult, Debouncer, RecommendedCache};
 use maf_schemas::apps::{generate_room_secret, RoomCreationStrategy, RoomId};
 use tokio::sync::{RwLock, RwLockReadGuard};
 
-use crate::{config::ProjectConfig, dev::dev_server::DevServerState, print_dimmed};
+use crate::{config::ProjectConfig, dev::dev_server::DevServerState};
 
 // Simplified version of RoomKeyHash and InsertRoom for development purposes
 
@@ -71,11 +69,11 @@ impl DevRoomsStorage {
         })
     }
 
-    pub async fn get(&self, room_id: &RoomId) -> Option<RwLockReadGuard<DevRoom>> {
+    pub async fn get(&self, room_id: &RoomId) -> Option<RwLockReadGuard<'_, DevRoom>> {
         RwLockReadGuard::try_map(self.inner.read().await, |rooms| rooms.get(room_id)).ok()
     }
 
-    pub async fn get_by_key_or_id(&self, key: &str) -> Option<RwLockReadGuard<DevRoom>> {
+    pub async fn get_by_key_or_id(&self, key: &str) -> Option<RwLockReadGuard<'_, DevRoom>> {
         // If the key is a UUID, we try to get the room by ID.
         if let Ok(uuid) = RoomId::parse_str(key) {
             return self.get(&uuid).await;
@@ -172,29 +170,4 @@ impl DevRoomsStorage {
 
         Some(room)
     }
-}
-
-fn create_file_watcher(
-    path: &std::path::Path,
-) -> anyhow::Result<(
-    Arc<tokio::sync::Notify>,
-    Debouncer<RecommendedWatcher, RecommendedCache>,
-)> {
-    let notify = Arc::new(tokio::sync::Notify::new());
-
-    let tx = notify.clone();
-    let mut debouncer = new_debouncer_opt(
-        Duration::from_secs(1),
-        None,
-        move |_res: DebounceEventResult| {
-            tx.notify_waiters();
-        },
-        RecommendedCache::new(),
-        notify::Config::default().with_compare_contents(true),
-    )?;
-
-    print_dimmed!("[dev] Watching for changes in {}", path.display());
-    debouncer.watch(path, notify::RecursiveMode::NonRecursive)?;
-
-    Ok((notify, debouncer))
 }
