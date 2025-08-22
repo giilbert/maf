@@ -1,0 +1,8 @@
+[package]
+name = "maf_native"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "^1.0.96"
+maf = { version = "0.1.0-alpha.2", path = "../maf" }
