@@ -2295,7 +2295,9 @@ name = "maf_native"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "axum",
  "maf",
+ "tokio",
 ]
 
 [[package]]

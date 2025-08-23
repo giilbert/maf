@@ -704,6 +704,11 @@ impl AppBuilder {
         self
     }
 
+    pub fn platform(mut self, platform: TargetPlatform) -> Self {
+        self.platform = Some(platform);
+        self
+    }
+
     pub fn build(self) -> App {
         const STORE_UPDATE_LIMIT: usize = 10_000;
 

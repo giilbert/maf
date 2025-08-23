@@ -5,4 +5,6 @@ edition = "2024"
 
 [dependencies]
 anyhow = "^1.0.96"
-maf = { version = "0.1.0-alpha.2", path = "../maf" }
+axum = { version = "0.8.3", features = ["macros", "ws"] }
+maf = { version = "0.1.0-alpha.2", path = "../maf", features = ["native"] }
+tokio = { version = "1.43.0", features = ["full"] }

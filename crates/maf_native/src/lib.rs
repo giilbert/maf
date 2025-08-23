@@ -1,3 +1,6 @@
 pub mod axum;
 
-pub use maf as prelude;
+pub mod prelude {
+    pub use maf::*;
+    pub use tokio;
+}

@@ -13,13 +13,21 @@ use crate::{
 pub struct ActorPlatform {
     users_rx: Mutex<mpsc::Receiver<RawUser>>,
     hook_request_rx: Mutex<mpsc::Receiver<RawHookRequest>>,
+    handle: ActorPlatformHandle,
+}
 
+#[derive(Debug, Clone)]
+pub struct ActorPlatformHandle {
     // NOTE: Use methods on ActorPlatform to user these channels
     users_tx: mpsc::Sender<RawUser>,
     hook_request_tx: mpsc::Sender<RawHookRequest>,
 }
 
-impl ActorPlatform {}
+impl ActorPlatform {
+    pub fn handle(&self) -> ActorPlatformHandle {
+        self.handle.clone()
+    }
+}
 
 impl Platform for ActorPlatform {
     type Config = ();
@@ -33,9 +41,11 @@ impl Platform for ActorPlatform {
 
         Ok(Self {
             users_rx: Mutex::new(users_rx),
-            users_tx,
             hook_request_rx: Mutex::new(hook_request_rx),
-            hook_request_tx,
+            handle: ActorPlatformHandle {
+                users_tx,
+                hook_request_tx,
+            },
         })
     }
 
@@ -62,6 +72,7 @@ impl Platform for ActorPlatform {
     }
 }
 
+#[derive(Debug)]
 pub struct RawUser {
     pub meta: UserMeta,
     // Client to server messages

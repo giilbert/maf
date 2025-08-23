@@ -4,6 +4,8 @@
       100
     ]
   },
-  "rust-analyzer.cargo.features": [],
+  "rust-analyzer.cargo.features": [
+    "native"
+  ],
   "rust-analyzer.cargo.noDefaultFeatures": true,
 }

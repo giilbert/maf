@@ -1,0 +1,9 @@
+[package]
+name = "example-axum-basic"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.99"
+axum = { version = "0.8.4", features = ["ws"] }
+maf_native = { path = "../.." }
