@@ -21,16 +21,15 @@
 //! - [`crate::Store<T>`]: A store instance that can be used to access shared data.
 //! - [`crate::Channel<T>`]: A channel instance that can be used to send messages to clients.
 
-pub mod models;
 mod params;
 
 #[cfg(feature = "typed")]
 use std::sync::Arc;
 use std::{any::TypeId, collections::HashMap};
 
+use maf_schemas::packet::{TypedRpcRequestPacket, TypedRpcResponsePacket};
 pub use params::Params;
 
-use models::{TypedRpcRequestPacket, TypedRpcResponsePacket};
 use params::ParamsError;
 
 use crate::{

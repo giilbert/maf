@@ -7,7 +7,8 @@ use anyhow::Context;
 use async_zip::{error::ZipError, tokio::read::seek::ZipFileReader};
 use bytes::Bytes;
 use futures_util::{AsyncReadExt, Stream, StreamExt, TryStreamExt};
-use maf_container::server::{Bundle, ErrorResponse};
+use maf_container::server::Bundle;
+use maf_schemas::error::ErrorResponse;
 use tokio::{
     fs::{self, File},
     io::{AsyncBufRead, AsyncSeek, BufReader},

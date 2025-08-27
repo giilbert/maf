@@ -2296,18 +2296,26 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
+ "futures-util",
  "maf",
+ "maf_schemas",
+ "serde_json",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
 name = "maf_schemas"
 version = "0.1.0-alpha.2"
 dependencies = [
+ "anyhow",
+ "axum",
  "colored",
  "rand 0.9.1",
  "schemars",
  "serde",
+ "serde_json",
+ "tracing",
  "uuid",
 ]
 

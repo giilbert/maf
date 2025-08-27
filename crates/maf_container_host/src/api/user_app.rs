@@ -6,15 +6,13 @@ use axum::{
     Json, Router,
 };
 use chrono::Utc;
-use maf_container::{
-    server::{ErrorResponse, RoomInner},
-    ContainerResourceLimit,
-};
+use maf_container::{server::RoomInner, ContainerResourceLimit};
 use maf_schemas::{
     apps::{
         AppNameAndOrgSlug, CreateRoomOptions, CreateUserAppRequest, RoomCreationStrategy, RoomInfo,
         RoomKeyHash,
     },
+    error::ErrorResponse,
     project_config::ProjectConfigFile,
 };
 use sea_orm::{ActiveValue::Set, ModelTrait};

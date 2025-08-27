@@ -3,12 +3,11 @@ pub mod bindings;
 mod callable;
 pub mod channel;
 pub mod http;
-pub mod packet;
 pub mod platform;
 mod rpc;
 mod store;
 pub mod tasks;
-mod user;
+pub mod user;
 
 #[cfg(feature = "typed")]
 mod typed;

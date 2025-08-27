@@ -1,3 +1,4 @@
+use axum::{extract::Path, routing::get};
 use maf_native::{axum::Room, prelude::*};
 
 fn on_connect(user: User) {
@@ -16,7 +17,10 @@ fn app() -> AppBuilder {
 async fn main() -> anyhow::Result<()> {
     let room = Room::new(app())?;
 
-    let router = axum::Router::new().route("/@/{org}/{app}/")
+    let router = axum::Router::new().route(
+        "/connect",
+        get(|params: Path<(String, String, String)>| async move { "" }),
+    );
 
     Ok(())
 }

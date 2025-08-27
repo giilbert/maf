@@ -13,6 +13,7 @@ use futures_util::{
     SinkExt, StreamExt,
     stream::{SplitSink, SplitStream},
 };
+use maf_schemas::packet::{ServerHandshake, TxPacket};
 use tokio::{
     sync::{Mutex, mpsc},
     time::timeout,
@@ -60,11 +61,8 @@ impl Connection {
             Ok(Some(Ok(Message::Text(_message)))) => {
                 ws_tx
                     .send(Message::Text(
-                        serde_json::to_string(&serde_json::json!({
-                            "type": "Handshake",
-                            "data": {
-                                "id": connection_id,
-                            }
+                        serde_json::to_string(&TxPacket::Handshake::<()>(ServerHandshake {
+                            id: connection_id,
                         }))?
                         .into(),
                     ))

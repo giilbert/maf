@@ -8,11 +8,11 @@ use axum::{
 };
 use colored::Colorize;
 use maf_container::{
-    server::{handle_ws_upgrade, ErrorResponse},
+    server::handle_ws_upgrade,
     wasi::bindings::{self, HookRequestCaller},
     Container, ContainerResourceLimit, ContainerRuntime,
 };
-use maf_schemas::apps::RoomCreationStrategy;
+use maf_schemas::{apps::RoomCreationStrategy, error::ErrorResponse};
 use uuid::Uuid;
 
 use crate::{

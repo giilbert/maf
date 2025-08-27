@@ -72,6 +72,15 @@ impl Platform for ActorPlatform {
     }
 }
 
+impl ActorPlatformHandle {
+    pub fn add_user(&self, user: RawUser) -> Result<(), super::SendError> {
+        self.users_tx.try_send(user).map_err(|e| match e {
+            TrySendError::Full(_) => super::SendError::BufferFull,
+            TrySendError::Closed(_) => super::SendError::Closed,
+        })
+    }
+}
+
 #[derive(Debug)]
 pub struct RawUser {
     pub meta: UserMeta,

@@ -16,7 +16,7 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use maf_container::server::ErrorResponse;
+use maf_schemas::error::ErrorResponse;
 use migrations::entity::{app, org};
 use uuid::Uuid;
 

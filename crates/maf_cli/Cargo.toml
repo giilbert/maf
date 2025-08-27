@@ -7,7 +7,7 @@ publish = false
 [dependencies]
 maf_container = { path = "../maf_container" }
 maf_typed = { path = "../maf_typed" }
-maf_schemas = { path = "../maf_schemas" }
+maf_schemas = { path = "../maf_schemas", features = ["error-response"] }
 
 anyhow = "^1.0.96"
 async-trait = "0.1.88"

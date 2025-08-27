@@ -1,6 +1,8 @@
 use axum::{extract::State, routing::get, Json, Router};
-use maf_container::server::ErrorResponse;
-use maf_schemas::apps::{CreateRoomOptions, RoomCreationStrategy, RoomInfo};
+use maf_schemas::{
+    apps::{CreateRoomOptions, RoomCreationStrategy, RoomInfo},
+    error::ErrorResponse,
+};
 
 use crate::dev::{dev_server::DevServerState, rooms::InsertRoom};
 

@@ -6,12 +6,13 @@ use axum::{
     Router,
 };
 use maf_container::{
-    server::{handle_ws_upgrade, ErrorResponse, RoomInner},
+    server::{handle_ws_upgrade, RoomInner},
     wasi::bindings::{self, HookRequestCaller},
     ContainerResourceLimit,
 };
 use maf_schemas::{
     apps::{AppNameAndOrgSlug, RoomCreationStrategy},
+    error::ErrorResponse,
     project_config::ProjectConfigFile,
 };
 use serde::Deserialize;

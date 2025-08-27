@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
-
-use crate::rpc::models::{TypedRpcRequestPacket, TypedRpcResponsePacket};
+use uuid::Uuid;
 
 /// Messages sent from the client to the server
 #[derive(Debug, Deserialize)]
@@ -14,10 +13,36 @@ pub enum RxPacket {
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", content = "data")]
 pub enum TxPacket<'a, T> {
+    Handshake(ServerHandshake),
     ChannelSend { channel: &'a str, data: &'a T },
     StoreUpdate(OneStoreUpdate<'a, T>),
     ManyStoreUpdate(Vec<OneStoreUpdate<'a, serde_json::Value>>),
     TypedRpcResponse(TypedRpcResponsePacket),
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ServerHandshake {
+    pub id: Uuid,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct TypedRpcRequestPacket {
+    pub id: u32,
+    pub method: String,
+    pub params: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TypedRpcResponsePacket {
+    pub id: u32,
+    pub result: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TypedRpcError {
+    pub id: u32,
+    pub code: String,
+    pub error: String,
 }
 
 /// Represents either a borrowed or owned value.

@@ -5,6 +5,10 @@ use std::{
 };
 
 use anyhow::Context;
+use maf_schemas::packet::{
+    Borwned, ChannelSendRx, OneStoreUpdate, RxPacket, TxPacket, TypedRpcRequestPacket,
+    TypedRpcResponsePacket,
+};
 use serde::Serialize;
 use serde_json::Value;
 use tokio::sync::{
@@ -20,12 +24,8 @@ use crate::{
     },
     callable::{AnyCallable, IntoCallable},
     channel::UntypedChannelBroadcast,
-    packet::{Borwned, ChannelSendRx, OneStoreUpdate, RxPacket, TxPacket},
     platform::{ListenError, Platform, TargetPlatform},
-    rpc::{
-        models::{TypedRpcRequestPacket, TypedRpcResponsePacket},
-        RpcError, RpcRequestContext, RpcRequestInit, RpcStore,
-    },
+    rpc::{RpcError, RpcRequestContext, RpcRequestInit, RpcStore},
     store::{
         AnySelect, AnyStore, GetParamSelectDependencies, SelectContext, SelectDependencyType,
         SelectKey, StoreKey,

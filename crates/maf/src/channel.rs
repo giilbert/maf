@@ -1,14 +1,10 @@
 use std::{marker::PhantomData, sync::Arc};
 
+use maf_schemas::packet::{ChannelSendRx, TxPacket};
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::broadcast;
 
-use crate::{
-    app::AppState,
-    packet::{ChannelSendRx, TxPacket},
-    platform::SendError,
-    User,
-};
+use crate::{app::AppState, platform::SendError, User};
 
 #[derive(Debug)]
 pub struct Channel<T> {

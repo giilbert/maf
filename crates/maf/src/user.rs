@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
+use maf_schemas::packet::RxPacket;
 use uuid::Uuid;
 
 use crate::{
     app::AppState,
     channel::BoundChannel,
-    packet::RxPacket,
     platform::{self, Message, PlatformUser, SendError},
     Channel,
 };
@@ -19,7 +19,7 @@ pub struct User {
 
 #[derive(Debug, Clone)]
 pub struct UserMeta {
-    pub(crate) id: Uuid,
+    pub id: Uuid,
 }
 
 #[derive(Debug, thiserror::Error)]

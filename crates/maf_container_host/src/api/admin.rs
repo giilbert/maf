@@ -4,7 +4,7 @@ use axum::{
     response::IntoResponse,
     Router,
 };
-use maf_container::server::ErrorResponse;
+use maf_schemas::error::ErrorResponse;
 use sea_orm::EntityTrait;
 
 use crate::{api::auth::authenticate_user_request, storage::db::user};
