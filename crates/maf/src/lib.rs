@@ -2,6 +2,7 @@ pub mod app;
 pub mod bindings;
 mod callable;
 pub mod channel;
+#[cfg(not(feature = "native"))]
 pub mod http;
 pub mod platform;
 mod rpc;

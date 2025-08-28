@@ -15,7 +15,9 @@ pub enum ParamsError {
     DataAlreadyConsumed,
 }
 
-impl<T: DeserializeOwned> CallableParam<RpcRequestContext, RpcRequestInit> for Params<T> {
+impl<T: DeserializeOwned + Send + Sync> CallableParam<RpcRequestContext, RpcRequestInit>
+    for Params<T>
+{
     type Error = RpcError;
 
     async fn extract(

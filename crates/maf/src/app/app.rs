@@ -30,7 +30,7 @@ use crate::{
         AnySelect, AnyStore, GetParamSelectDependencies, SelectContext, SelectDependencyType,
         SelectKey, StoreKey,
     },
-    tasks::{self, Runtime},
+    tasks::{self},
     user::{UserMessage, UserNextMessageError},
     Channel, RpcFunction, Store, StoreData, User,
 };
@@ -182,6 +182,8 @@ impl App {
                     .await
                     .remove(&user_clone.meta.id);
             });
+
+            println!("here 4");
         }
     }
 
@@ -406,7 +408,8 @@ impl App {
 
     pub fn run(self) {
         tasks::spawn(self.run_async());
-        Runtime::current().blocking_poll();
+        #[cfg(not(feature = "native"))]
+        tasks::Runtime::current().blocking_poll();
     }
 
     pub async fn user(&self, user_id: Uuid) -> Option<User> {
@@ -749,6 +752,7 @@ impl AppBuilder {
     }
 }
 
+#[cfg(not(feature = "native"))]
 #[macro_export]
 macro_rules! register {
     ($func:ident) => {

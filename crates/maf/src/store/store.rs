@@ -180,22 +180,10 @@ impl<T: StoreData, Ctx: CallableFetch<App> + Send + Sync, Init: Send + Sync>
 
         let store = match existing_store {
             Some(store) => store,
-            None => {
-                // Code is structured this way to avoid deadlocks when acquiring the read lock
-                // and then trying to acquire the write lock.
-                drop(existing_store);
-
-                let store = AnyStore::new::<T>();
-
-                app.inner
-                    .state
-                    .stores
-                    .write()
-                    .await
-                    .insert(key, store.clone());
-
-                store
-            }
+            None => panic!(
+                "store not found when trying to extract parameter: {}",
+                key.as_ref()
+            ),
         };
 
         Ok(Store {

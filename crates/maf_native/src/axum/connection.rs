@@ -11,7 +11,7 @@ use tokio::{
 };
 
 pub struct Connection {
-    platform: maf::platform::RawUser,
+    pub(crate) platform: maf::platform::RawUser,
 }
 
 impl Connection {
@@ -75,7 +75,7 @@ impl Connection {
                                 .await
                                 .context("failed to send message to websocket")?;
                         }
-                        else => break,
+                        else => break, // Both channels closed
                     }
                 }
 
@@ -83,7 +83,7 @@ impl Connection {
             };
 
             if let Err(err) = run().await {
-                tracing::error!("WebSocket connection error: {err}");
+                tracing::error!("WebSocket connection error: {err:?}");
             }
         });
 

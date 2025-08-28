@@ -3,7 +3,7 @@ use std::{future::Future, marker::PhantomData, pin::Pin, sync::Arc};
 use crate::callable::CallableParam;
 
 pub type AnyCallable<Ctx, Ret, Err> =
-    Box<dyn Fn(Ctx) -> Pin<Box<dyn Future<Output = Result<Ret, Err>>>> + Send + Sync>;
+    Box<dyn Fn(Ctx) -> Pin<Box<dyn Future<Output = Result<Ret, Err>> + Send + Sync>> + Send + Sync>;
 
 pub trait IntoCallable<Ctx, Params, Ret, Err, Init: Send, const IS_ASYNC: bool>:
     Send + Sync + Copy + 'static
@@ -24,12 +24,13 @@ macro_rules! impl_into_callable {
         > IntoCallable<Ctx, ($($members),*), Ret, Err, Init, false> for F
         where
             F: (Fn($($members),*) -> Ret) + Copy + Send + Sync + 'static,
-            $($members: CallableParam<Ctx, Init>),*,
+            $($members: CallableParam<Ctx, Init> + Send + Sync),*,
+            $($members::Error: Send + Sync),*,
             $(Err: From<$members::Error>),*,
             // TODO: Replace the trait bound with not just items that can be serialized.
             Ret: serde::Serialize,
             Init: Send + Sync + 'static,
-            Ctx: 'static,
+            Ctx: Send + Sync + 'static,
         {
             #[allow(non_snake_case)]
             fn into_callable(self, init: Init) -> AnyCallable<Ctx, Ret, Err> {
@@ -58,11 +59,12 @@ macro_rules! impl_into_callable {
         where
             F: (Fn($($members),*) -> Fut) + Copy + Send + Sync + 'static,
             $($members: CallableParam<Ctx, Init>),*,
+            $($members::Error: Send + Sync),*,
             $(Err: From<$members::Error>),*,
             // TODO: Replace the trait bound with not just items that can be serialized.
             Ret: serde::Serialize,
             Init: Send + Sync + 'static,
-            Ctx: 'static,
+            Ctx: Send + Sync + 'static,
             Fut: Future<Output = Ret> + Send + Sync + 'static
         {
             #[allow(non_snake_case)]
@@ -112,7 +114,7 @@ where
     // TODO: Replace the trait bound with not just items that can be serialized.
     Ret: serde::Serialize,
     Init: Send + Sync + 'static,
-    Ctx: 'static,
+    Ctx: Send + Sync + 'static,
     Err: From<T1::Error>,
 {
     #[allow(non_snake_case)]
@@ -136,7 +138,7 @@ where
     // TODO: Replace the trait bound with not just items that can be serialized.
     Ret: serde::Serialize,
     Init: Send + Sync + 'static,
-    Ctx: 'static,
+    Ctx: Send + Sync + 'static,
     Fut: Future<Output = Ret> + Send + Sync + 'static,
 {
     #[allow(non_snake_case)]

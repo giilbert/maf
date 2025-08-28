@@ -4,3 +4,4 @@ mod routes;
 
 pub use connection::Connection;
 pub use room::Room;
+pub use routes::{MafRoutes, RouteConfig};

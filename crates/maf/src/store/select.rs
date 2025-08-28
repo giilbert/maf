@@ -13,9 +13,11 @@ pub struct AnySelect {
     pub(crate) select: Arc<
         dyn Fn(
                 SelectContext,
-            )
-                -> Pin<Box<dyn Future<Output = Result<serde_json::Value, serde_json::Error>>>>
-            + Send
+            ) -> Pin<
+                Box<
+                    dyn Future<Output = Result<serde_json::Value, serde_json::Error>> + Send + Sync,
+                >,
+            > + Send
             + Sync,
     >,
     /// NOTE: The *type id* of the store is used for dependency tracking instead of the *store key*

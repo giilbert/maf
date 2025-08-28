@@ -11,6 +11,6 @@ maf_schemas = { version = "0.1.0-alpha.2", path = "../maf_schemas", features = [
     "error-response",
 ] }
 serde_json = "1.0.140"
-tokio = { version = "1.43.0", features = ["full"] }
+tokio = { version = "1.44.2", features = ["full"] }
 tracing = "0.1.41"
 futures-util = { version = "0.3.31", features = ["sink"] }
