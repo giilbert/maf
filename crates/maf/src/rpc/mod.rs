@@ -33,7 +33,7 @@ pub use params::Params;
 use params::ParamsError;
 
 use crate::{
-    callable::{AnyCallable, CallableFetch},
+    callable::{BoxedCallable, CallableFetch},
     platform::SendError,
     App, StateError, User,
 };
@@ -41,7 +41,7 @@ use crate::{
 pub struct RpcFunction {
     pub(crate) method: String,
     pub(crate) type_id: TypeId,
-    pub(crate) handler: AnyCallable<RpcRequestContext, TypedRpcResponsePacket, RpcError>,
+    pub(crate) handler: BoxedCallable<RpcRequestContext, TypedRpcResponsePacket, RpcError>,
 
     #[cfg(feature = "typed")]
     pub(crate) desc: Arc<

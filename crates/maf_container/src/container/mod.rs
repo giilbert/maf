@@ -230,7 +230,7 @@ impl Container {
         Ok(())
     }
 
-    pub fn get_app_schema(&mut self) -> anyhow::Result<oneshot::Receiver<AppSchema>> {
+    pub async fn recv_app_schema(&mut self) -> anyhow::Result<AppSchema> {
         let rx = self
             .store
             .data_mut()
@@ -238,17 +238,16 @@ impl Container {
             .take()
             .ok_or_else(|| anyhow::anyhow!("app schema receiver already taken"))?;
 
-        Ok(rx)
+        Ok(rx.await?)
     }
 
-    pub fn take_output(&mut self) -> Option<mpsc::Receiver<String>> {
+    pub fn output(&mut self) -> Option<mpsc::Receiver<String>> {
         self.output.take()
     }
 
+    /// Consumes the container's output channel and forwards all output lines to tracing logs.
     pub fn pass_output(&mut self) {
-        let mut output = self
-            .take_output()
-            .expect("output channel should be available");
+        let mut output = self.output().expect("output channel should be available");
         let container_id = self.room_id.clone();
 
         tokio::spawn(async move {

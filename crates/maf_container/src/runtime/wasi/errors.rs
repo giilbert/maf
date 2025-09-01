@@ -1,3 +1,4 @@
+/// A newtype wrapper around the WIT-defined ListenError with support for trapping and conversions.
 pub struct ListenError(pub wasmtime_wasi::TrappableError<super::bindings::ListenError>);
 
 impl From<wasmtime::component::ResourceTableError> for ListenError {

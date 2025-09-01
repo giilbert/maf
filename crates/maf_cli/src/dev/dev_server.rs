@@ -123,9 +123,7 @@ async fn generate_types(state: DevServerState, project: ProjectConfig) -> anyhow
 
     container.dry_run().await?;
 
-    let schema_rx = container.get_app_schema()?;
-    let schema = schema_rx.await?;
-
+    let schema = container.recv_app_schema().await?;
     tracing::debug!("{}", format!("App schema received: {schema:?}").dimmed());
 
     typed::create_types_file_for_project(&project, schema).await?;

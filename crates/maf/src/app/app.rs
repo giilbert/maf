@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::Context;
 use maf_schemas::packet::{
-    Borwned, ChannelSendRx, OneStoreUpdate, RxPacket, TxPacket, TypedRpcRequestPacket,
+    Bull, ChannelSendRx, OneStoreUpdate, RxPacket, TxPacket, TypedRpcRequestPacket,
     TypedRpcResponsePacket,
 };
 use serde::Serialize;
@@ -22,7 +22,7 @@ use crate::{
         background::BackgroundFnContext,
         hooks::{HookBody, HookRequest, HookResponse},
     },
-    callable::{AnyCallable, IntoCallable},
+    callable::{BoxedCallable, IntoCallable},
     channel::UntypedChannelBroadcast,
     platform::{ListenError, Platform, TargetPlatform},
     rpc::{RpcError, RpcRequestContext, RpcRequestInit, RpcStore},
@@ -320,7 +320,7 @@ impl App {
 
             updates.push(OneStoreUpdate {
                 store: store_key.as_ref(),
-                data: Borwned::Borrowed(&serialized),
+                data: Bull::Borrowed(&serialized),
             });
 
             // Refresh any selects that depend on this store
@@ -332,7 +332,7 @@ impl App {
 
                     updates.push(OneStoreUpdate {
                         store: select_name.as_ref(),
-                        data: Borwned::Owned(value),
+                        data: Bull::Owned(value),
                     });
                 }
             }
@@ -369,7 +369,7 @@ impl App {
             data.iter()
                 .map(|(k, v)| OneStoreUpdate {
                     store: k.as_ref(),
-                    data: Borwned::Borrowed(v),
+                    data: Bull::Borrowed(v),
                 })
                 .collect(),
         ))
@@ -542,7 +542,7 @@ impl AppBuilder {
         use std::any::Any;
 
         let method = method.to_string();
-        let callable: Arc<AnyCallable<RpcRequestContext, Return, RpcError>> =
+        let callable: Arc<BoxedCallable<RpcRequestContext, Return, RpcError>> =
             Arc::from(handler.into_callable(RpcRequestInit {
                 method: method.clone(),
             }));
@@ -624,7 +624,7 @@ impl AppBuilder {
         Ret: Serialize + 'static,
     {
         let name: Arc<str> = Arc::from(name.to_string());
-        let callable: Arc<AnyCallable<SelectContext, Ret, std::convert::Infallible>> =
+        let callable: Arc<BoxedCallable<SelectContext, Ret, std::convert::Infallible>> =
             Arc::from(handler.into_callable(()));
 
         let dependencies = Params::get_select_dependencies();
@@ -685,7 +685,7 @@ impl AppBuilder {
     {
         let method = method.to_string();
 
-        let callable: Arc<AnyCallable<HookContext, Return, HookError>> =
+        let callable: Arc<BoxedCallable<HookContext, Return, HookError>> =
             Arc::from(handler.into_callable(()));
 
         self.hooks.add_hook_function(HookFunction {

@@ -1,13 +1,11 @@
-mod bridge;
 pub mod wasi;
 
+use crate::container::ContainerData;
 use std::{
     fmt::Debug,
     sync::{Arc, atomic::AtomicU64},
 };
-
-use crate::container::ContainerData;
-use wasmtime as wt;
+use wasmtime::{self as wt, component::HasSelf};
 
 #[derive(Clone)]
 pub struct ContainerRuntime {
@@ -36,5 +34,27 @@ impl ContainerRuntime {
             linker: Arc::new(linker),
             app_activity,
         })
+    }
+
+    pub(super) fn create_component_linker(
+        engine: &wt::Engine,
+    ) -> anyhow::Result<wt::component::Linker<ContainerData>> {
+        let mut linker = wt::component::Linker::new(engine);
+
+        wasmtime_wasi::p2::add_to_linker_async(&mut linker)?;
+        wasmtime_wasi_http::add_only_http_to_linker_async(&mut linker)?;
+        // // TODO: Limit HTTP bandwidth?
+        // wasmtime_wasi_http::bindings::http::outgoing_handler::add_to_linker::<_, WasiHttp<_>>(
+        //     &mut linker,
+        //     |state| WasiHttpImpl(IoImpl(state)),
+        // )?;
+        // wasmtime_wasi_http::bindings::http::types::add_to_linker::<_, WasiHttp<_>>(
+        //     &mut linker,
+        //     &LinkOptions::default(),
+        //     |state| WasiHttpImpl(IoImpl(state)),
+        // )?;
+        wasi::bindings::add_to_linker::<_, HasSelf<_>>(&mut linker, |state| state)?;
+
+        Ok(linker)
     }
 }

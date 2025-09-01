@@ -1,7 +1,7 @@
 use std::{any::TypeId, collections::HashMap, sync::Arc};
 
 use crate::{
-    callable::{AnyCallable, CallableFetch},
+    callable::{BoxedCallable, CallableFetch},
     platform::{self, PlatformHookRequest},
 };
 
@@ -86,7 +86,7 @@ pub enum HookError {
 pub struct HookFunction {
     pub type_id: TypeId,
     pub method: String,
-    pub callable: AnyCallable<HookContext, HookResponse, HookError>,
+    pub callable: BoxedCallable<HookContext, HookResponse, HookError>,
 }
 
 #[derive(Default)]

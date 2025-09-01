@@ -1,12 +1,12 @@
 use crate::{
-    callable::{AnyCallable, CallableFetch},
+    callable::{BoxedCallable, CallableFetch},
     App, User,
 };
 
 use super::state::StateError;
 
 pub type OnConnectDisconnectFn =
-    AnyCallable<OnConnectDiconnectContext, (), OnConnectDisconnectError>;
+    BoxedCallable<OnConnectDiconnectContext, (), OnConnectDisconnectError>;
 
 pub struct OnConnectDiconnectContext {
     pub app: App,

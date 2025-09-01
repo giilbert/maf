@@ -1,3 +1,5 @@
+use std::future::Future;
+
 use crate::{App, User};
 
 /// A parameter that could appear in a callable function (e.g. `rpc` or `on_connect`).
@@ -10,7 +12,7 @@ pub trait CallableParam<Ctx, Init>: Send + Sync + Sized {
     fn extract(
         ctx: &mut Ctx,
         init: &Init,
-    ) -> impl std::future::Future<Output = Result<Self, Self::Error>> + Send + Sync;
+    ) -> impl Future<Output = Result<Self, Self::Error>> + Send + Sync;
 }
 
 /// A trait for simple types that can be used as parameters in callable functions.

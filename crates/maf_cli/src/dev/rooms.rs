@@ -100,7 +100,7 @@ impl DevRoomsStorage {
         let room_key = param.key.unwrap_or(room.id().to_string());
 
         let room_key_clone = room_key.clone();
-        let mut output = container.take_output().expect("Output should be available");
+        let mut output = container.output().expect("Output should be available");
         tokio::spawn(async move {
             while let Some(line) = output.recv().await {
                 let line = line.trim_matches(&['\n', '\r', ' ']);
