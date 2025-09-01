@@ -6,11 +6,36 @@ use tokio::sync::broadcast;
 
 use crate::{app::AppState, platform::SendError, User};
 
+/// A named channel that can be used to send and receive messages of type `T` between the server and
+/// the client.
+///
+/// There is no guarantee that messages will be received in the order they were sent and there is no
+/// guarantee that messages will be received at all.
+///
+/// To get a channel, acquire an [`crate::App`] and call [`crate::App::channel`] with the channel's
+/// name and the type of data being sent through the channel as a type parameter.
+///
+/// ## Example
+///
+/// ```rust
+/// App::builder()
+///     .background(|app: App| async move {
+///         let channel = app.channel::<String>("messages");
+///         loop {
+///             channel.broadcast("Hello, world!".to_string()).await.ok();
+///             tasks::sleep(std::time::Duration::from_secs(5)).await;
+///         }
+///     })
+/// ```
+///
+/// ## Bound Channels
+/// A [`Channel`] can be bound to a specific user using [`BoundChannel::new`]. This allows for
+/// sending/receiving messages that are specific to that user.
 #[derive(Debug)]
 pub struct Channel<T> {
     name: String,
-    state: Arc<AppState>,
     rx: Option<broadcast::Receiver<ChannelSendRx>>,
+    state: Arc<AppState>,
     _phantom: PhantomData<T>,
 }
 
@@ -33,7 +58,12 @@ impl<T> Channel<T> {
     }
 }
 
+/// Half implementation of channel functionality for sending messages that are serializable.
 impl<T: Serialize> Channel<T> {
+    /// Sends a message to a single user.
+    ///
+    /// There is no guarantee that the user will receive the message and messages sent may be
+    /// processed out of order.
     pub fn send(&self, user: &User, message: T) -> Result<(), SendError> {
         user.send(TxPacket::ChannelSend {
             channel: &self.name,
@@ -43,6 +73,10 @@ impl<T: Serialize> Channel<T> {
         Ok(())
     }
 
+    /// Sends a message to all connected users.
+    ///
+    /// There is no guarantee that users will receive the message and messages sent may be
+    /// processed out of order.
     pub async fn broadcast(&self, message: T) -> Result<(), SendError> {
         let users = self.state.users.read().await;
         for user in users.values() {
@@ -55,6 +89,7 @@ impl<T: Serialize> Channel<T> {
         Ok(())
     }
 
+    /// Returns the name of the channel.
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -125,6 +160,8 @@ impl<T: DeserializeOwned> Channel<T> {
     }
 }
 
+/// A channel that is bound to a specific user. [`BoundChannel`] will only send and receive messages
+/// that are specific to that user.
 pub struct BoundChannel<T> {
     channel: Channel<T>,
     user: User,
@@ -136,6 +173,16 @@ impl<T> BoundChannel<T> {
             channel,
             user: user.clone(),
         }
+    }
+
+    /// Returns a reference to the user this channel is bound to.
+    pub fn user(&self) -> &User {
+        &self.user
+    }
+
+    /// Returns a reference to the underlying channel.
+    pub fn channel(&self) -> &Channel<T> {
+        &self.channel
     }
 }
 
@@ -152,7 +199,7 @@ impl<T: DeserializeOwned> BoundChannel<T> {
 }
 
 #[derive(Debug, Clone)]
-pub struct UntypedChannelBroadcast {
+pub(crate) struct UntypedChannelBroadcast {
     pub(crate) tx: broadcast::Sender<ChannelSendRx>,
 }
 

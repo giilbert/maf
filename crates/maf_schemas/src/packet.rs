@@ -31,13 +31,13 @@ pub enum TxPacket<'a, T = ()> {
     TypedRpcResponse(TypedRpcResponsePacket),
 }
 
-/// [Server] Ready the client with server-side information about the connection
+/// Server: Ready the client with server-side information about the connection
 #[derive(Debug, Clone, Serialize)]
 pub struct ServerHandshake {
     pub id: Uuid,
 }
 
-/// [Client] Invoke a server-side RPC method with parameters
+/// Client: Invoke a server-side RPC method with parameters
 #[derive(Debug, Clone, Deserialize)]
 pub struct TypedRpcRequestPacket {
     /// Unique ID for this RPC call, used to match responses
@@ -75,14 +75,14 @@ impl<'a, T: Serialize> Serialize for Bull<'a, T> {
     }
 }
 
-/// [Server] Update a single store with data
+/// Server: Update a single store with data
 #[derive(Debug, Serialize)]
 pub struct OneStoreUpdate<'a, T> {
     pub store: &'a str,
     pub data: Bull<'a, T>,
 }
 
-/// [Client] Send a message to a channel to be received by the server
+/// Client: Send a message to a channel to be received by the server
 #[derive(Debug, Deserialize, Clone)]
 pub struct ChannelSendRx {
     pub channel: String,
