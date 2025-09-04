@@ -40,7 +40,7 @@ async fn counter_read_hook(test: Store<CounterStore>) -> i32 {
 }
 
 fn on_connect(user: User) {
-    println!("user connected! id: {}", user.meta.id());
+    println!("user connected! id: {}", user.meta().id());
 }
 
 fn build() -> App {

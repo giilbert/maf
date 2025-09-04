@@ -12,8 +12,8 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct User {
-    pub meta: UserMeta,
-    pub state: Arc<AppState>,
+    meta: UserMeta,
+    state: Arc<AppState>,
     inner: Arc<platform::RawUser>,
 }
 
@@ -37,6 +37,11 @@ impl User {
             state,
             inner: Arc::new(raw),
         }
+    }
+
+    /// Returns a reference to the user's metadata.
+    pub fn meta(&self) -> &UserMeta {
+        &self.meta
     }
 
     /// Awaits the next message the user has sent from a message buffer.

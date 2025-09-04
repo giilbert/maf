@@ -96,7 +96,8 @@ impl<T: Serialize> Channel<T> {
 }
 
 impl<T: DeserializeOwned> Channel<T> {
-    async fn lazy_init_recv(
+    /// Gets the underlying broadcast receiver, creating it based on a strategy if it doesn't exist.
+    async fn lazy_get_recv(
         &mut self,
         user: Option<&User>,
     ) -> &mut broadcast::Receiver<ChannelSendRx> {
@@ -105,17 +106,20 @@ impl<T: DeserializeOwned> Channel<T> {
         } else {
             // Create the broadcast channel if it doesn't exist
             match user {
-                // This channel is bound to a specific user, use a different method to rx messages
+                // If this channel is bounded to a user, create a user-specific channel and
+                // register it to app state if it doesn't exist
                 Some(user) => {
-                    let user_id = user.meta.id;
+                    let user_id = user.meta().id;
 
-                    if !self
+                    let does_user_channel_exist = self
                         .state
                         .user_rx_channels
                         .read()
                         .await
-                        .contains_key(&(user_id, self.name.clone()))
-                    {
+                        .contains_key(&(user_id, self.name.clone()));
+
+                    // Create the user-specific channel if it doesn't exist
+                    if !does_user_channel_exist {
                         self.state.user_rx_channels.write().await.insert(
                             (user_id, self.name.clone()),
                             UntypedChannelBroadcast::default(),
@@ -125,11 +129,17 @@ impl<T: DeserializeOwned> Channel<T> {
                     let mut channels = self.state.user_rx_channels.write().await;
                     let channel = channels
                         .get_mut(&(user_id, self.name.clone()))
-                        .expect("channel not found");
+                        .expect("channel should exist");
+
                     self.rx = Some(channel.tx.subscribe());
                 }
+                // If this channel is not bounded to a user, create a global channel and register it
+                // to app state if it doesn't exist
                 None => {
-                    if !self.state.channels.read().await.contains_key(&self.name) {
+                    let does_channel_exist =
+                        self.state.channels.read().await.contains_key(&self.name);
+
+                    if !does_channel_exist {
                         self.state
                             .channels
                             .write()
@@ -138,7 +148,8 @@ impl<T: DeserializeOwned> Channel<T> {
                     }
 
                     let mut channels = self.state.channels.write().await;
-                    let channel = channels.get_mut(&self.name).expect("channel not found");
+                    let channel = channels.get_mut(&self.name).expect("channel should exist");
+
                     self.rx = Some(channel.tx.subscribe());
                 }
             }
@@ -148,13 +159,13 @@ impl<T: DeserializeOwned> Channel<T> {
     }
 
     pub async fn recv(&mut self) -> Result<T, RecvError> {
-        let message = self.lazy_init_recv(None).await.recv().await?;
+        let message = self.lazy_get_recv(None).await.recv().await?;
         let data = serde_json::from_value(message.data)?;
         Ok(data)
     }
 
     pub async fn recv_user(&mut self, user: &User) -> Result<T, RecvError> {
-        let message = self.lazy_init_recv(Some(user)).await.recv().await?;
+        let message = self.lazy_get_recv(Some(user)).await.recv().await?;
         let data = serde_json::from_value(message.data)?;
         Ok(data)
     }
@@ -187,25 +198,32 @@ impl<T> BoundChannel<T> {
 }
 
 impl<T: Serialize> BoundChannel<T> {
+    /// Sends a message to the user this channel is bound to. For more details, see
+    /// [`Channel::send`].
     pub fn send(&self, message: T) -> Result<(), SendError> {
         self.channel.send(&self.user, message)
     }
 }
 
 impl<T: DeserializeOwned> BoundChannel<T> {
+    /// Receives a message from the user this channel is bound to. For more details, see
+    /// [`Channel::recv_user`].
     pub async fn recv(&mut self) -> Result<T, RecvError> {
         self.channel.recv_user(&self.user).await
     }
 }
 
+/// Used internally to store broadcast channels in app state without needing to know the type.
 #[derive(Debug, Clone)]
 pub(crate) struct UntypedChannelBroadcast {
     pub(crate) tx: broadcast::Sender<ChannelSendRx>,
 }
 
+const MAX_CHANNEL_BUFFER: usize = 20;
+
 impl Default for UntypedChannelBroadcast {
     fn default() -> Self {
-        let (tx, _rx) = broadcast::channel(20);
+        let (tx, _rx) = broadcast::channel(MAX_CHANNEL_BUFFER);
         Self { tx }
     }
 }

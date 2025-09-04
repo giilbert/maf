@@ -111,7 +111,7 @@ impl App {
                 .users
                 .write()
                 .await
-                .insert(user.meta.id, user.clone());
+                .insert(user.meta().id, user.clone());
 
             self.refresh_all_stores(&user).await.ok();
 
@@ -180,7 +180,7 @@ impl App {
                     .users
                     .write()
                     .await
-                    .remove(&user_clone.meta.id);
+                    .remove(&user_clone.meta().id);
             });
 
             println!("here 4");
@@ -222,7 +222,7 @@ impl App {
             .user_rx_channels
             .read()
             .await
-            .get(&(user.meta.id, channel_data.channel.clone()))
+            .get(&(user.meta().id, channel_data.channel.clone()))
             .map(|c| c.tx.send(channel_data.clone()));
     }
 

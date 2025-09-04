@@ -85,4 +85,4 @@ fn build() -> App {
         .build()
 }
 
-// maf::register!(build);
+maf::register!(build);
