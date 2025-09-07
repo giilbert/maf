@@ -1,3 +1,9 @@
+//! Typed interfaces for RPCs and stores.
+//!
+//! This module provides functionality to extract type information from RPCs and stores defined
+//! in the application. It uses the `schemars` crate to generate JSON schemas for the types, which
+//! can be passed to the client for type-safe interactions.
+
 use std::sync::Arc;
 
 use schemars::{JsonSchema, Schema, SchemaGenerator};
@@ -5,6 +11,7 @@ use serde::de::DeserializeOwned;
 
 use crate::{callable::IntoCallable, store::SelectContext, App, Params, Store, StoreData, User};
 
+/// A description of a store, including its name and the schema of its select type.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StoreDesc {
     pub name: String,
@@ -12,6 +19,7 @@ pub struct StoreDesc {
 }
 
 impl StoreDesc {
+    /// Create a new `StoreDesc` for the given store data type `T`.
     pub fn new<T>(generator: &mut SchemaGenerator) -> Self
     where
         T: StoreData,
@@ -23,9 +31,11 @@ impl StoreDesc {
     }
 }
 
+/// A description of a RPC, including its name, parameter schema, and result schema.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RpcDesc {
     pub name: String,
+    /// If the RPC does not take parameters, this is `None`.
     pub params: Option<Arc<Schema>>,
     pub result: Arc<Schema>,
 }
@@ -53,7 +63,7 @@ where
 }
 
 // Since specialization does not exist in stable Rust, a macro is used to implement the trait for
-// types that is not `Params<T>`.
+// types that is not `Params<T>`. This is needed to extract parameter schemas for RPCs.
 macro_rules! impl_not_param {
     // Case where the type does not have a type parameter
     ($t:ty) => {
@@ -117,6 +127,7 @@ where
     }
 }
 
+// Implementations for functions with parameters (from 1 to 9 parameters)
 macro_rules! impl_extract_rpc_desc {
     ($($members:ident),+) => {
         impl<
