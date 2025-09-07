@@ -3,7 +3,7 @@ export const CODE_BLOCKS = {
     language: "rust",
     content: `
 // [1] Import MAF server library
-use maf::*;
+use maf::prelude::*;
 
 fn build() -> App {
   println!("Hello, world!");

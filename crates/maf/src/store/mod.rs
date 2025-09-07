@@ -1,3 +1,5 @@
+//! Abstraction for state shared between server and client.
+
 mod change_detection;
 mod select;
 mod store;

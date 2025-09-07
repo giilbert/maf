@@ -1,3 +1,5 @@
+//! HTTP client implementation using WASI HTTP.
+
 mod request;
 mod response;
 

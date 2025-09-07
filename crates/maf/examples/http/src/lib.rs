@@ -1,4 +1,4 @@
-use maf::*;
+use maf::prelude::*;
 
 fn on_connect(user: User) {
     println!("user connected! id: {}", user.meta.id());

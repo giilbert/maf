@@ -2192,15 +2192,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "maf-demo"
-version = "0.1.0"
-dependencies = [
- "maf",
- "schemars",
- "serde",
-]
-
-[[package]]
 name = "maf_cli"
 version = "0.1.0"
 dependencies = [

@@ -46,7 +46,7 @@ pub struct TypedRpcRequestPacket {
     pub params: serde_json::Value,
 }
 
-/// [Server] Respond to a previously invoked RPC call with the result
+/// Server: Respond to a previously invoked RPC call with the result
 #[derive(Debug, Clone, Serialize)]
 pub struct TypedRpcResponsePacket {
     pub id: u32,

@@ -1,3 +1,5 @@
+//! Utilities for defining MAF applications.
+
 mod app;
 mod background;
 pub(crate) mod hooks;

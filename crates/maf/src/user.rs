@@ -1,3 +1,5 @@
+//! Abstractions for connected users.
+
 use std::sync::Arc;
 
 use maf_schemas::packet::RxPacket;

@@ -1,4 +1,4 @@
-//! This module provides the RPC (Remote Procedure Call) functionality for the application.
+//! RPC (Remote Procedure Call) functionality for the application.
 //!
 //! It allows a MAF client to call functions on the server and receive responses.
 //!

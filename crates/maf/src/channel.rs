@@ -1,3 +1,5 @@
+//! Primitive for sending and receiving messages between the server and the client.
+
 use std::{marker::PhantomData, sync::Arc};
 
 use maf_schemas::packet::{ChannelSendRx, TxPacket};

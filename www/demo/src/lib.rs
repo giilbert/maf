@@ -1,4 +1,4 @@
-use maf::*;
+use maf::prelude::*;
 use schemars::JsonSchema;
 
 #[derive(Debug, Clone, JsonSchema, serde::Serialize)]

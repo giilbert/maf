@@ -53,7 +53,8 @@
 
 mod desc;
 
-pub use desc::{ExtractRpcDesc, ExtractSelectDesc, RpcDesc, StoreDesc};
+pub(crate) use desc::{ExtractRpcDesc, ExtractSelectDesc};
+pub use desc::{RpcDesc, StoreDesc};
 
 use crate::{platform::Platform, App};
 

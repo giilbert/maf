@@ -4,11 +4,11 @@
 //! writing other MAF crates:
 //!
 //! - [`apps`]: describing MAF apps on Platform.
-//! - [`error`]: API error responses. A `error-response` feature flag is needed to
-//!   enable and compile this module.
 //! - [`packet`]: packets sent over WebSocket between clients and servers.
 //! - [`project_config`]: the `maf-project.toml` project configuration file.
 //! - [`typed`]: types that describe a MAF app's type data
+//!
+//! - (enabled with the `error-response` feature) `error`: API error responses.
 
 pub mod apps;
 pub mod packet;

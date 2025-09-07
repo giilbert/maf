@@ -428,7 +428,7 @@ impl AppBuilder {
     /// ## Example
     ///
     /// ```rust
-    /// use maf::*;
+    /// use maf::prelude::*;
     ///
     /// fn on_connect(user: User) {
     ///     println!("user connected! id: {}", user.meta.id());
@@ -461,7 +461,7 @@ impl AppBuilder {
     /// ## Example
     ///
     /// ```rust
-    /// use maf::*;
+    /// use maf::prelude::*;
     ///
     /// fn on_disconnect(user: User) {
     ///     println!("user disconnected! id: {}", user.meta.id());
@@ -495,7 +495,7 @@ impl AppBuilder {
     /// ## Example
     ///
     /// ```rust
-    /// use maf::*;
+    /// use maf::prelude::*;
     ///
     /// struct CounterStore;
     ///
@@ -574,7 +574,7 @@ impl AppBuilder {
     /// ## Example
     ///
     /// ```rust
-    /// use maf::*;
+    /// use maf::prelude::*;
     ///
     /// async fn background() {
     ///     loop {

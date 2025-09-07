@@ -1,4 +1,4 @@
-use maf::*;
+use maf::prelude::*;
 
 struct CounterStore {
     count: i32,

@@ -1,3 +1,5 @@
+//! Task spawning for different environments.
+
 #[cfg(not(feature = "native"))]
 mod wasi;
 

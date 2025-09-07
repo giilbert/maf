@@ -1,3 +1,5 @@
+//! Platform-specific implementations for MAF.
+
 #[cfg(feature = "native")]
 mod actor;
 mod common;

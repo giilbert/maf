@@ -2,8 +2,8 @@
 //! platforms, but it is designed to be extensible for other platforms in the future.
 //!
 //! #[cfg(..)] attributes are used to run code conditionally based on the target platform. e.g. no
-//! trait objects are instantiated on runtime: there are no Box<dyn Platform>'s or impl Platform's
-//! anywhere. This is to ensure simplicity and avoid dynamic dispatch overhead.
+//! trait objects are instantiated on runtime: there are no `Box<dyn Platform>`'s or
+//! `impl Platform`'s anywhere. This is to ensure simplicity and avoid dynamic dispatch overhead.
 
 use std::future::Future;
 
