@@ -1,8 +1,7 @@
 {
   "name": "example-simple",
   "version": "0.1.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
   "scripts": {
     "dev": "vite",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -11,11 +10,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@maf/client": "workspace:*",
-    "zod": "^3.24.2"
+    "@usemaf/client": "workspace:*"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.4",
+    "@types/node": "^20",
     "typescript": "^5.8.2",
     "vite": "^6.2.3"
   }

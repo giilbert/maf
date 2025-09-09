@@ -1,9 +1,14 @@
 import { notFound } from "next/navigation";
 import { getAllSlugs, getDocMeta, loadDocSource } from "../helpers/content";
 import React from "react";
-import { Heading } from "../_lib/toc";
-import Link from "next/link";
 import { MdxContentWrapper, renderMdx } from "../_components/mdx-renderer";
+import { TableOfContents } from "../_components/table-of-contents";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 export default async function Page({
   params,
@@ -22,42 +27,31 @@ export default async function Page({
 
   return (
     <>
-      <div className="space-y-4 col-span-3">
+      <div className="space-y-4 lg:col-span-3 mt-4 w-full min-w-0">
         <p className="text-muted-foreground">{meta.category}</p>
+
+        {headings.length !== 0 && (
+          <Accordion type="single" collapsible className="xl:hidden">
+            <AccordionItem value="on-this-page">
+              <AccordionTrigger className="bg-muted py-1.5 px-2.5 -mx-2.5">
+                On This Page
+              </AccordionTrigger>
+              <AccordionContent className="mt-2">
+                <TableOfContents headings={headings} hideTitle />
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        )}
 
         <MdxContentWrapper>{content}</MdxContentWrapper>
       </div>
 
-      <div className="col-span-1">
+      <div className="col-span-1 hidden xl:block">
         {headings.length > 0 && <TableOfContents headings={headings} />}
       </div>
     </>
   );
 }
-
-const TableOfContents: React.FC<{
-  headings: Heading[];
-}> = ({ headings }) => {
-  return (
-    <div className="sticky top-0 space-y-4">
-      <h2 className="text-sm font-semibold">On this page</h2>
-
-      <ul className="flex flex-col gap-2">
-        {headings.map((heading) => (
-          <li
-            key={heading.slug}
-            className="text-sm text-muted-foreground hover:text-foreground hover:underline transition-colors"
-            style={{
-              marginLeft: `${(heading.level - 2) * 0.5}rem`,
-            }}
-          >
-            <Link href={`#${heading.slug}`}>{heading.title}</Link>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-};
 
 export async function generateStaticParams() {
   const slugs = await getAllSlugs();

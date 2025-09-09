@@ -1,0 +1,22 @@
+{
+  "name": "@usemaf/platform",
+  "version": "0.1.0-alpha.3",
+  "description": "",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "@usemaf/client": "workspace:*",
+    "emittery": "^1.2.0",
+    "zod": "^3.24.2"
+  }
+}

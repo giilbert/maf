@@ -9,6 +9,10 @@ use crate::App;
 
 use super::AnyStore;
 
+/// A mutable reference to a store's data with automatic dirty tracking.
+///
+/// This is used to modify the store's data and mark the store as dirty, which will queue it for
+/// update to clients.
 pub struct StoreMut<'a, T> {
     app: &'a App,
     inner: &'a AnyStore,
@@ -36,7 +40,6 @@ impl<'a, T> Deref for StoreMut<'a, T> {
 impl<'a, T> DerefMut for StoreMut<'a, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.inner.dirty.store(true, atomic::Ordering::Relaxed);
-
         self.guard.deref_mut()
     }
 }

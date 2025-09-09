@@ -66,7 +66,7 @@ impl bindings::HostFutureHookRequest for ContainerData {
 }
 
 #[async_trait]
-impl wasmtime_wasi::Pollable for FutureHookRequest {
+impl wasmtime_wasi::p2::Pollable for FutureHookRequest {
     async fn ready(&mut self) {
         self.next_request = self.channel.recv().await;
     }

@@ -7,7 +7,8 @@ use anyhow::Context;
 use async_zip::{error::ZipError, tokio::read::seek::ZipFileReader};
 use bytes::Bytes;
 use futures_util::{AsyncReadExt, Stream, StreamExt, TryStreamExt};
-use maf_container::server::{Bundle, ErrorResponse};
+use maf_container::server::Bundle;
+use maf_schemas::error::ErrorResponse;
 use tokio::{
     fs::{self, File},
     io::{AsyncBufRead, AsyncSeek, BufReader},
@@ -196,7 +197,15 @@ impl BundleStorage {
     pub async fn delete_app_bundle(&self, app_id: Uuid) -> Result<(), BundleError> {
         let path = self.storage_dir.join(app_id.to_string());
 
-        fs::rename(&path, path.with_extension("deleted")).await?;
+        fs::rename(&path, path.with_extension("deleted"))
+            .await
+            .map_err(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    BundleError::FileNotFound
+                } else {
+                    BundleError::Io(e)
+                }
+            })?;
 
         fs::remove_file(path.with_extension("deleted"))
             .await

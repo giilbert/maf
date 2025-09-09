@@ -15,6 +15,7 @@ RUN apt-get update && \
 ADD Cargo.lock ./
 ADD crates/maf_container ./crates/maf_container
 ADD crates/maf_container_host ./crates/maf_container_host
+ADD crates/schemas ./crates/schemas
 ADD wit ./wit
 
 # Create Cargo.toml with correct workspaces
@@ -41,7 +42,7 @@ RUN apt-get update && \
 
 COPY --from=builder /app/target/release/maf_container_host /app/maf_container_host
 
-EXPOSE 3000
+EXPOSE 1147
 USER maf_container_host
 VOLUME /app/bundle
 

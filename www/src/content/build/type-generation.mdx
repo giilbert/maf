@@ -1,0 +1,159 @@
+---
+title: Type Generation
+category: Build Your App
+---
+
+# Type Generation
+
+MAF can optionally generate TypeScript types for your app's data models. This is
+useful for ensuring type safety in your application code.
+
+Currently, type generation is only supported for Rust and TypeScript projects.
+Support for more languages will be added in the future.
+
+## Enabling Type Generation
+
+1\. Add the following to your `maf-project.toml`:
+
+```toml
+[typed]
+language = "TypeScript"
+out = "types.ts" # Output file for generated types
+```
+
+2\. Enable Rust introspection by implementing `schemars::JsonSchema` in
+serialized types.
+
+```toml
+# Cargo.toml: Add `schemars` as a dependency
+[dependencies]
+# ...
+schemars = "1.0.4"
+```
+
+```rust
+// Most standard library types already implement `schemars::JsonSchema`,
+// but for custom types, you need to derive `JsonSchema`:
+//
+// 💡 The `JsonSchema` derive macro is able to parse #[serde(...)] attributes.
+//    In this case, it recognizes `#[serde(rename_all = "camelCase")]` and
+//    changes the field names accordingly in the generated TypeScript types.
+#[derive(serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct Game {
+    points: i32,
+    round: u32,
+    phase: String,
+    // The `next_phase` field will be generated as `nextPhase` in TypeScript
+    next_phase: Option<String>,
+}
+
+impl StoreData for Game {
+    type Select<'this> = &'this Game;
+    //                   ^^^^^^^^^^^ Store::Select must implement `JsonSchema`
+    // ...
+}
+
+fn make_move(params: Params<(u32, u32)>) -> String {
+    //                      ^^^^^^^^^^      ^^^^^^
+    //          Parameter and return types must implement `JsonSchema`
+    // ...
+}
+
+fn build() -> App {
+    App::builder()
+        // Types should be statically registered in the app builder
+        .store::<Game>()
+        .rpc("make_move", make_move)
+        // ...
+        .build()
+}
+
+// ...
+```
+
+_For more details on `schemars`, refer to the [schemars documentation](https://graham.cool/schemars/)._
+
+3\. Start a development server and create a room to generate the types:
+
+```bash
+$ maf run
+# ...
+[dev] `default` Types generated to .../types.ts
+```
+
+4\. Import the generated types in your client code and register them:
+
+```typescript
+import type { MafApp } from "./types";
+
+declare module "@usemaf/client" {
+  interface MafTypes {
+    generated: MafApp;
+  }
+}
+```
+
+5\. Change `MafClient` to `TypedMafClient` in your client code:
+
+```typescript
+const client = new TypedMafClient({
+  //               ^^^^^^^^^^^^^^
+  server: "dev",
+});
+
+const store = client.store("game");
+//                         ^ Should auto-complete
+
+store.on("change", (data) => {
+  //                ^ Should have type information
+  console.log("Game store changed:", data);
+});
+```
+
+## Type Representations
+
+The generated TypeScript types will closely mirror the Rust types:
+
+```
+Rust                                      TypeScript
+
+u8, i8, u16, i16, u32, i32, f32, f64  ->  number
+bool                                  ->  boolean
+String                                ->  string
+
+// NOTE: In structs/objects, Option<T> will be also make the key optional
+// e.g. `nextPhase?: string | null`
+Option<T>                             ->  T | null
+Result<T, E>                          ->  { Ok: T } | { Err: E }
+
+Vec<T>                               ->  T[]
+HashMap<K, V>                        ->  Record<K, V>
+```
+
+Rust enums will be represented as TypeScript union types with [serde's enum
+representation](https://serde.rs/enum-representations.html).
+
+For example, a Rust enum like this:
+
+```rust
+// The default enum representation
+#[derive(serde::Serialize, schemars::JsonSchema)]
+enum GamePhase {
+    WaitingForPlayers,
+    Playing { round: u32 },
+    Finished { winner: String },
+}
+```
+
+will be represented in TypeScript as:
+
+```typescript
+type GamePhase =
+  | "WaitingForPlayers"
+  | { Playing: { round: number } }
+  | { Finished: { winner: string } };
+```
+
+For more options on how enums are represented, refer to the [serde enum
+representations documentation](https://serde.rs/enum-representations.html).

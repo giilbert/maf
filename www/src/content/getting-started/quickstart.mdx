@@ -5,72 +5,145 @@ category: Getting Started
 
 # Quickstart
 
-## Install MAF CLI
+This guide will help set up a simple MAF application (both server and client)
+that synchronizes a counter between multiple clients.
 
-```bash
-$ git clone https://github.com/giilbert/maf.git
-$ cd maf/crates/maf_cli
-$ cargo install --path .
+⚠️ **NOTE**: MAF is still in very early development: things are not easy to do,
+APIs and features are subject to change, and things will break!
+
+## Recommended File Structure
+
+MAF is a full-stack framework, helping you build both server and client code.
+This guide guides you through setting up a project with **both** server and
+client code, so it is recommended to use the following file structure:
+
+```
+project-root/
+|-- server/             # Your server code
+|--   ...               # ... other server files (with your code)
+|-- client/             # Your client code
+|--   ...               # ... other client files (with your code)
 ```
 
-TODO: Create installation script / other installation methods for CLI
+Sometimes, you may want to use a different file structure, such as having
+pre-made server code and you want to add client code to it, or vice versa.
+Decide what works best for you, but keep in mind that the guide will assume
+the above structure.
+
+## Install MAF CLI
+
+MAF CLI is a command-line tool that helps you run, test, and deploy MAF servers.
+
+<Tabs defaultValue="macos-linux">
+  <TabsList>
+    <TabsTrigger value="macos-linux">MacOS/Linux</TabsTrigger>
+  </TabsList>
+
+<TabsContent value="macos-linux">
+
+You will need to have [Git](https://git-scm.com/) and a Rust toolchain installed
+to build MAF CLI from Scratch. See [https://www.rust-lang.org/tools/install](https://www.rust-lang.org/tools/install)
+for Rust installation instructions.
+
+To install MAF CLI:
+
+```bash
+$ cargo install --git https://github.com/giilbert/maf.git maf_cli
+```
+
+If the installation is successful, you should be able to run the `maf_cli`
+command:
+
+```bash
+$ maf_cli -V
+maf_cli 0.1.0
+```
+
+Add the following to your shell configuration file (e.g., `~/.bashrc`,
+`~/.zshrc`):
+
+```bash
+alias maf="maf_cli"
+```
+
+This will allow you to run the `maf` command instead of `maf_cli`. The rest of
+the documentation will refer to the `maf` command.
+
+</TabsContent>
+
+</Tabs>
 
 ## Write a MAF Server
 
 <Tabs defaultValue="rust">
   <TabsList>
     <TabsTrigger value="rust">Rust</TabsTrigger>
-    <TabsTrigger value="javascript">JavaScript</TabsTrigger>
-    <TabsTrigger value="python">Python</TabsTrigger>
   </TabsList>
 
 <TabsContent value="rust">
-TODO: Rust server library
+
+1\. Initialize a new MAF project:
+
+```bash
+$ maf create --template rust
+
+? Server path (Defaults to './server'):
+? Name (Lowercase alphanumeric characters and hyphens): enter-project-name
+
+INFO: Setting up project 'enter-project-name' using template 'rust' in ...
+```
+
+2\. `src/lib.rs` should include the following code:
 
 ```rust
-use maf::*;
+use maf::prelude::*;
 
-struct CounterStore;
+struct CounterStore {
+  count: i32,
+}
 
 impl StoreData for CounterStore {
-    type Data = i32;
+    type Data<'this> = i32;
+    //        ^ This lifetime is used for borrowing data from the store
+    //          when selecting data to send to the client. (Read more below!)
 
-    fn init() -> Self::Data {
-        42
+    fn init() -> Self {
+        Self { count: 0 }
+    }
+
+    // Determines what data to send to the client when the store is serialized
+    //                                             v Used when borrowing data
+    fn select(&self, _user: &User) -> Self::Select<'_> {
+        self.count
+    }
+
+    // This name will be used to identify the store
+    fn name() -> impl AsRef<str> {
+        "counter"
     }
 }
 
+// RPC functions can be used to perform actions on the server
 async fn increment_counter(
+    // Special types for extracting parameters, data, and context
     Params(counter): Params<i32>,
     test: Store<CounterStore>
 ) -> i32 {
     let mut data = test.write().await;
-
     *data += counter;
-
     println!("incremented counter by {counter}. new value: {}", &*data);
-
     *data
 }
 
 async fn on_connect(user: User) {
-    println!("!!! user connected! id: {}", user.meta.id());
-    println!("HAIII");
+    println!("user connected! id: {}", user.meta.id());
 }
 
+// Declare what the MAF application should do
 fn build() -> App {
     App::builder()
         .on_connect(on_connect)
         .rpc("increment_counter", increment_counter)
-        .background(|app: App| async move {
-            let mut chan = app.channel::<String>("hello");
-            loop {
-                match chan.recv().await {
-                    Ok(msg) => println!("got message! `{msg}`"),
-                    Err(e) => println!("failed to receive message: {e}"),
-                }
-            }
-        })
         .build()
 }
 
@@ -80,68 +153,81 @@ maf::register!(build);
 
 </TabsContent>
 
-<TabsContent value="javascript">
-
-TODO: JavaScript server library
-
-</TabsContent>
-
-<TabsContent value="python">
-
-TODO: Python server library
-
-</TabsContent>
-
 </Tabs>
 
-## Connect With MAF Client
+3\. Build and run the server with:
 
-<Tabs defaultValue="javascript">
+```bash
+$ maf run
+```
+
+If all goes well, you should see the following:
+
+```
+INFO: running build command `cargo build --target wasm32-wasip2` in ...
+
+----------
+
+[cargo build output]
+
+-----------
+
+INFO: build completed in 12.34s
+INFO: loaded room from <output path>
+INFO: dev server listening on 1147
+```
+
+❗ _The development server will listen on port `1147` by default. You can change
+this by passing the `--port` flag to the `maf run` command._
+
+## Use a MAF Client
+
+The client library allows you to connect to a MAF server and interact with it.
+
+<Tabs defaultValue="javascript-typescript">
   <TabsList>
-    <TabsTrigger value="rust">Rust</TabsTrigger>
-    <TabsTrigger value="javascript">JavaScript</TabsTrigger>
-    <TabsTrigger value="python">Python</TabsTrigger>
+    <TabsTrigger value="javascript-typescript">JavaScript/TypeScript</TabsTrigger>
   </TabsList>
 
-<TabsContent value="rust">
+<TabsContent value="javascript-typescript">
 
-TODO: Rust client library
+1\. Install the `@usemaf/client` package.
 
-</TabsContent>
+2\. Install additional dependencies to build/run your code. If you're building
+a website, you will need a bundler like [Vite](https://vite.dev/),
+[Parcel](https://parceljs.org/), or [Webpack](https://webpack.js.org/).
 
-<TabsContent value="javascript">
-
-TODO: JavaScript client library
+3\. Write the following code:
 
 ```typescript
-import { MafClient } from "@maf/client";
+import { MafClient } from "@usemaf/client";
 
 const client = new MafClient({
-  url: "http://localhost:3000",
-  app: "your/name",
+  // NOTE: Change this when you deploy your server
+  server: "dev",
+});
+
+// Use the same name as in `StoreData`
+const store = client.store("counter");
+
+store.on("change", (data) => {
+  console.log("Counter value changed:", data);
 });
 
 async function run() {
   await client.connect();
 
-  console.log("client connected!");
+  console.log("Connected to the server!");
 
+  // Call the RPC function to increment the counter every second
   while (true) {
-    const result = await client.rpc<number>("increment_counter", 2);
-    console.log("incremented counter! new value: ", result);
-    // console.log("client rpc test");
+    const _result = await client.rpc<number>("increment_counter", 1);
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 }
 
 run();
 ```
-
-</TabsContent>
-
-<TabsContent value="python">
-
-TODO: Python client library
 
 </TabsContent>
 

@@ -1,23 +1,19 @@
 import { getDocsCategory } from "./helpers/content";
 import { SideNav } from "./_components/side-nav";
-import { Logo } from "@/components/logo";
-import Link from "next/link";
+import { MobileNav } from "./_components/mobile-nav";
 
 export default async function DocsLayout(props: { children: React.ReactNode }) {
   const categories = await getDocsCategory();
 
   return (
     <div className="flex justify-center">
-      <div className="p-6 lg:py-4 lg:px-12 space-y-6 w-full max-w-7xl">
-        <div>
-          <Link href="/docs" className="flex gap-2 items-center">
-            <Logo size={24} />
-            <h1 className="text-lg font-bold">MAF Documentation</h1>
-          </Link>
-        </div>
+      <div className="p-4 pt-10 sm:pt-4 lg:p-6 lg:py-4 lg:px-12 space-y-6 w-full max-w-[85rem]">
+        <div className="gap-4 md:gap-8 flex lg:grid lg:grid-cols-4 xl:grid-cols-5">
+          <div className="hidden sm:block min-w-32 md:min-w-40">
+            <SideNav categories={categories} />
+          </div>
 
-        <div className="gap-8 grid grid-cols-5">
-          <SideNav categories={categories} />
+          <MobileNav categories={categories} />
 
           {props.children}
         </div>

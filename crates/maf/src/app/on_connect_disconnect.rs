@@ -1,12 +1,12 @@
 use crate::{
-    callable::{AnyCallable, CallableFetch},
+    callable::{BoxedCallable, CallableFetch},
     App, User,
 };
 
 use super::state::StateError;
 
 pub type OnConnectDisconnectFn =
-    AnyCallable<OnConnectDiconnectContext, (), OnConnectDisconnectError>;
+    BoxedCallable<OnConnectDiconnectContext, (), OnConnectDisconnectError>;
 
 pub struct OnConnectDiconnectContext {
     pub app: App,
@@ -46,17 +46,23 @@ mod tests {
         >() {
         }
 
-        struct T {}
+        struct Counter {
+            count: i32,
+        }
 
-        impl StoreData for T {
-            type Data = i32;
+        impl StoreData for Counter {
+            type Select<'this> = i32;
 
-            fn init() -> Self::Data {
-                42
+            fn init() -> Self {
+                Counter { count: 0 }
+            }
+
+            fn select(&self, _user: &User) -> Self::Select<'_> {
+                self.count
             }
         }
 
-        check_on_connect_disconnect_parameter::<Store<T>>();
+        check_on_connect_disconnect_parameter::<Store<Counter>>();
         check_on_connect_disconnect_parameter::<User>();
         check_on_connect_disconnect_parameter::<App>();
     }

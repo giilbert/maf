@@ -1,19 +1,34 @@
-import { MafClient } from "@maf/client";
+import { TypedMafClient } from "@usemaf/client";
+import type { MafApp } from "./types";
 
-const client = new MafClient({
-  url: "http://localhost:3000",
-  app: "gilbert/test-2",
+declare module "@usemaf/client" {
+  interface MafTypes {
+    generated: MafApp;
+  }
+}
+
+const client = new TypedMafClient({
+  server: "dev",
+});
+
+const store = client.store("count");
+
+store.on("change", (data) => {
+  console.log("Counter value changed:", data);
+});
+
+const storeTwo = client.store("count_times_two");
+storeTwo.on("change", (data) => {
+  console.log("Count times two value changed:", data);
 });
 
 async function run() {
   await client.connect();
 
-  console.log("client connected!");
+  console.log("Connected to the server!");
 
   while (true) {
-    const result = await client.rpc<number>("increment_counter", 2);
-    console.log("incremented counter! new value: ", result);
-    // console.log("client rpc test");
+    const _result = await client.rpc("increment_counter", 1);
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 }

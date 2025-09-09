@@ -1,6 +1,9 @@
 mod models;
 
-use std::time::Duration;
+use std::{
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use anyhow::Context as _;
 use async_zip::{tokio::write::ZipFileWriter, Compression, ZipEntryBuilder};
@@ -9,36 +12,82 @@ use colored::Colorize;
 use futures_util::{io::Cursor, TryStreamExt};
 use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
 use reqwest::Body;
+use maf_schemas::apps::CreateUserAppRequest;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio_util::{
     codec::{BytesCodec, FramedRead},
     compat::{FuturesAsyncReadCompatExt, TokioAsyncWriteCompatExt},
 };
-use uuid::Uuid;
 
-use crate::{input::input, pretty, Context};
+use crate::{dev::run_build_command, input::input, pretty, Context};
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum AppCommands {
+    /// List all apps in the current organization
     List,
+    /// Create a new app
     Create,
-    Delete { name: String },
-    Deploy { name: String, path: String },
+    /// Get service account credentials for an app by name, or the current project's app if no name is provided
+    Credentials { name: Option<String> },
+    /// Show information about an app by name, or the current project's app if no name is provided
+    View { name: Option<String> },
+    /// Delete an app by name, or the current project's app if no name is provided
+    Delete { name: Option<String> },
+    /// Deploy an app by name and path, or the current project's app if no name or path is provided
+    Deploy {
+        #[clap(requires = "path")]
+        name: Option<String>,
+        path: Option<String>,
+    },
 }
 
-pub async fn handle_commands(context: &Context, command: AppCommands) -> anyhow::Result<()> {
+pub async fn handle_commands(context: &mut Context, command: AppCommands) -> anyhow::Result<()> {
     match command {
         AppCommands::List => list_apps(context).await,
         AppCommands::Create => create_app(context).await,
-        AppCommands::Delete { name } => delete_app(context, name).await,
-        AppCommands::Deploy { name, path } => deploy_bundle(context, name, path).await,
+        AppCommands::Credentials { name } => match name {
+            Some(name) => get_app_credentials(context, &name).await,
+            None => {
+                let project = context.assert_project();
+                get_app_credentials(context, &project.data.name).await
+            }
+        },
+        AppCommands::View { name } => match name {
+            Some(name) => view_app(context, &name).await,
+            None => {
+                let project = context.assert_project();
+                view_app(context, &project.data.name).await
+            }
+        },
+        AppCommands::Delete { name } => match name {
+            Some(name) => delete_app(context, name).await,
+            None => {
+                let project = context.assert_project();
+                delete_app(context, project.data.name.clone()).await
+            }
+        },
+        AppCommands::Deploy { name, path } => match (name, path) {
+            (Some(name), Some(path)) => deploy_bundle(context, name, &PathBuf::from(path)).await,
+            _ => {
+                let project = context.assert_project();
+                let name = project.data.name.clone();
+
+                run_build_command(&project.base, &project.data.release.command)?;
+
+                let output_path =
+                    tokio::fs::canonicalize(project.base.join(project.data.release.output.clone()))
+                        .await
+                        .context("Unable to find output file")?;
+                deploy_bundle(context, name, &output_path).await
+            }
+        },
     }
 }
 
 async fn list_apps(context: &Context) -> anyhow::Result<()> {
     context.assert_token();
 
-    let apps = context.get::<Vec<models::App>>("/api/apps").await?;
+    let apps = context.get::<Vec<models::App>>("/api/v1/apps").await?;
 
     if apps.is_empty() {
         println!("No apps found")
@@ -52,13 +101,13 @@ async fn list_apps(context: &Context) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn show_app_info(context: &Context, name: &str) -> anyhow::Result<()> {
+async fn show_short_app_info(context: &Context, name: &str) -> anyhow::Result<models::App> {
     context.assert_token();
 
     println!("Fetching app `{name}`...\n");
 
     let app = context
-        .get::<models::App>(format!("/api/apps/{name}"))
+        .get::<models::App>(format!("/api/v1/apps/{name}"))
         .await
         .context("failed to get app")?;
 
@@ -69,53 +118,118 @@ async fn show_app_info(context: &Context, name: &str) -> anyhow::Result<()> {
     );
     println!("");
 
-    Ok(())
+    Ok(app)
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct CreateAppParams {
-    pub id: Uuid,
-    pub username: String,
-    pub name: String,
-    pub permissions: String,
+async fn view_app(context: &Context, name: &str) -> anyhow::Result<()> {
+    context.assert_token();
+
+    let app = show_short_app_info(context, name).await?;
+
+    println!("{}", "Configuration".bold());
+    println!(
+        "{}",
+        app.config
+            .unwrap_or("<none>".to_string().dimmed().to_string())
+    );
+
+    Ok(())
 }
 
 async fn create_app(context: &Context) -> anyhow::Result<()> {
     context.assert_token();
 
-    let name = input!(
-        transform: |name: String| {
-            if name.is_empty() {
-                anyhow::bail!("Name cannot be empty.")
-            }
-            if name.len() > 100 {
-                anyhow::bail!("Name cannot be longer than 100 characters.")
-            }
-            if !name
-                .chars()
-                .all(|c| (c.is_ascii_alphanumeric() && (c.is_ascii_lowercase() || c.is_numeric())) || c == '-')
-            {
-                anyhow::bail!("Name can only contain lowercase alphanumeric characters and hyphens.")
+    let config: CreateUserAppRequest = match context.project_config.as_ref() {
+        Some(config) => {
+            pretty::info!("Found existing project configuration. This will create a new app in the current organization.");
+
+            println!();
+            println!("{}: {}", "Name".bold(), config.data.name);
+            println!(
+                "{}: {}",
+                "Room Creation Strategy".bold(),
+                config.data.rooms.format_with_description()
+            );
+            println!();
+
+            let success = dialoguer::Confirm::new()
+                .with_prompt("Do you want to create a new app with these options?")
+                .default(false)
+                .interact()
+                .context("Failed to read confirmation")?;
+
+            if !success {
+                println!();
+                pretty::error!("Aborted");
+                return Ok(());
             }
 
-            Ok(name)
-        },
-        "{} {}:",
-        "Name".bold(),
-        "(Lowercase alphanumeric characters and hyphens)".dimmed()
-    );
+            CreateUserAppRequest {
+                name: config.data.name.clone(),
+                config: Some(toml::to_string_pretty(&config.data)?),
+            }
+        }
+        None => {
+            let name = input!(
+                transform: |name: String| {
+                    if name.is_empty() {
+                        anyhow::bail!("Name cannot be empty.")
+                    }
+                    if name.len() > 100 {
+                        anyhow::bail!("Name cannot be longer than 100 characters.")
+                    }
+                    if !name
+                        .chars()
+                        .all(|c| (c.is_ascii_alphanumeric() && (c.is_ascii_lowercase() || c.is_numeric())) || c == '-')
+                    {
+                        anyhow::bail!("Name can only contain lowercase alphanumeric characters and hyphens.")
+                    }
+
+                    Ok(name)
+                },
+                "{} {}:",
+                "Name".bold(),
+                "(Lowercase alphanumeric characters and hyphens)".dimmed()
+            );
+
+            CreateUserAppRequest {
+                name: name.clone(),
+                config: None, // Default to None, can be set later
+            }
+        }
+    };
 
     let app = context
-        .post::<models::App>(
-            "/api/apps",
-            &serde_json::json!({
-                "name": name
-            }),
-        )
+        .post::<models::App>("/api/v1/apps", &config)
         .await
-        .context("failed to create app")?;
+        .context("Failed to create app")?;
 
     println!("App `{}` created!", app.name);
+
+    Ok(())
+}
+
+async fn get_app_credentials(context: &Context, name: &str) -> anyhow::Result<()> {
+    context.assert_token();
+
+    let app = show_short_app_info(context, name).await?;
+
+    const CREDENTIALS_PATH: &str = "credentials.txt";
+
+    tokio::fs::write(
+        CREDENTIALS_PATH,
+        format!(
+            r#"# MAF service client credentials for {name}
+MAF_CLIENT_ID={client_id}
+MAF_CLIENT_SECRET={secret}"#,
+            name = app.name,
+            client_id = app.api_client_id,
+            secret = app.api_secret
+        ),
+    )
+    .await?;
+
+    println!("Credentials for app `{name}` written to `{CREDENTIALS_PATH}`");
 
     Ok(())
 }
@@ -123,7 +237,7 @@ async fn create_app(context: &Context) -> anyhow::Result<()> {
 async fn delete_app(context: &Context, name: String) -> anyhow::Result<()> {
     context.assert_token();
 
-    show_app_info(context, &name).await?;
+    show_short_app_info(context, &name).await?;
 
     println!(
         "{}",
@@ -144,20 +258,20 @@ async fn delete_app(context: &Context, name: String) -> anyhow::Result<()> {
     println!("Deleting app `{name}`...");
 
     context
-        .delete::<models::App>(format!("/api/apps/{name}"), ())
+        .delete::<models::App>(format!("/api/v1/apps/{name}"), ())
         .await?;
 
     Ok(())
 }
 
-async fn deploy_bundle(context: &Context, name: String, path: String) -> anyhow::Result<()> {
+async fn deploy_bundle(context: &Context, name: String, path: &Path) -> anyhow::Result<()> {
     context.assert_token();
 
-    show_app_info(context, &name).await?;
+    show_short_app_info(context, &name).await?;
 
     let mut file = tokio::fs::File::open(&path)
         .await
-        .with_context(|| format!("failed to open file `{path}`"))?;
+        .with_context(|| format!("failed to open file `{path:?}`"))?;
 
     let (compressed_data, metadata) = create_zip_bundle(&mut file).await?;
     let bar = ProgressBar::new(compressed_data.len() as u64);
@@ -169,14 +283,14 @@ async fn deploy_bundle(context: &Context, name: String, path: String) -> anyhow:
         });
 
     bar.enable_steady_tick(Duration::from_millis(100));
-    bar.set_message(format!("Uploading `{}`\n", path));
+    bar.set_message(format!("Uploading `{path:?}`\n"));
     bar.set_style(ProgressStyle::default_bar().template(
         "{spinner:.magenta} {msg} {wide_bar} {bytes}/{total_bytes} [eta: {eta}] [{elapsed_precise}]",
     )?);
 
     let response = context
         .client
-        .post(context.url(format!("/api/apps/{name}/deployments"))?)
+        .post(context.url(format!("/api/v1/apps/{name}/deployments"))?)
         .body(Body::wrap_stream(stream))
         .send()
         .await?;
@@ -187,8 +301,7 @@ async fn deploy_bundle(context: &Context, name: String, path: String) -> anyhow:
 
     bar.set_style(ProgressStyle::default_bar().template("{wide_msg} [{elapsed_precise}]")?);
     bar.finish_with_message(format!(
-        "Uploaded `{}` ({} bytes)",
-        path,
+        "Uploaded `{path:?}` ({} bytes)",
         HumanBytes(metadata.len())
     ));
 

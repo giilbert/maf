@@ -1,122 +1,72 @@
-use std::{
-    any::TypeId,
-    collections::HashMap,
-    future::Future,
-    pin::Pin,
-    sync::Arc,
-    task::{Context, Poll},
-};
+use std::{any::TypeId, collections::HashMap, sync::Arc};
 
 use crate::{
-    bindings::bindgen,
-    callable::{AnyCallable, CallableFetch},
-    tasks::Runtime,
+    callable::{BoxedCallable, CallableFetch},
+    platform::{self, PlatformHookRequest},
 };
 
 use super::{App, AppState};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HookRequestCaller {
+    Service,
+}
+
+#[derive(Debug)]
+pub enum HookBody {
+    Json(String),
+    None,
+}
+
+#[allow(unused)]
 pub struct HookRequest {
-    pub caller: bindgen::HookRequestCaller,
+    pub caller: HookRequestCaller,
     pub method: String,
-    pub data: Option<bindgen::HookBody>,
+    pub data: HookBody,
     state: Arc<AppState>,
-    raw: Option<bindgen::HookRequest>,
+    raw: platform::RawHookRequest,
 }
 
-pub struct HooksListener {
-    state: Arc<AppState>,
-    future_hook_request: bindgen::FutureHookRequest,
-}
-
-impl HooksListener {
-    pub fn new(state: Arc<AppState>) -> Result<Self, bindgen::ListenError> {
-        Ok(Self {
-            state,
-            future_hook_request: bindgen::listen_hook_request()?,
-        })
-    }
-
-    pub fn next(&self) -> HooksListenerNextFuture<'_> {
-        HooksListenerNextFuture {
-            state: &self.state,
-            listener: &self.future_hook_request,
-        }
-    }
-}
-
-pub struct HooksListenerNextFuture<'a> {
-    state: &'a Arc<AppState>,
-    listener: &'a bindgen::FutureHookRequest,
-}
-
-impl HooksListenerNextFuture<'_> {
-    pub fn try_poll(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Result<Poll<HookRequest>, bindgen::ListenError> {
-        match self.listener.get() {
-            Ok(raw_user) => {
-                return Ok(Poll::Ready(
-                    HookRequest::new(self.state.clone(), raw_user)
-                        .map_err(|_| bindgen::ListenError::NotReady)?,
-                ))
-            }
-            Err(bindgen::ListenError::NotReady) => {
-                let pollable = self.listener.subscribe()?;
-                if pollable.ready() {
-                    return self.try_poll(cx);
-                } else {
-                    Runtime::new_waker(cx, pollable, Some("listen user"));
-                    Ok(Poll::Pending)
-                }
-            }
-            Err(err) => return Err(err),
-        }
-    }
-}
-
-impl Future for HooksListenerNextFuture<'_> {
-    type Output = Result<HookRequest, bindgen::ListenError>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match self.try_poll(cx) {
-            Ok(Poll::Ready(value)) => Poll::Ready(Ok(value)),
-            Ok(Poll::Pending) => Poll::Pending,
-            Err(err) => Poll::Ready(Err(err)),
-        }
-    }
+#[derive(Debug, thiserror::Error)]
+pub enum HookRequestError {
+    #[error("hook request init already consumed")]
+    InitConsumed,
 }
 
 impl HookRequest {
     pub fn new(
         state: Arc<AppState>,
-        raw: bindgen::HookRequest,
-    ) -> Result<Self, bindgen::HookRequestError> {
+        raw: platform::RawHookRequest,
+    ) -> Result<Self, HookRequestError> {
         let init = raw.init()?;
         Ok(Self {
-            state,
-            caller: init.caller,
+            caller: init.caller.into(),
+            data: init.data.into(),
             method: init.method,
-            data: Some(init.data),
-            raw: Some(raw),
+            state,
+            raw,
         })
     }
 
-    fn raw(&mut self) -> bindgen::HookRequest {
-        self.raw.take().expect("raw request already taken")
+    pub fn respond(&self, body: HookBody) -> Result<(), platform::SendError> {
+        self.raw.respond(body)
     }
 }
 
 pub struct HookContext {
     pub app: App,
-    pub request: HookRequest,
+    pub request: Arc<HookRequest>,
 }
 
 pub struct HookResponse {
-    pub body: bindgen::HookBody,
+    pub body: HookBody,
 }
 
-pub struct HookInit {}
+pub struct HookRequestInit {
+    pub caller: HookRequestCaller,
+    pub method: String,
+    pub data: HookBody,
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum HookError {
@@ -127,15 +77,16 @@ pub enum HookError {
     #[error("hook response serialization error: {0}")]
     ResponseSerializationError(#[from] serde_json::Error),
     #[error("hook response error: {0}")]
-    ResponseError(#[from] bindgen::SendError),
+    ResponseError(#[from] platform::SendError),
     #[error("infalliable error: {0}")]
     Infalliable(#[from] std::convert::Infallible),
 }
 
+#[allow(unused)]
 pub struct HookFunction {
     pub type_id: TypeId,
     pub method: String,
-    pub callable: AnyCallable<HookContext, HookResponse, HookError>,
+    pub callable: BoxedCallable<HookContext, HookResponse, HookError>,
 }
 
 #[derive(Default)]
@@ -151,19 +102,21 @@ impl HookStore {
     pub async fn handle_hook_request(
         &self,
         app: App,
-        mut request: HookRequest,
+        request: HookRequest,
     ) -> Result<(), HookError> {
         let method = request.method.clone();
         if let Some(hook) = self.hooks.get(&method) {
-            let raw = request.raw();
-
-            let context = HookContext { app, request };
+            let request = Arc::new(request);
+            let context = HookContext {
+                app,
+                request: request.clone(),
+            };
 
             let response = (hook.callable)(context)
                 .await
                 .map_err(|err| HookError::FunctionError(method.clone(), anyhow::anyhow!(err)))?;
 
-            raw.respond(&response.body)?;
+            request.respond(response.body)?;
 
             return Ok(());
         }

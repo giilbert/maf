@@ -1,0 +1,12 @@
+[package]
+name = "example-axum-basic"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.99"
+axum = { version = "0.8.4", features = ["ws"] }
+maf_native = { path = "../.." }
+tokio = { version = "1.44.2", default-features = false, features = ["sync"] }
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }

@@ -1,7 +1,16 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    any::TypeId,
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use anyhow::Context;
+use maf_schemas::packet::{
+    Bull, ChannelSendRx, OneStoreUpdate, RxPacket, TxPacket, TypedRpcRequestPacket,
+    TypedRpcResponsePacket,
+};
 use serde::Serialize;
+use serde_json::Value;
 use tokio::sync::{
     mpsc::{self, error::TryRecvError},
     RwLock, RwLockReadGuard,
@@ -9,24 +18,26 @@ use tokio::sync::{
 use uuid::Uuid;
 
 use crate::{
-    app::{background::BackgroundFnContext, hooks::HooksListener},
-    bindings::bindgen,
-    callable::{AnyCallable, IntoCallable},
-    channel::UntypedChannelBroadcast,
-    packet::{ChannelSendRx, OneStoreUpdate, RxPacket, TxPacket},
-    rpc::{
-        models::{TypedRpcRequestPacket, TypedRpcResponsePacket},
-        RpcError, RpcRequestContext, RpcRequestInit, RpcStore,
+    app::{
+        background::BackgroundFnContext,
+        hooks::{HookBody, HookRequest, HookResponse},
     },
-    store::{AnyStore, StoreKey},
-    tasks::{self, Runtime},
-    user::UserMessage,
-    Channel, RpcFunction, StoreData, User, UserListener,
+    callable::{BoxedCallable, IntoCallable},
+    channel::UntypedChannelBroadcast,
+    platform::{ListenError, Platform, TargetPlatform},
+    rpc::{RpcError, RpcRequestContext, RpcRequestInit, RpcStore},
+    store::{
+        AnySelect, AnyStore, GetParamSelectDependencies, SelectContext, SelectDependencyType,
+        SelectKey, StoreKey,
+    },
+    tasks::{self},
+    user::{UserMessage, UserNextMessageError},
+    Channel, RpcFunction, Store, StoreData, User,
 };
 
 use super::{
     background::{BackgroundFn, BackgroundFnError},
-    hooks::{HookContext, HookError, HookFunction, HookInit, HookResponse, HookStore},
+    hooks::{HookContext, HookError, HookFunction, HookStore},
     on_connect_disconnect::{
         OnConnectDiconnectContext, OnConnectDisconnectError, OnConnectDisconnectFn,
     },
@@ -47,6 +58,9 @@ pub struct AppInner {
     pub(crate) on_connect: Option<Arc<OnConnectDisconnectFn>>,
     pub(crate) on_disconnect: Option<Arc<OnConnectDisconnectFn>>,
     pub(crate) background: Option<Arc<BackgroundFn>>,
+    pub(crate) selects: HashMap<SelectKey, AnySelect>,
+    pub(crate) select_dependencies: HashMap<TypeId, HashSet<SelectKey>>,
+    pub(crate) platform: TargetPlatform,
 }
 
 #[derive(Debug)]
@@ -67,6 +81,12 @@ pub struct AppBuilder {
     states: StateStore,
     hooks: HookStore,
     stores: HashMap<StoreKey, AnyStore>,
+    selects: HashMap<SelectKey, AnySelect>,
+    /// Used to track what selects each store affects (maps store type id to the names of selects)
+    ///
+    /// TODO: refactor into separate storage
+    select_dependencies: HashMap<TypeId, HashSet<SelectKey>>,
+    platform: Option<TargetPlatform>,
 }
 
 impl App {
@@ -74,18 +94,24 @@ impl App {
         AppBuilder::default()
     }
 
-    async fn handle_connections(self) -> Result<(), bindgen::ListenError> {
-        let users = UserListener::new(self.inner.state.clone())?;
+    pub async fn store<T: StoreData>(&self) -> Store<T> {
+        Store::<T>::new(self.clone()).await
+    }
 
+    async fn handle_connections(self) -> anyhow::Result<()> {
         // TODO: handle errors
         loop {
-            let user = users.next().await?;
+            let user = User::new(
+                self.inner.state.clone(),
+                self.inner.platform.next_user().await?,
+            );
+
             self.inner
                 .state
                 .users
                 .write()
                 .await
-                .insert(user.meta.id, user.clone());
+                .insert(user.meta().id, user.clone());
 
             self.refresh_all_stores(&user).await.ok();
 
@@ -93,11 +119,42 @@ impl App {
             let user_clone = user.clone();
             let app = self.clone();
             let on_disconnect = self.inner.on_disconnect.clone();
+            let on_connect = self.inner.on_connect.clone();
             tasks::spawn(async move {
-                user_clone
-                    .handle_messages(app.clone())
-                    .await
-                    .expect("failed to handle user messages");
+                match on_connect.as_ref() {
+                    Some(handler) => {
+                        let handler = handler.clone();
+                        if let Err(e) = handler(OnConnectDiconnectContext {
+                            app: app.clone(),
+                            user: user_clone.clone(),
+                        })
+                        .await
+                        {
+                            println!("failed to run on_connect handler: {e}");
+                        }
+
+                        app.flush_all_store_changes().await.ok();
+                    }
+                    None => (),
+                }
+
+                loop {
+                    let message = match user_clone.next_message().await {
+                        Ok(message) => message,
+                        Err(UserNextMessageError::Listen(ListenError::Closed)) => {
+                            // User has disconnected
+                            break;
+                        }
+                        Err(e) => {
+                            println!("failed to get next message: {e}");
+                            continue;
+                        }
+                    };
+
+                    if let Err(e) = app.handle_message(message).await {
+                        println!("failed to handle message: {e}");
+                    }
+                }
 
                 // println!("user disconnected: {}", user_clone.meta.id());
 
@@ -112,6 +169,8 @@ impl App {
                         {
                             println!("failed to run on_disconnect handler: {e}");
                         }
+
+                        let _ = app.flush_all_store_changes().await;
                     }
                     None => {}
                 }
@@ -121,25 +180,18 @@ impl App {
                     .users
                     .write()
                     .await
-                    .remove(&user_clone.meta.id);
+                    .remove(&user_clone.meta().id);
             });
 
-            let app = self.clone();
-            self.inner.on_connect.as_ref().map(|handler| {
-                let handler = handler.clone();
-                tasks::spawn(handler(OnConnectDiconnectContext {
-                    app: app.clone(),
-                    user,
-                }));
-            });
+            println!("here 4");
         }
     }
 
-    async fn handle_hook_requests(self) -> Result<(), bindgen::ListenError> {
-        let hooks = HooksListener::new(self.inner.state.clone())?;
-
+    async fn handle_hook_requests(self) -> anyhow::Result<()> {
         loop {
-            let request = hooks.next().await?;
+            let request_raw = self.inner.platform.next_hook_request().await?;
+            let request = HookRequest::new(self.inner.state.clone(), request_raw)?;
+
             let app = self.clone();
             tasks::spawn(async move {
                 if let Err(e) = app
@@ -170,7 +222,7 @@ impl App {
             .user_rx_channels
             .read()
             .await
-            .get(&(user.meta.id, channel_data.channel.clone()))
+            .get(&(user.meta().id, channel_data.channel.clone()))
             .map(|c| c.tx.send(channel_data.clone()));
     }
 
@@ -208,7 +260,27 @@ impl App {
         Ok(())
     }
 
-    async fn flush_all_store_changes(&self) -> anyhow::Result<()> {
+    async fn compute_select_contents(&self, name: &str, user: User) -> anyhow::Result<Value> {
+        let any_select = self
+            .inner
+            .selects
+            .get(name)
+            .ok_or_else(|| anyhow::anyhow!("select not found: {name}"))?;
+
+        let value = (any_select.select)(SelectContext {
+            app: self.clone(),
+            user,
+        })
+        .await
+        .map_err(|e| anyhow::anyhow!("failed to compute select contents for {name}: {e}"))?;
+
+        Ok(value)
+    }
+
+    /// TODO: This api shouldnt be public
+    /// FIXME: This is a temporary workaround to flush store changes where change detection does not
+    /// work, such as in .background tasks
+    pub async fn flush_all_store_changes(&self) -> anyhow::Result<()> {
         let mut store_dirty_rx = self.inner.store_dirty_rx.write().await;
 
         loop {
@@ -227,7 +299,8 @@ impl App {
         Ok(())
     }
 
-    async fn flush_store_change(&self, store_key: StoreKey) -> anyhow::Result<()> {
+    /// TODO: See comment above
+    pub async fn flush_store_change(&self, store_key: StoreKey) -> anyhow::Result<()> {
         let store = RwLockReadGuard::try_map(self.inner.state.stores.read().await, |stores| {
             stores.get(&store_key)
         })
@@ -237,38 +310,66 @@ impl App {
         let serializer = store.serializer.clone();
         let data = store.data.read_owned().await;
 
-        let serialized =
-            serializer(&*data).map_err(|_| anyhow::anyhow!("failed to serialize store"))?;
+        let select_dependencies = self.inner.select_dependencies.get(&store.type_id);
 
-        for (user_id, user) in self.inner.state.users.read().await.iter() {
-            if let Err(e) = user.send(TxPacket::StoreUpdate(OneStoreUpdate {
+        for (_user_id, user) in self.inner.state.users.read().await.iter() {
+            let mut updates: Vec<OneStoreUpdate<Value>> = vec![];
+
+            let serialized = serializer(&*data, &user)
+                .map_err(|_| anyhow::anyhow!("failed to serialize store"))?;
+
+            updates.push(OneStoreUpdate {
                 store: store_key.as_ref(),
-                data: &serialized,
-            })) {
-                println!("failed to send store update to user {user_id}: {e}");
+                data: Bull::Borrowed(&serialized),
+            });
+
+            // Refresh any selects that depend on this store
+            if let Some(selects) = select_dependencies {
+                for select_name in selects {
+                    let value = self
+                        .compute_select_contents(&select_name, user.clone())
+                        .await?;
+
+                    updates.push(OneStoreUpdate {
+                        store: select_name.as_ref(),
+                        data: Bull::Owned(value),
+                    });
+                }
             }
+
+            user.send(TxPacket::ManyStoreUpdate::<()>(updates)).ok();
         }
 
         Ok(())
     }
 
+    // TODO: allow users to subscribe to stores instead of sending updates optimistically
     async fn refresh_all_stores(&self, user: &User) -> anyhow::Result<()> {
         let stores = self.inner.state.stores.read().await;
 
-        let mut data: Vec<(&StoreKey, serde_json::Value)> = Vec::with_capacity(stores.len());
+        let mut data: Vec<(&str, serde_json::Value)> = Vec::with_capacity(stores.len());
 
         for (store_key, store) in stores.iter() {
-            let serialized = (store.serializer)(&*store.data.read().await)
+            let serialized = (store.serializer)(&*store.data.read().await, user)
                 .context("failed to serialize store")?;
 
-            data.push((store_key, serialized));
+            data.push((store_key.as_ref(), serialized));
+        }
+
+        // Also compute every select
+        for (select_name, ..) in self.inner.selects.iter() {
+            let value = self
+                .compute_select_contents(select_name, user.clone())
+                .await?;
+
+            data.push((select_name, value));
         }
 
         user.send(TxPacket::ManyStoreUpdate::<serde_json::Value>(
             data.iter()
                 .map(|(k, v)| OneStoreUpdate {
                     store: k.as_ref(),
-                    data: v,
+                    data: Bull::Borrowed(v),
                 })
                 .collect(),
         ))
@@ -307,7 +408,8 @@ impl App {
 
     pub fn run(self) {
         tasks::spawn(self.run_async());
-        Runtime::current().blocking_poll();
+        #[cfg(not(feature = "native"))]
+        tasks::Runtime::current().blocking_poll();
     }
 
     pub async fn user(&self, user_id: Uuid) -> Option<User> {
@@ -326,7 +428,7 @@ impl AppBuilder {
     /// ## Example
     ///
     /// ```rust
-    /// use maf::*;
+    /// use maf::prelude::*;
     ///
     /// fn on_connect(user: User) {
     ///     println!("user connected! id: {}", user.meta.id());
@@ -359,7 +461,7 @@ impl AppBuilder {
     /// ## Example
     ///
     /// ```rust
-    /// use maf::*;
+    /// use maf::prelude::*;
     ///
     /// fn on_disconnect(user: User) {
     ///     println!("user disconnected! id: {}", user.meta.id());
@@ -393,7 +495,7 @@ impl AppBuilder {
     /// ## Example
     ///
     /// ```rust
-    /// use maf::*;
+    /// use maf::prelude::*;
     ///
     /// struct CounterStore;
     ///
@@ -419,24 +521,34 @@ impl AppBuilder {
     ///         .build()
     /// }
     /// ```
-    pub fn rpc<Params, Return, Handler, const IS_ASYNC: bool>(
+    pub fn rpc<
+        Params,
+        Return,
+        const IS_ASYNC: bool,
+        #[cfg(feature = "typed")] TypedParams,
+        #[cfg(feature = "typed")] TypedReturn,
+        #[cfg(feature = "typed")] const TYPED_IS_ASYNC: bool,
+        #[cfg(feature = "typed")] Handler: IntoCallable<RpcRequestContext, Params, Return, RpcError, RpcRequestInit, IS_ASYNC>
+            + crate::typed::ExtractRpcDesc<TypedParams, TypedReturn, TYPED_IS_ASYNC>,
+        #[cfg(not(feature = "typed"))] Handler: IntoCallable<RpcRequestContext, Params, Return, RpcError, RpcRequestInit, IS_ASYNC>,
+    >(
         mut self,
         method: impl ToString,
         handler: Handler,
     ) -> Self
     where
-        Handler:
-            IntoCallable<RpcRequestContext, Params, Return, RpcError, RpcRequestInit, IS_ASYNC>,
         Return: Serialize + 'static,
     {
+        use std::any::Any;
+
         let method = method.to_string();
-        let callable: Arc<AnyCallable<RpcRequestContext, Return, RpcError>> =
+        let callable: Arc<BoxedCallable<RpcRequestContext, Return, RpcError>> =
             Arc::from(handler.into_callable(RpcRequestInit {
                 method: method.clone(),
             }));
 
         self.rpc_functions.add_rpc_function(RpcFunction {
-            type_id: std::any::TypeId::of::<Handler>(),
+            type_id: handler.type_id(),
             method: method.clone(),
             handler: Box::new(move |ctx| {
                 let callable = callable.clone();
@@ -451,6 +563,8 @@ impl AppBuilder {
                     })
                 })
             }),
+            #[cfg(feature = "typed")]
+            desc: Arc::new(move |generator| Handler::extract(generator, method.clone())),
         });
         self
     }
@@ -460,7 +574,7 @@ impl AppBuilder {
     /// ## Example
     ///
     /// ```rust
-    /// use maf::*;
+    /// use maf::prelude::*;
     ///
     /// async fn background() {
     ///     loop {
@@ -489,6 +603,70 @@ impl AppBuilder {
         self
     }
 
+    /// Register a store where its contents are derived with the provided function.
+    pub fn select<
+        Name: ToString,
+        Params,
+        Ret,
+        #[cfg(not(feature = "typed"))] Handler: IntoCallable<SelectContext, Params, Ret, std::convert::Infallible, (), IS_ASYNC>,
+        #[cfg(feature = "typed")] Handler: IntoCallable<SelectContext, Params, Ret, std::convert::Infallible, (), IS_ASYNC>
+            + crate::typed::ExtractSelectDesc<Params, Ret, IS_ASYNC>,
+        const IS_ASYNC: bool,
+        const N_PARAMS: usize,
+    >(
+        mut self,
+        name: Name,
+        handler: Handler,
+    ) -> Self
+    where
+        Params: GetParamSelectDependencies<N_PARAMS>,
+        // TODO: can we remove this 'static bound?
+        Ret: Serialize + 'static,
+    {
+        let name: Arc<str> = Arc::from(name.to_string());
+        let callable: Arc<BoxedCallable<SelectContext, Ret, std::convert::Infallible>> =
+            Arc::from(handler.into_callable(()));
+
+        let dependencies = Params::get_select_dependencies();
+
+        for dependency in &dependencies {
+            if let SelectDependencyType::Store(type_id) = dependency {
+                self.select_dependencies
+                    .entry(*type_id)
+                    .or_default()
+                    .insert(name.clone());
+            }
+        }
+
+        self.selects.insert(
+            name.clone(),
+            AnySelect {
+                name: name.clone(),
+                select: Arc::new(move |ctx| {
+                    let callable = callable.clone();
+                    Box::pin(async move {
+                        let result = callable(ctx).await.expect("Select should not fail");
+                        serde_json::to_value(result)
+                    })
+                }),
+                depends_on_stores: dependencies
+                    .iter()
+                    .filter_map(|d| {
+                        if let SelectDependencyType::Store(type_id) = d {
+                            Some(*type_id)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect(),
+                #[cfg(feature = "typed")]
+                desc: Arc::new(move |generator| Handler::extract(generator, name.to_string())),
+            },
+        );
+
+        self
+    }
+
     /// Declare a store
     pub fn state<T: Send + Sync + 'static>(mut self, state: T) -> Self {
         self.states.insert(state);
@@ -502,13 +680,13 @@ impl AppBuilder {
         handler: Handler,
     ) -> Self
     where
-        Handler: IntoCallable<HookContext, Params, Return, HookError, HookInit, IS_ASYNC>,
+        Handler: IntoCallable<HookContext, Params, Return, HookError, (), IS_ASYNC>,
         Return: Serialize + 'static,
     {
         let method = method.to_string();
 
-        let callable: Arc<AnyCallable<HookContext, Return, HookError>> =
-            Arc::from(handler.into_callable(HookInit {}));
+        let callable: Arc<BoxedCallable<HookContext, Return, HookError>> =
+            Arc::from(handler.into_callable(()));
 
         self.hooks.add_hook_function(HookFunction {
             type_id: std::any::TypeId::of::<Handler>(),
@@ -520,12 +698,17 @@ impl AppBuilder {
                     let result = callable(ctx).await?;
 
                     Ok(HookResponse {
-                        body: bindgen::HookBody::Json(serde_json::to_string(&result)?),
+                        body: HookBody::Json(serde_json::to_string(&result)?),
                     })
                 })
             }),
         });
 
+        self
+    }
+
+    pub fn platform(mut self, platform: TargetPlatform) -> Self {
+        self.platform = Some(platform);
         self
     }
 
@@ -551,19 +734,30 @@ impl AppBuilder {
             on_disconnect: self.on_disconnect,
             background: self.background,
             hooks: self.hooks,
+            selects: self.selects,
+            select_dependencies: self.select_dependencies,
+            platform: self.platform.unwrap_or_else(|| {
+                TargetPlatform::init(()).expect("Failed to initialize platform")
+            }),
         };
 
-        App {
+        let app = App {
             inner: Arc::new(inner),
-        }
+        };
+
+        #[cfg(feature = "typed")]
+        app.export_types();
+
+        app
     }
 }
 
+#[cfg(not(feature = "native"))]
 #[macro_export]
 macro_rules! register {
     ($func:ident) => {
         pub use $crate::bindings::bindgen::{
-            self, __export_world_imports_cabi, _export_run_cabi, export,
+            self, __export_world_imports_cabi, _export_dry_run_cabi, _export_run_cabi, export,
         };
 
         pub struct GuestImpl {}
@@ -574,6 +768,13 @@ macro_rules! register {
                 $crate::tasks::Runtime::new().global();
                 let app = $func();
                 app.run();
+                Ok(())
+            }
+
+            fn dry_run() -> Result<(), ()> {
+                $crate::bindings::init_panic_hook();
+                $crate::tasks::Runtime::new().global();
+                let _app = $func();
                 Ok(())
             }
         }

@@ -13,13 +13,14 @@ use futures_util::{
     SinkExt, StreamExt,
     stream::{SplitSink, SplitStream},
 };
+use maf_schemas::packet::{ServerHandshake, TxPacket};
 use tokio::{
     sync::{Mutex, mpsc},
     time::timeout,
 };
 use uuid::Uuid;
 
-use crate::{server::Room, wasi::bindings};
+use crate::{server::RoomInner, wasi::bindings};
 
 pub struct Connection {
     takeable: Option<TakeableConnection>,
@@ -35,8 +36,7 @@ pub struct ConnectionHandle {
 
 struct TakeableConnection {
     command_rx: mpsc::Receiver<ConnectionCommand>,
-    command_tx: mpsc::Sender<ConnectionCommand>,
-
+    // command_tx: mpsc::Sender<ConnectionCommand>,
     message_tx: mpsc::Sender<bindings::Message>,
 
     ws_rx: SplitStream<WebSocket>,
@@ -58,14 +58,11 @@ impl Connection {
         let connection_id = Uuid::new_v4();
 
         match timeout(Duration::from_secs(1), ws_rx.next()).await {
-            Ok(Some(Ok(Message::Text(message)))) => {
+            Ok(Some(Ok(Message::Text(_message)))) => {
                 ws_tx
                     .send(Message::Text(
-                        serde_json::to_string(&serde_json::json!({
-                            "type": "Handshake",
-                            "data": {
-                                "id": connection_id,
-                            }
+                        serde_json::to_string(&TxPacket::Handshake::<()>(ServerHandshake {
+                            id: connection_id,
                         }))?
                         .into(),
                     ))
@@ -94,7 +91,7 @@ impl Connection {
             },
             takeable: Some(TakeableConnection {
                 command_rx,
-                command_tx,
+                // command_tx,
                 message_tx,
                 ws_rx,
                 ws_tx,
@@ -212,9 +209,9 @@ fn convert_to_axum_message(message: bindings::Message) -> Message {
     }
 }
 
-pub async fn handle_ws_upgrade(ws: WebSocketUpgrade, room: Room) -> Response {
+pub async fn handle_ws_upgrade(ws: WebSocketUpgrade, room: RoomInner) -> Response {
     ws.on_upgrade(|ws| async move {
-        async fn try_init(ws: WebSocket, room: Room) -> anyhow::Result<Connection> {
+        async fn try_init(ws: WebSocket, room: RoomInner) -> anyhow::Result<Connection> {
             let connection = Connection::init(ws).await?;
             let handle = connection.handle();
             room.add_connection(handle).await?;

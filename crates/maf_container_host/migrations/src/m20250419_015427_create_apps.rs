@@ -75,10 +75,13 @@ impl MigrationTrait for Migration {
 }
 
 #[derive(DeriveIden)]
-enum App {
+pub enum App {
     Table,
     Id,
     Name,
     UpdatedAt,
     OrgId,
+    Config,
+    ApiClientId,
+    ApiSecret,
 }

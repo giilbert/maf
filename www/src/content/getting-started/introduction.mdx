@@ -10,19 +10,37 @@ MAF is a framework for building and deploying realtime applications.
 By abstracting away common realtime primitives like connections, state,
 and channels, MAF makes creating applications a breeze.
 
-## Comparisons
-
 Compared to frameworks like Firebase, Supabase, and Liveblocks, MAF
 takes a **server-centric approach**. Instead of writing client-side methods to
 mutate realtime data, apps made with MAF are governed by a _server_ that
 authorizes mutations.
 
-With support for server-side scripting, the documentation will refer to two
-types of libraries: 1. **client libraries** that run in the browser, and 2.
-**server libraries** that run on a server.
+## MAF is a Framework
+
+MAF is not just a library; it is a set of tools and libraries that work together
+to create a _full-stack_ development experience. The tools and libraries mentioned
+throughout the documentation are:
+
+1. **Server libraries**, which are libraries that are used on a server to handle
+   server-side logic: listening for connections, storing state, handling client
+   requests, etc.
+2. **Client libraries**, which are libraries that are used on a client to handle
+   client-side logic: connecting to a MAF server, subscribing to state, sending
+   requests, etc.
+3. The **MAF CLI**, which is a command-line interface that helps you setup, develop,
+   and deploy MAF applications.
+
+To create a MAF application, you will need to use both server and client
+libraries along with the MAF CLI.
+
+For instance, if you want to create a
+realtime chat website, you could use a Rust server library to handle sending
+messages and a JavaScript client library to handle displaying messages in the
+browser. The MAF CLI would help you set up the project, run a development
+server, and deploy the application.
 
 ## Next Steps
 
-- [Quickstart](/docs/quickstart)
-- [Examples](/docs/examples)
-- [Why MAF?](/docs/why-maf)
+- [Quickstart](/docs/getting-started/quickstart)
+- [Examples](/docs/getting-started/examples)
+- [Why MAF?](/docs/getting-started/why-maf)

@@ -1,28 +1,39 @@
 use std::{
-    any::Any,
+    any::{Any, TypeId},
     sync::{
         atomic::{self, AtomicBool},
         Arc,
     },
 };
 
+#[cfg(feature = "typed")]
+use schemars::{JsonSchema, SchemaGenerator};
+use serde::Serialize;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::{
     callable::{CallableFetch, CallableParam},
-    App,
+    App, User,
 };
 
 use super::change_detection::StoreMut;
 
 #[derive(Clone)]
 pub struct AnyStore {
+    pub(crate) type_id: TypeId,
     pub(crate) key: StoreKey,
     pub(crate) dirty: Arc<AtomicBool>,
     pub(crate) data: Arc<RwLock<dyn Any + Send + Sync>>,
     pub(crate) serializer: Arc<
-        dyn Fn(&dyn Any) -> Result<serde_json::Value, StoreSerializeError> + Send + Sync + 'static,
+        dyn Fn(&dyn Any, &User) -> Result<serde_json::Value, StoreSerializeError>
+            + Send
+            + Sync
+            + 'static,
     >,
+
+    #[cfg(feature = "typed")]
+    pub(crate) desc:
+        Arc<dyn Fn(&mut SchemaGenerator) -> crate::typed::StoreDesc + Send + Sync + 'static>,
 }
 
 impl std::fmt::Debug for AnyStore {
@@ -56,8 +67,11 @@ pub struct Store<T: StoreData> {
 pub struct StoreKey(Arc<str>);
 
 /// Describes the data stored in a [`Store`].
-pub trait StoreData: 'static {
-    type Data: Send + Sync + 'static;
+pub trait StoreData: Send + Sync + 'static {
+    #[cfg(not(feature = "typed"))]
+    type Select<'this>: Serialize;
+    #[cfg(feature = "typed")]
+    type Select<'this>: Serialize + JsonSchema;
 
     fn name() -> impl AsRef<str> + Send {
         std::any::type_name::<Self>()
@@ -68,27 +82,28 @@ pub trait StoreData: 'static {
     }
 
     #[allow(unused_variables)]
-    fn select(data: &Self::Data) -> impl serde::Serialize {
-        ()
-    }
+    fn select(&self, user: &User) -> Self::Select<'_>;
 
-    fn init() -> Self::Data;
+    fn init() -> Self;
 }
 
 impl AnyStore {
     pub fn new<T: StoreData>() -> Self {
         Self {
+            type_id: TypeId::of::<T>(),
             key: T::key().into(),
             dirty: Arc::new(AtomicBool::new(false)),
             data: Arc::new(RwLock::new(T::init())),
-            serializer: Arc::new(|data| {
-                let data = data.downcast_ref::<T::Data>().expect(&std::format!(
+            serializer: Arc::new(|data, user| {
+                let data = data.downcast_ref::<T>().expect(&std::format!(
                     "store data is not of expected type {}",
-                    std::any::type_name::<T::Data>()
+                    std::any::type_name::<T>()
                 ));
 
-                serde_json::to_value(T::select(&data)).map_err(Into::into)
+                serde_json::to_value(T::select(&data, user)).map_err(Into::into)
             }),
+            #[cfg(feature = "typed")]
+            desc: Arc::new(|generator| crate::typed::StoreDesc::new::<T>(generator)),
         }
     }
 }
@@ -106,21 +121,40 @@ impl AsRef<str> for StoreKey {
 }
 
 impl<T: StoreData> Store<T> {
-    pub async fn read(&self) -> RwLockReadGuard<T::Data> {
+    pub async fn new(app: App) -> Self {
+        let key = T::key().into();
+        let inner = app
+            .inner
+            .state
+            .stores
+            .read()
+            .await
+            .get(&key)
+            .cloned()
+            .expect("store not found");
+
+        Store {
+            app,
+            inner,
+            _phantom: std::marker::PhantomData,
+        }
+    }
+
+    pub async fn read(&self) -> RwLockReadGuard<'_, T> {
         RwLockReadGuard::map(self.inner.data.read().await, |inner| {
             inner
-                .downcast_ref::<T::Data>()
+                .downcast_ref::<T>()
                 .expect("failed to downcast store (is the store of the right type?)")
         })
     }
 
-    pub async fn write(&self) -> StoreMut<T::Data> {
+    pub async fn write(&self) -> StoreMut<'_, T> {
         StoreMut::new(
             &self.app,
             &self.inner,
             RwLockWriteGuard::map(self.inner.data.write().await, |inner| {
                 inner
-                    .downcast_mut::<T::Data>()
+                    .downcast_mut::<T>()
                     .expect("failed to downcast store (is the store of the right type?)")
             }),
         )
@@ -146,22 +180,10 @@ impl<T: StoreData, Ctx: CallableFetch<App> + Send + Sync, Init: Send + Sync>
 
         let store = match existing_store {
             Some(store) => store,
-            None => {
-                // Code is structured this way to avoid deadlocks when acquiring the read lock
-                // and then trying to acquire the write lock.
-                drop(existing_store);
-
-                let store = AnyStore::new::<T>();
-
-                app.inner
-                    .state
-                    .stores
-                    .write()
-                    .await
-                    .insert(key, store.clone());
-
-                store
-            }
+            None => panic!(
+                "store not found when trying to extract parameter: {}",
+                key.as_ref()
+            ),
         };
 
         Ok(Store {
@@ -169,5 +191,15 @@ impl<T: StoreData, Ctx: CallableFetch<App> + Send + Sync, Init: Send + Sync>
             inner: store,
             _phantom: std::marker::PhantomData,
         })
+    }
+}
+
+impl<T: StoreData> Clone for Store<T> {
+    fn clone(&self) -> Self {
+        Self {
+            app: self.app.clone(),
+            inner: self.inner.clone(),
+            _phantom: std::marker::PhantomData,
+        }
     }
 }

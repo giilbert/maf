@@ -1,4 +1,4 @@
-//! This module provides the RPC (Remote Procedure Call) functionality for the application.
+//! RPC (Remote Procedure Call) functionality for the application.
 //!
 //! It allows a MAF client to call functions on the server and receive responses.
 //!
@@ -21,25 +21,32 @@
 //! - [`crate::Store<T>`]: A store instance that can be used to access shared data.
 //! - [`crate::Channel<T>`]: A channel instance that can be used to send messages to clients.
 
-pub mod models;
 mod params;
 
+#[cfg(feature = "typed")]
+use std::sync::Arc;
 use std::{any::TypeId, collections::HashMap};
 
+use maf_schemas::packet::{TypedRpcRequestPacket, TypedRpcResponsePacket};
 pub use params::Params;
 
-use models::{TypedRpcRequestPacket, TypedRpcResponsePacket};
 use params::ParamsError;
 
 use crate::{
-    callable::{AnyCallable, CallableFetch},
-    App, SendError, StateError, User,
+    callable::{BoxedCallable, CallableFetch},
+    platform::SendError,
+    App, StateError, User,
 };
 
 pub struct RpcFunction {
     pub(crate) method: String,
     pub(crate) type_id: TypeId,
-    pub(crate) handler: AnyCallable<RpcRequestContext, TypedRpcResponsePacket, RpcError>,
+    pub(crate) handler: BoxedCallable<RpcRequestContext, TypedRpcResponsePacket, RpcError>,
+
+    #[cfg(feature = "typed")]
+    pub(crate) desc: Arc<
+        dyn Fn(&mut schemars::SchemaGenerator) -> crate::typed::RpcDesc + Send + Sync + 'static,
+    >,
 }
 
 impl std::fmt::Debug for RpcFunction {
@@ -74,7 +81,7 @@ pub struct RpcRequestInit {
 
 #[derive(Debug, Default)]
 pub struct RpcStore {
-    rpc_functions: HashMap<String, RpcFunction>,
+    pub(crate) inner: HashMap<String, RpcFunction>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -104,8 +111,7 @@ pub enum RpcError {
 
 impl RpcStore {
     pub fn add_rpc_function(&mut self, rpc_function: RpcFunction) {
-        self.rpc_functions
-            .insert(rpc_function.method.clone(), rpc_function);
+        self.inner.insert(rpc_function.method.clone(), rpc_function);
     }
 
     pub async fn handle_typed_rpc_request(
@@ -116,7 +122,7 @@ impl RpcStore {
     ) -> Result<TypedRpcResponsePacket, RpcError> {
         let method = packet.method;
         let rpc_function = self
-            .rpc_functions
+            .inner
             .get(&method)
             .ok_or_else(|| RpcError::MethodNotFound(method))?;
 
@@ -161,10 +167,14 @@ mod tests {
         struct T {}
 
         impl StoreData for T {
-            type Data = i32;
+            type Select<'this> = ();
 
-            fn init() -> Self::Data {
-                42
+            fn init() -> Self {
+                T {}
+            }
+
+            fn select(&self, _user: &User) -> Self::Select<'_> {
+                ()
             }
         }
 

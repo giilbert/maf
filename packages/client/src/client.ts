@@ -2,21 +2,41 @@ import Emittery from "emittery";
 import { Channel } from "./channel";
 import { Store, StoreOptions } from "./store";
 import { RxPacket, TxPacket } from "./packet";
+import type { MafTypes } from "./typed";
 
 export interface MafClientOptions {
-  url: URL | string;
-  app?: string;
+  server: MafServerOptions;
 }
+
+export type MafServerOptions =
+  | { type: "dev"; url?: string | URL }
+  | {
+      type: "platform";
+      url: string | URL;
+      app: string;
+    }
+  | "dev";
+
+export const DEFAULT_DEV_SERVER_URL = "http://localhost:1147";
 
 export interface MafClientEvents {
   ready: SessionInfo;
+  close: void;
 }
 
 export interface SessionInfo {
   id: string;
 }
 
-export class MafClient extends Emittery<MafClientEvents> {
+export type ConnectOptions =
+  | { type: "default" }
+  | {
+      type: "room";
+      id: string;
+      secret: string;
+    };
+
+export class MafUntypedBaseClient extends Emittery<MafClientEvents> {
   public readonly url: URL;
 
   private _sessionInfo?: SessionInfo;
@@ -31,6 +51,8 @@ export class MafClient extends Emittery<MafClientEvents> {
   private _rpcId = 0;
   private _rpcCalls: Map<number, (data: unknown) => void> = new Map();
 
+  private _cleanups: (() => void)[] = [];
+
   public get ws() {
     if (!this._ws) throw new Error("WebSocket is not connected");
     return this._ws;
@@ -44,19 +66,38 @@ export class MafClient extends Emittery<MafClientEvents> {
   constructor(options: MafClientOptions) {
     super();
 
-    const url =
-      typeof options.url === "string" ? new URL(options.url) : options.url;
+    let url: URL;
 
-    if (options.app) {
-      url.pathname = `@/${options.app}`;
+    if (options.server === "dev") {
+      url = new URL(DEFAULT_DEV_SERVER_URL);
+      // In dev mode, use _/_ as the app for parity with the Platform server
+      url.pathname = "@/_/_";
+    } else if (options.server.type === "dev") {
+      url = new URL(options.server.url || DEFAULT_DEV_SERVER_URL);
+      url.pathname = "@/_/_";
+    } else if (options.server.type === "platform") {
+      url = new URL(options.server.url);
+      url.pathname = `@/${options.server.app}`;
+    } else {
+      throw new Error("Invalid server options");
     }
 
     this.url = url;
   }
 
-  async connect() {
+  async connect(options: ConnectOptions = { type: "default" }) {
     const connectionUrl = new URL(this.url);
-    connectionUrl.pathname += "/connect";
+    if (options.type === "room") {
+      // If the connection type is "room" (authenticated api request, etc.), add
+      // the room ID to the path
+      connectionUrl.pathname += `/${options.id}/connect`;
+      connectionUrl.searchParams.set("secret", options.secret);
+    } else if (options.type === "default") {
+      // If the connection type is "default" (auto created room), use "default"
+      connectionUrl.pathname += "/default/connect";
+    } else {
+      throw new Error("Invalid connection options");
+    }
 
     const ws = new WebSocket(connectionUrl);
     this._ws = ws;
@@ -96,15 +137,47 @@ export class MafClient extends Emittery<MafClientEvents> {
     this._sessionInfo = handshakeResponse;
     this.emit("ready", handshakeResponse);
 
-    ws.addEventListener("message", (event) => {
+    const handleMessage = (event: MessageEvent) => {
       if (typeof event.data === "string") {
         this.handleMessage(JSON.parse(event.data));
       } else {
         console.warn("Received non-string message:", event.data);
       }
+    };
+    ws.addEventListener("message", handleMessage);
+
+    this._cleanups.push(() => {
+      ws.removeEventListener("message", handleMessage);
     });
 
+    ws.addEventListener(
+      "close",
+      () => {
+        ws.removeEventListener("message", handleMessage);
+        this.emit("close", undefined);
+      },
+      { once: true }
+    );
+
     return handshakeResponse;
+  }
+
+  public disconnect() {
+    if (this._ws) {
+      if (this._ws.readyState === WebSocket.OPEN) {
+        this._ws.close();
+        for (const cleanup of this._cleanups) cleanup();
+      } else if (this._ws.readyState === WebSocket.CONNECTING) {
+        const wsRef = this._ws;
+        this._ws.onopen = () => {
+          wsRef.close();
+          for (const cleanup of this._cleanups) cleanup();
+        };
+      }
+
+      this._ws = undefined;
+      this._sessionInfo = undefined;
+    }
   }
 
   private async handleMessage(packet: RxPacket) {
@@ -137,7 +210,7 @@ export class MafClient extends Emittery<MafClientEvents> {
     this.ws.send(JSON.stringify(message));
   }
 
-  public rpc<T>(method: string, ...params: unknown[]) {
+  public untypedRpc<T>(method: string, ...params: unknown[]) {
     const id = this._rpcId++;
 
     this.send({
@@ -171,13 +244,27 @@ export class MafClient extends Emittery<MafClientEvents> {
     });
   }
 
-  public store<T>(name: string, options?: StoreOptions<T>) {
+  public untypedStore<T>(name: string, options?: StoreOptions<T>) {
     const data = this._storeData[name];
     if (!this._stores[name])
       this._stores[name] = new Store(this, name, {
-        default: data,
+        default: data as T,
         ...options,
       });
     return this._stores[name] as Store<T>;
+  }
+}
+
+export class MafClient extends MafUntypedBaseClient {
+  constructor(options: MafClientOptions) {
+    super(options);
+  }
+
+  public store<T>(name: string, options?: StoreOptions<T>): Store<T> {
+    return this.untypedStore(name, options) as Store<T>;
+  }
+
+  public rpc<T>(method: string, ...params: unknown[]) {
+    return this.untypedRpc<T>(method, ...params);
   }
 }

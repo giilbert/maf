@@ -1,8 +1,8 @@
-use crate::callable::{AnyCallable, CallableFetch};
+use crate::callable::{BoxedCallable, CallableFetch};
 
 use super::{state::StateError, App};
 
-pub type BackgroundFn = AnyCallable<BackgroundFnContext, (), BackgroundFnError>;
+pub type BackgroundFn = BoxedCallable<BackgroundFnContext, (), BackgroundFnError>;
 
 pub struct BackgroundFnContext {
     pub app: App,

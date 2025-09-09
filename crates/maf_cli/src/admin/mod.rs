@@ -18,7 +18,7 @@ pub enum UserCommands {
     List,
 }
 
-pub async fn handle_commands(context: &Context, command: AdminCommands) -> anyhow::Result<()> {
+pub async fn handle_commands(context: &mut Context, command: AdminCommands) -> anyhow::Result<()> {
     match command {
         AdminCommands::User(user_command) => match user_command {
             UserCommands::List => list_users(context).await,
@@ -38,7 +38,7 @@ pub async fn list_users(context: &Context) -> anyhow::Result<()> {
     context.assert_token();
 
     let users = context
-        .get::<Vec<User>>("/api/admin/users")
+        .get::<Vec<User>>("/api/v1/admin/users")
         .await
         .context("failed to get users")?;
 

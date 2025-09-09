@@ -10,12 +10,18 @@
     ]
   },
   {
-    "name": "Primitives",
+    "name": "Build Your App",
     "docs": [
-      "primitives/channel",
-      "primitives/store",
-      "primitives/state",
-      "primitives/rpc"
+      "build/channel",
+      "build/store",
+      "build/state",
+      "build/rpc",
+      "build/rooms",
+      "build/type-generation"
     ]
+  },
+  {
+    "name": "Reference",
+    "docs": ["reference/platform"]
   }
 ]

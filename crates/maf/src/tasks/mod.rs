@@ -1,31 +1,22 @@
-mod gen_vec;
-mod runtime;
-mod task;
-pub mod timers;
-mod waker;
+//! Task spawning for different environments.
 
-pub use futures_util;
-use std::future::IntoFuture;
+#[cfg(not(feature = "native"))]
+mod wasi;
 
-use runtime::JoinHandle;
-pub use runtime::Runtime;
-use timers::SleepFuture;
+#[cfg(feature = "native")]
+mod native {
+    use std::future::IntoFuture;
 
-pub fn spawn<T: IntoFuture + 'static>(fut: T) -> JoinHandle<T::Output> {
-    Runtime::current().spawn(fut)
+    pub fn spawn<T: IntoFuture + 'static>(fut: T) -> tokio::task::JoinHandle<T::Output>
+    where
+        T::IntoFuture: Send,
+        T::Output: Send,
+    {
+        tokio::spawn(fut.into_future())
+    }
 }
 
-pub fn sleep_until(instant: std::time::Instant) -> SleepFuture {
-    let duration = instant
-        .checked_duration_since(std::time::Instant::now())
-        .unwrap_or_default();
-    SleepFuture::new(duration)
-}
-
-pub fn sleep(duration: std::time::Duration) -> SleepFuture {
-    SleepFuture::new(duration)
-}
-
-// pub fn sleep_until(deadline: u64) -> SleepFuture {
-//     SleepFuture::new(deadline)
-// }
+#[cfg(feature = "native")]
+pub use native::*;
+#[cfg(not(feature = "native"))]
+pub use wasi::*;

@@ -1,9 +1,9 @@
 pub mod bindgen {
     wit_bindgen::generate!({
-        path: "../../wit",
+        path: "wit",
         pub_export_macro: true,
         with: {
-            "wasi:io/poll@0.2.4": wasi::io::poll
+            "wasi:io/poll@0.2.6": wasi::io::poll
         }
     });
 

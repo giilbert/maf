@@ -1,8 +1,9 @@
 import Emittery from "emittery";
-import type { MafClient } from "./client";
+import type { MafUntypedBaseClient } from "./client";
 
 export interface StoreOptions<T> {
   default?: T;
+  hasInit?: (value: T | null) => boolean;
 }
 
 export interface StoreEvents<T> {
@@ -10,7 +11,7 @@ export interface StoreEvents<T> {
 }
 
 export class Store<T> extends Emittery<StoreEvents<T>> {
-  private readonly client: MafClient;
+  private readonly client: MafUntypedBaseClient;
   private readonly name: string;
 
   private _hasInit: boolean = false;
@@ -29,7 +30,11 @@ export class Store<T> extends Emittery<StoreEvents<T>> {
    */
   public readonly init: Promise<void>;
 
-  constructor(client: MafClient, name: string, options?: StoreOptions<T>) {
+  constructor(
+    client: MafUntypedBaseClient,
+    name: string,
+    options?: StoreOptions<T>
+  ) {
     super();
 
     const storeInit = options?.default ?? null;
@@ -48,7 +53,14 @@ export class Store<T> extends Emittery<StoreEvents<T>> {
 
     this.init = new Promise((resolve) => {
       if (this._hasInit) return resolve();
-      this.once("change").then(() => resolve());
+
+      const unsubscribe = this.on("change", (data) => {
+        if (options?.hasInit && !options.hasInit(data)) return;
+
+        this._hasInit = true;
+        unsubscribe();
+        resolve();
+      });
     });
   }
 
@@ -68,5 +80,9 @@ export class Store<T> extends Emittery<StoreEvents<T>> {
 
   get(): T | null {
     return this._data;
+  }
+
+  get hasInit(): boolean {
+    return this._hasInit;
   }
 }
