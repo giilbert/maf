@@ -1,19 +1,23 @@
 import { ListenError, listenUser, Message, User } from "maf:bindings/bindings";
 import { reactor } from "./io-reactor";
+import { RpcBuilder, RpcBuilderWithInput } from "./rpc";
+import { type ZodSchema } from "zod";
+import { debug, DebugLevel } from "./debug";
 
-class App {
-  public rpcMethods: Record<string, () => void> = {};
+export class App {
+  public _rpcMethods: Record<string, RpcBuilderWithInput<ZodSchema>> = {};
 
-  constructor() {}
+  constructor(public options: { debug?: DebugLevel } = {}) {
+    debug.level = options.debug || "none";
+  }
 
-  public rpc(method: string, handler: () => void) {
-    this.rpcMethods[method] = handler;
-    return this;
+  public rpc(name: string): RpcBuilder {
+    return new RpcBuilder(this, name);
   }
 
   private async handleUser(user: User) {
     const meta = user.meta();
-    console.log("user connected! meta:", meta);
+    debug.trace("app", "user connected. meta:", meta);
 
     const messageListener = user.listenMessage();
 
@@ -25,11 +29,41 @@ class App {
 
       if (message.type === "error") {
         if (message.error.tag === "closed") break;
-        console.log("user message error:", message.error);
+        debug.trace("app", "user rx error:", message.error);
         break;
       }
 
-      console.log("user message:", message);
+      if (message.value.tag === "text") {
+        const rx: RxPacket = JSON.parse(message.value.val);
+        debug.trace("app", "user rx", rx);
+
+        if (rx.type === "TypedRpcCall") {
+          const rpcMethod = this._rpcMethods[rx.data.method];
+          if (!rpcMethod) {
+            // who cares about error handling
+            throw new Error("RPC method not found: " + rx.data.method);
+          }
+
+          // FIXME: actually handle errors properly blaAH
+          try {
+            const result = rpcMethod.call(rx.data.params);
+            user.send({
+              tag: "text",
+              val: JSON.stringify({
+                type: "TypedRpcResponse",
+                data: {
+                  id: rx.data.id,
+                  result: await result,
+                },
+              }),
+            });
+          } catch (err) {
+            console.log("Error handling RPC call:", err);
+            console.log(err.payload);
+            throw err;
+          }
+        }
+      }
     }
   }
 
@@ -58,7 +92,3 @@ class App {
     reactor.run();
   }
 }
-
-export const app = () => {
-  return new App();
-};

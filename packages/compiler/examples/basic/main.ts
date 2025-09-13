@@ -1,5 +1,9 @@
-import { app } from "maf";
+import { App } from "maf";
 
-export function run() {
-  app().run();
-}
+const app = new App();
+
+app.rpc("increment_counter").handler((ctx) => {
+  console.log("RPC increment_counter called with params:", ctx.params);
+});
+
+export { app };

@@ -1,4 +1,4 @@
-declare module "wasi:io/poll@0.2.4" {
+declare module "wasi:io/poll@0.2.6" {
   export function poll(pollables: Pollable[]): Uint32Array;
 
   export interface Pollable {
@@ -9,7 +9,7 @@ declare module "wasi:io/poll@0.2.4" {
 }
 
 declare module "maf:bindings/bindings" {
-  import { Pollable } from "wasi:io/poll@0.2.4";
+  import { Pollable } from "wasi:io/poll@0.2.6";
 
   interface UserMeta {
     id: [bigint, bigint];
@@ -18,6 +18,7 @@ declare module "maf:bindings/bindings" {
   interface User {
     meta(): void;
     listenMessage(): FutureMessage;
+    send(message: Message): void;
     [Symbol.dispose](): void;
   }
 
@@ -41,11 +42,11 @@ declare module "maf:bindings/bindings" {
   type Message =
     | {
         tag: "text";
-        text: string;
+        val: string;
       }
     | {
         tag: "binary";
-        data: Uint8Array;
+        val: Uint8Array;
       };
 
   export interface FutureMessage {

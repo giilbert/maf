@@ -1,0 +1,10 @@
+name = "example-basic-javascript"
+rooms = "AutoCreate"
+
+[debug]
+command = "../../bin/dev.js compile main.ts"
+output = "build/out.wasm"
+
+[release]
+command = "../../bin/dev.js compile main.ts"
+output = "build/out.wasm"

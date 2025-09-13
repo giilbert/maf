@@ -69,7 +69,7 @@ impl ContainerResourceLimit {
     pub fn sensible_default() -> Self {
         Self {
             memory: 16 * 1024 * 1024, // 16 MiB
-            table: 1000,              // 1000 entries
+            table: 10_000,            // 10_000 entries
         }
     }
 }

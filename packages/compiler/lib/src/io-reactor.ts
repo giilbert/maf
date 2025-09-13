@@ -1,19 +1,9 @@
-import { poll, Pollable } from "wasi:io/poll@0.2.4";
-
-interface PollableWithHandler {
-  pollable: Pollable;
-  handler: (() => void) | null;
-}
+import { poll, Pollable } from "wasi:io/poll@0.2.6";
+import { debug } from "./debug";
 
 type AwaitResult<T, E = void> =
-  | {
-      type: "ready";
-      value: T;
-    }
-  | {
-      type: "error";
-      error: E;
-    };
+  | { type: "ready"; value: T }
+  | { type: "error"; error: E };
 
 export class IoReactor {
   private pollables: Pollable[] = [];
@@ -80,31 +70,41 @@ export class IoReactor {
   }
 
   private printPollables() {
-    console.log("---------- pollables ----------");
+    debug.trace("io", "---------- pollables ----------");
     for (const [index] of this.pollables.entries()) {
       const name = this.names[index];
-      console.log(` - ${index}: ${name}`);
+      debug.trace("io", ` - ${index}: ${name}`);
     }
   }
 
   public run() {
+    // Keep advancing the event loop until there is a pollable to wait on.
     if (this.pollables.length === 0) {
-      console.log("no pollables, exiting...");
+      debug.trace("io", "io: requeue due to no pollables");
+      queueMicrotask(() => this.run());
       return;
     }
 
-    // this.printPollables();
-    // console.log(`io: sleeping (${this.pollables.length} pollables)`);
+    this.printPollables();
+    queueMicrotask(() => this.sleep());
+    this.printPollables();
+
+    debug.trace("io", "io: run done. waiting for requeue");
+  }
+
+  private sleep() {
+    debug.trace("io", `io: sleeping (${this.pollables.length} pollables)`);
+
     const readyIndices = poll(this.pollables);
-    // console.log(`io: reactor woke up (${readyIndices.length} ready)`);
+    debug.trace("io", `io: reactor woke up (${readyIndices.length} ready)`);
 
     for (const index of readyIndices) {
-      // console.log(`io: waking up ${index} (${this.names[index]})`);
+      debug.trace("io", `io: waking up ${index} (${this.names[index]})`);
       const handler = this.handlers[index];
       handler();
     }
 
-    // console.log("io: removing pollables");
+    debug.trace("io", "io: removing pollables");
 
     readyIndices.reverse();
     // TODO: are we sure the indices are in decreasing order?
@@ -112,11 +112,7 @@ export class IoReactor {
       this.removePollable(index);
     }
 
-    // this.printPollables();
-
-    queueMicrotask(() => {
-      this.run();
-    });
+    queueMicrotask(() => this.run());
   }
 }
 
