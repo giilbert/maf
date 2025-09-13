@@ -57,6 +57,33 @@ export const DemoApp: React.FC = () => {
         })
       );
 
+    maf.once("close", () => {
+      console.log("Connection closed...");
+      console.log("Reconnecting...");
+
+      setConnectionStatus({
+        type: "disconnected",
+        reason: "Trying to reconnect...",
+      });
+
+      const interval = setInterval(() => {
+        maf
+          .connect()
+          .then(() => {
+            setConnectionStatus({ type: "connected" });
+            clearInterval(interval);
+          })
+          .catch(() =>
+            setConnectionStatus({
+              type: "disconnected",
+              reason: "Failed to connect",
+            })
+          );
+      }, 2000);
+
+      return false;
+    });
+
     return () => {
       if (maf.ws.readyState === WebSocket.OPEN) {
         maf.ws.close();

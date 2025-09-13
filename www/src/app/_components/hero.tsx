@@ -17,7 +17,7 @@ export const Hero: React.FC = () => {
       <Navbar />
 
       <div className="space-y-8 xl:space-y-0 lg:flex-row gap-2 md:gap-8 h-fit lg:h-[calc(100vh-9rem)] flex flex-col">
-        <div className="space-y-6 flex flex-col h-full flex-2/3 max-w-1/2">
+        <div className="space-y-6 flex flex-col h-full flex-2/3 lg:max-w-1/2">
           <div className="space-y-6 bg-background-300 px-8 py-12 relative h-fit lg:h-full -ml-8 -mr-6 md:mr-0 flex flex-col justify-center">
             <div className="hidden md:block w-full h-full absolute bg-background-500 -z-10 top-4 left-4"></div>
 
