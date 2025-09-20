@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 maf = "0.1.0-alpha.2"
 # To use the latest version, you can use the following instead:
-# maf = { repository = "https://github.com/giilbert/maf" }
+# maf = { git = "https://github.com/giilbert/maf" }
 # serde is a library for serializing and deserializing data
 serde = { version = "^1", features = ["derive"] }
 
