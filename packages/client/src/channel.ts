@@ -1,15 +1,15 @@
 import Emittery from "emittery";
-import type { MafUntypedBaseClient } from "./client";
+import type { CobbleUntypedBaseClient } from "./client";
 
 export interface ChannelEvents<T> {
   message: T;
 }
 
 export class Channel<T> extends Emittery<ChannelEvents<T>> {
-  private readonly client: MafUntypedBaseClient;
+  private readonly client: CobbleUntypedBaseClient;
   private readonly name: string;
 
-  constructor(client: MafUntypedBaseClient, name: string) {
+  constructor(client: CobbleUntypedBaseClient, name: string) {
     super();
 
     this.client = client;

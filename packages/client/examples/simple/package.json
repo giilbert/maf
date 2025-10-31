@@ -10,7 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@usemaf/client": "workspace:*"
+    "@usecobble/client": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20",

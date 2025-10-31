@@ -2,13 +2,13 @@ import Emittery from "emittery";
 import { Channel } from "./channel";
 import { Store, StoreOptions } from "./store";
 import { RxPacket, TxPacket } from "./packet";
-import type { MafTypes } from "./typed";
+import type { CobbleTypes } from "./typed";
 
-export interface MafClientOptions {
-  server: MafServerOptions;
+export interface CobbleClientOptions {
+  server: CobbleServerOptions;
 }
 
-export type MafServerOptions =
+export type CobbleServerOptions =
   | { type: "dev"; url?: string | URL }
   | {
       type: "platform";
@@ -19,7 +19,7 @@ export type MafServerOptions =
 
 export const DEFAULT_DEV_SERVER_URL = "http://localhost:1147";
 
-export interface MafClientEvents {
+export interface CobbleClientEvents {
   ready: SessionInfo;
   close: void;
 }
@@ -36,7 +36,7 @@ export type ConnectOptions =
       secret: string;
     };
 
-export class MafUntypedBaseClient extends Emittery<MafClientEvents> {
+export class CobbleUntypedBaseClient extends Emittery<CobbleClientEvents> {
   public readonly url: URL;
 
   private _sessionInfo?: SessionInfo;
@@ -63,7 +63,7 @@ export class MafUntypedBaseClient extends Emittery<MafClientEvents> {
     return this._sessionInfo;
   }
 
-  constructor(options: MafClientOptions) {
+  constructor(options: CobbleClientOptions) {
     super();
 
     let url: URL;
@@ -255,8 +255,8 @@ export class MafUntypedBaseClient extends Emittery<MafClientEvents> {
   }
 }
 
-export class MafClient extends MafUntypedBaseClient {
-  constructor(options: MafClientOptions) {
+export class CobbleClient extends CobbleUntypedBaseClient {
+  constructor(options: CobbleClientOptions) {
     super(options);
   }
 

@@ -1,4 +1,4 @@
-import { MafServiceClient } from ".";
+import { CobbleServiceClient } from ".";
 import { PlatformApiError } from "./error";
 
 export interface Room {
@@ -8,7 +8,7 @@ export interface Room {
 }
 
 export class Rooms {
-  constructor(private client: MafServiceClient) {}
+  constructor(private client: CobbleServiceClient) {}
 
   /**
    * **GET** `/api/v1/apps/{app}/rooms`

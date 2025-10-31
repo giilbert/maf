@@ -5,7 +5,7 @@ category: Build Your App
 
 # Type Generation
 
-MAF can optionally generate TypeScript types for your app's data models. This is
+Cobble can optionally generate TypeScript types for your app's data models. This is
 useful for ensuring type safety in your application code.
 
 Currently, type generation is only supported for Rust and TypeScript projects.
@@ -13,7 +13,7 @@ Support for more languages will be added in the future.
 
 ## Enabling Type Generation
 
-1\. Add the following to your `maf-project.toml`:
+1\. Add the following to your `cobble-project.toml`:
 
 ```toml
 [typed]
@@ -77,7 +77,7 @@ _For more details on `schemars`, refer to the [schemars documentation](https://g
 3\. Start a development server and create a room to generate the types:
 
 ```bash
-$ maf run
+$ cobble run
 # ...
 [dev] `default` Types generated to .../types.ts
 ```
@@ -85,19 +85,19 @@ $ maf run
 4\. Import the generated types in your client code and register them:
 
 ```typescript
-import type { MafApp } from "./types";
+import type { CobbleApp } from "./types";
 
-declare module "@usemaf/client" {
-  interface MafTypes {
-    generated: MafApp;
+declare module "@usecobble/client" {
+  interface CobbleTypes {
+    generated: CobbleApp;
   }
 }
 ```
 
-5\. Change `MafClient` to `TypedMafClient` in your client code:
+5\. Change `CobbleClient` to `TypedCobbleClient` in your client code:
 
 ```typescript
-const client = new TypedMafClient({
+const client = new TypedCobbleClient({
   //               ^^^^^^^^^^^^^^
   server: "dev",
 });

@@ -40,7 +40,7 @@ export const MobileNav: React.FC<{
       )}
     >
       <Logo size={24} className="mr-2" />
-      <p className="font-bold">MAF</p>
+      <p className="font-bold">Cobble</p>
 
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
         <SheetTrigger className="ml-auto p-1 hover:bg-muted rounded-sm transition-all cursor-pointer">
@@ -55,7 +55,7 @@ export const MobileNav: React.FC<{
             <SheetTitle className="flex gap-2 items-center">
               <Logo size={24} className="m-2" />
               <span className="font-bold" id="mobile-nav-header">
-                MAF Documentation
+                Cobble Documentation
               </span>
             </SheetTitle>
 

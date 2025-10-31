@@ -2,8 +2,8 @@ export const CODE_BLOCKS = {
   "Rust:src/lib.rs": {
     language: "rust",
     content: `
-// [1] Import MAF server library
-use maf::prelude::*;
+// [1] Import Cobble server library
+use cobble::prelude::*;
 
 fn build() -> App {
   println!("Hello, world!");
@@ -17,13 +17,13 @@ fn build() -> App {
 }
 
 // [3] Register the application to be ran
-maf::register!(build);
+cobble::register!(build);
 `,
   },
-  "Rust:maf.toml": {
+  "Rust:cobble.toml": {
     language: "toml",
     content: `
-# Configuration file for MAF applications
+# Configuration file for Cobble applications
 name = "your-app-name"
 
 [debug]
@@ -44,7 +44,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-maf = "*"
+cobble = "*"
 serde = { version = "^1", features = ["derive"] }
 
 [lib]
@@ -55,11 +55,11 @@ crate-type = ["cdylib"]
   "JavaScript/TypeScript:client.ts": {
     language: "typescript",
     content: `
-// [1] Import MAF client library
-import { MafClient } from "@usemaf/client";
+// [1] Import Cobble client library
+import { CobbleClient } from "@usecobble/client";
 
-// [2] Connect to the MAF server
-const client = new MafClient(/* options */);
+// [2] Connect to the Cobble server
+const client = new CobbleClient(/* options */);
 await client.connect();
 
 // [3] Call the RPC method

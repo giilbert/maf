@@ -1,4 +1,4 @@
-import { App } from "maf";
+import { App } from "cobble";
 
 const app = new App();
 

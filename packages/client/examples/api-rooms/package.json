@@ -10,8 +10,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@usemaf/client": "workspace:*",
-    "@usemaf/platform": "workspace:*",
+    "@usecobble/client": "workspace:*",
+    "@usecobble/platform": "workspace:*",
     "hono": "^4.8.5"
   },
   "devDependencies": {

@@ -1,6 +1,6 @@
-import { MafClient } from "@usemaf/client";
+import { CobbleClient } from "@usecobble/client";
 
-const client = new MafClient({
+const client = new CobbleClient({
   server: "dev",
 });
 

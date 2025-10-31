@@ -1,4 +1,9 @@
-import { ListenError, listenUser, Message, User } from "maf:bindings/bindings";
+import {
+  ListenError,
+  listenUser,
+  Message,
+  User,
+} from "cobble:bindings/bindings";
 import { reactor } from "./io-reactor";
 import { RpcBuilder, RpcBuilderWithInput } from "./rpc";
 import { type ZodSchema } from "zod";

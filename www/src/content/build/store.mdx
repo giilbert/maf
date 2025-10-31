@@ -45,7 +45,7 @@ fn build() -> App {
         .build()
 }
 
-maf::register!(build);
+cobble::register!(build);
 ```
 
 #### Implementing `StoreData`
@@ -155,11 +155,11 @@ async fn some_rpc_function(store: Store<Counter>) {
 
 <TabsContent value="javascript">
 
-Stores can be accessed on the client using the `maf.store` method, which
+Stores can be accessed on the client using the `cobble.store` method, which
 returns a `Store` instance.
 
 ```ts
-const maf = new MafClient(/* ... */);
+const cobble = new CobbleClient(/* ... */);
 
 // This should match the return type of `StoreData::serialize` on the server
 interface Counter {
@@ -167,7 +167,7 @@ interface Counter {
 }
 
 // Pass in the type of the store data as a type parameter
-const store = maf.store<Counter>("counter");
+const store = cobble.store<Counter>("counter");
 
 // Subscribe to changes in the store
 store.on("change", (data) => {

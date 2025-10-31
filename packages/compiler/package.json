@@ -1,9 +1,9 @@
 {
-  "name": "@maf/compiler",
+  "name": "@cobble/compiler",
   "description": "A new CLI generated with oclif",
   "version": "0.1.0",
   "bin": {
-    "mafc": "./bin/run.js"
+    "cobblec": "./bin/run.js"
   },
   "dependencies": {
     "@bytecodealliance/componentize-js": "^0.18.2",
@@ -39,8 +39,8 @@
   "main": "dist/index.js",
   "type": "module",
   "oclif": {
-    "bin": "mafc",
-    "dirname": "mafc",
+    "bin": "cobblec",
+    "dirname": "cobblec",
     "commands": "./dist/commands",
     "plugins": [
       "@oclif/plugin-help",

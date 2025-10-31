@@ -1,4 +1,4 @@
-!["mutation authority framework" banner](assets/banner.png)
+!["cobble" banner](assets/banner.png)
 
 <hr>
 
@@ -26,7 +26,7 @@ __Option 2__: Use a client-side library like Firebase or Liveblocks to handle th
 - Points 1 & 2 from above
 - But now you have to deal with the fact that the __client is not a trusted source of truth__. This may not be a problem for a quiz app, but if you want to make a game where integrity is important, you will need a server to handle the game logic.
 
-## Mutation "Authority" Framework
+## Introducing Cobble
 
 __The core problem with realtime apps is managing ✨ STATE ✨.__
 
@@ -40,9 +40,9 @@ fn handle_request(state: &mut State, request: Request) -> Response {
 
 ... for realtime apps?
 
-MAF is a server framework aiming to abstract away the complexity of managing state in realtime apps, so you can focus on actually building your app instead of confusing yourself with boilerplate.
+Cobble is a full-stack framework aiming to abstract away the complexity of managing state in realtime apps, so you can focus on actually building your app instead of confusing yourself with boilerplate.
 
-MAF also provides a set of tools to help you easily deploy your app. So, next time you want to make a realtime app (say... a hackathon), you can just use MAF and get it online in a few minutes.
+Cobble also provides a set of tools to help you easily deploy your app. So, next time you want to make a realtime app (say... a hackathon), you can just use Cobble and get it online in a few minutes.
 
 ### Features 🌈🦄 
 - __Realtime State Abstractions__

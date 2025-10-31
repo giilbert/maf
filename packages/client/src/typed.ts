@@ -1,4 +1,4 @@
-import { MafUntypedBaseClient, type MafClientOptions } from "./client";
+import { CobbleUntypedBaseClient, type CobbleClientOptions } from "./client";
 import type { Store, StoreOptions } from "./store";
 
 export interface StoreDefinition<S> {
@@ -12,28 +12,28 @@ export interface RpcDefinition<P, R extends unknown | unknown[]> {
   result: R;
 }
 
-interface DefaultMafTypes {
+interface DefaultCobbleTypes {
   generated: {
     stores: Record<string, StoreDefinition<unknown>>;
     rpcs: Record<string, RpcDefinition<unknown, unknown>>;
   };
 }
 
-export interface MafTypes extends DefaultMafTypes {}
+export interface CobbleTypes extends DefaultCobbleTypes {}
 
-export type TypedStores = MafTypes["generated"]["stores"];
+export type TypedStores = CobbleTypes["generated"]["stores"];
 export type StoreKeys = keyof TypedStores;
 export type StoreSelect<K extends StoreKeys> = TypedStores[K]["select"];
 
-export type TypedRpcs = MafTypes["generated"]["rpcs"];
+export type TypedRpcs = CobbleTypes["generated"]["rpcs"];
 export type RpcKeys = keyof TypedRpcs;
 export type RpcParams<K extends RpcKeys> =
   TypedRpcs[K]["params"] extends unknown[]
     ? TypedRpcs[K]["params"]
     : [TypedRpcs[K]["params"]];
 
-export class TypedMafClient extends MafUntypedBaseClient {
-  constructor(options: MafClientOptions) {
+export class TypedCobbleClient extends CobbleUntypedBaseClient {
+  constructor(options: CobbleClientOptions) {
     super(options);
   }
 

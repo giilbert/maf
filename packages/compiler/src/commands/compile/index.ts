@@ -34,7 +34,7 @@ export default class Compile extends Command {
       required: true,
     }),
   };
-  static description = "Compile a WebAssembly module for MAF";
+  static description = "Compile a WebAssembly module for Cobble";
   static examples = [];
   static flags = {};
 
@@ -43,7 +43,7 @@ export default class Compile extends Command {
 
     const fileName = url.fileURLToPath(import.meta.url);
     const dirName = path.dirname(fileName);
-    const witPath = path.join(dirName, "../../../../../crates/maf/wit");
+    const witPath = path.join(dirName, "../../../../../crates/cobble/wit");
 
     const esbuildStart = Date.now();
     const buildEntry = "build/entry.ts";
@@ -63,7 +63,7 @@ export default class Compile extends Command {
       format: "esm",
       preserveSymlinks: true,
       outfile: "build/out.js",
-      external: ["wasi:io/poll@0.2.6", "maf:bindings/bindings"],
+      external: ["wasi:io/poll@0.2.6", "cobble:bindings/bindings"],
     });
 
     console.log(

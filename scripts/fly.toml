@@ -1,11 +1,11 @@
-app = "maf-server"
+app = "cobble-server"
 
 [[vm]]
 memory = "1GB"
 cpus = 2
 
 [env]
-RUST_LOG = "maf_container_host=info"
+RUST_LOG = "cobble_container_host=info"
 AUTO_SHUTDOWN_TIMEOUT = "60"
 
 [build]

@@ -1,5 +1,5 @@
 {
-  "name": "@usemaf/react",
+  "name": "@usecobble/react",
   "version": "0.1.0-alpha.7",
   "description": "",
   "main": "./src/index.ts",
@@ -16,7 +16,7 @@
     "@types/react": "^19"
   },
   "dependencies": {
-    "@usemaf/client": "workspace:^",
+    "@usecobble/client": "workspace:^",
     "react": "^19.1.0"
   }
 }

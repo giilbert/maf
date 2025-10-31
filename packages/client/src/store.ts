@@ -1,5 +1,5 @@
 import Emittery from "emittery";
-import type { MafUntypedBaseClient } from "./client";
+import type { CobbleUntypedBaseClient } from "./client";
 
 export interface StoreOptions<T> {
   default?: T;
@@ -11,7 +11,7 @@ export interface StoreEvents<T> {
 }
 
 export class Store<T> extends Emittery<StoreEvents<T>> {
-  private readonly client: MafUntypedBaseClient;
+  private readonly client: CobbleUntypedBaseClient;
   private readonly name: string;
 
   private _hasInit: boolean = false;
@@ -24,14 +24,14 @@ export class Store<T> extends Emittery<StoreEvents<T>> {
    *
    * ## Usage
    * ```typescript
-   * const store = maf.store<string[]>("names");
+   * const store = cobble.store<string[]>("names");
    * await store.init;
    * ```
    */
   public readonly init: Promise<void>;
 
   constructor(
-    client: MafUntypedBaseClient,
+    client: CobbleUntypedBaseClient,
     name: string,
     options?: StoreOptions<T>
   ) {

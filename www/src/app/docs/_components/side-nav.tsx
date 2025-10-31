@@ -17,7 +17,7 @@ export const SideNav: React.FC<{
           className="flex gap-2 items-center"
         >
           <Logo size={24} />
-          <h1 className="text-lg font-bold">MAF</h1>
+          <h1 className="text-lg font-bold">Cobble</h1>
         </Link>
       </div>
 

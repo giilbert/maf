@@ -1,5 +1,5 @@
 {
-  "name": "@usemaf/client",
+  "name": "@usecobble/client",
   "version": "0.1.0-alpha.7",
   "description": "",
   "main": "./src/index.ts",

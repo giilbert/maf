@@ -32,7 +32,7 @@ export const Hero: React.FC = () => {
 
             <p className="text-lg md:text-xl">
               <Balancer>
-                <span className="font-bold font-mono">MAF</span> is an
+                <span className="font-bold font-mono">Cobble</span> is an
                 authoritative realtime framework for writing simple, secure, and
                 scalable apps.
               </Balancer>
@@ -43,7 +43,7 @@ export const Hero: React.FC = () => {
             <FeatureCard
               icon={LockIcon}
               title="Secure By Design"
-              description="Server-side access control and data validation is core to MAF."
+              description="Server-side access control and data validation is core to Cobble."
             />
             <FeatureCard
               icon={BlocksIcon}
@@ -53,7 +53,7 @@ export const Hero: React.FC = () => {
             <FeatureCard
               icon={RocketIcon}
               title="Built to Scale"
-              description="Engineered for performance and scalability, MAF is designed to grow."
+              description="Engineered for performance and scalability, Cobble is designed to grow."
             />
             <FeatureCard
               icon={CloudIcon}

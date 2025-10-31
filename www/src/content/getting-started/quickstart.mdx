@@ -5,15 +5,15 @@ category: Getting Started
 
 # Quickstart
 
-This guide will help set up a simple MAF application (both server and client)
+This guide will help set up a simple Cobble application (both server and client)
 that synchronizes a counter between multiple clients.
 
-⚠️ **NOTE**: MAF is still in very early development: things are not easy to do,
+⚠️ **NOTE**: Cobble is still in very early development: things are not easy to do,
 APIs and features are subject to change, and things will break!
 
 ## Recommended File Structure
 
-MAF is a full-stack framework, helping you build both server and client code.
+Cobble is a full-stack framework, helping you build both server and client code.
 This guide guides you through setting up a project with **both** server and
 client code, so it is recommended to use the following file structure:
 
@@ -30,9 +30,9 @@ pre-made server code and you want to add client code to it, or vice versa.
 Decide what works best for you, but keep in mind that the guide will assume
 the above structure.
 
-## Install MAF CLI
+## Install Cobble CLI
 
-MAF CLI is a command-line tool that helps you run, test, and deploy MAF servers.
+Cobble CLI is a command-line tool that helps you run, test, and deploy Cobble servers.
 
 <Tabs defaultValue="macos-linux">
   <TabsList>
@@ -42,38 +42,38 @@ MAF CLI is a command-line tool that helps you run, test, and deploy MAF servers.
 <TabsContent value="macos-linux">
 
 You will need to have [Git](https://git-scm.com/) and a Rust toolchain installed
-to build MAF CLI from Scratch. See [https://www.rust-lang.org/tools/install](https://www.rust-lang.org/tools/install)
+to build Cobble CLI from Scratch. See [https://www.rust-lang.org/tools/install](https://www.rust-lang.org/tools/install)
 for Rust installation instructions.
 
-To install MAF CLI:
+To install Cobble CLI:
 
 ```bash
-$ cargo install --git https://github.com/giilbert/maf.git maf_cli
+$ cargo install --git https://github.com/giilbert/cobble.git cobble_cli
 ```
 
-If the installation is successful, you should be able to run the `maf_cli`
+If the installation is successful, you should be able to run the `cobble_cli`
 command:
 
 ```bash
-$ maf_cli -V
-maf_cli 0.1.0
+$ cobble_cli -V
+cobble_cli 0.1.0
 ```
 
 Add the following to your shell configuration file (e.g., `~/.bashrc`,
 `~/.zshrc`):
 
 ```bash
-alias maf="maf_cli"
+alias cobble="cobble_cli"
 ```
 
-This will allow you to run the `maf` command instead of `maf_cli`. The rest of
-the documentation will refer to the `maf` command.
+This will allow you to run the `cobble` command instead of `cobble_cli`. The rest of
+the documentation will refer to the `cobble` command.
 
 </TabsContent>
 
 </Tabs>
 
-## Write a MAF Server
+## Write a Cobble Server
 
 <Tabs defaultValue="rust">
   <TabsList>
@@ -82,10 +82,10 @@ the documentation will refer to the `maf` command.
 
 <TabsContent value="rust">
 
-1\. Initialize a new MAF project:
+1\. Initialize a new Cobble project:
 
 ```bash
-$ maf create --template rust
+$ cobble create --template rust
 
 ? Server path (Defaults to './server'):
 ? Name (Lowercase alphanumeric characters and hyphens): enter-project-name
@@ -96,7 +96,7 @@ INFO: Setting up project 'enter-project-name' using template 'rust' in ...
 2\. `src/lib.rs` should include the following code:
 
 ```rust
-use maf::prelude::*;
+use cobble::prelude::*;
 
 struct CounterStore {
   count: i32,
@@ -139,7 +139,7 @@ async fn on_connect(user: User) {
     println!("user connected! id: {}", user.meta.id());
 }
 
-// Declare what the MAF application should do
+// Declare what the Cobble application should do
 fn build() -> App {
     App::builder()
         .on_connect(on_connect)
@@ -147,7 +147,7 @@ fn build() -> App {
         .build()
 }
 
-maf::register!(build);
+cobble::register!(build);
 
 ```
 
@@ -158,7 +158,7 @@ maf::register!(build);
 3\. Build and run the server with:
 
 ```bash
-$ maf run
+$ cobble run
 ```
 
 If all goes well, you should see the following:
@@ -178,11 +178,11 @@ INFO: dev server listening on 1147
 ```
 
 ❗ _The development server will listen on port `1147` by default. You can change
-this by passing the `--port` flag to the `maf run` command._
+this by passing the `--port` flag to the `cobble run` command._
 
-## Use a MAF Client
+## Use a Cobble Client
 
-The client library allows you to connect to a MAF server and interact with it.
+The client library allows you to connect to a Cobble server and interact with it.
 
 <Tabs defaultValue="javascript-typescript">
   <TabsList>
@@ -191,7 +191,7 @@ The client library allows you to connect to a MAF server and interact with it.
 
 <TabsContent value="javascript-typescript">
 
-1\. Install the `@usemaf/client` package.
+1\. Install the `@usecobble/client` package.
 
 2\. Install additional dependencies to build/run your code. If you're building
 a website, you will need a bundler like [Vite](https://vite.dev/),
@@ -200,9 +200,9 @@ a website, you will need a bundler like [Vite](https://vite.dev/),
 3\. Write the following code:
 
 ```typescript
-import { MafClient } from "@usemaf/client";
+import { CobbleClient } from "@usecobble/client";
 
-const client = new MafClient({
+const client = new CobbleClient({
   // NOTE: Change this when you deploy your server
   server: "dev",
 });

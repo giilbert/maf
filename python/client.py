@@ -1,10 +1,10 @@
 from websockets import connect
-from store import MafStore
+from store import CobbleStore
 from packet import *
 import asyncio
 
 
-class MafClient:
+class CobbleClient:
     def __init__(self, *, url: str, app: str):
         self.url = url
         self.app = app
@@ -13,9 +13,9 @@ class MafClient:
         self.rpc_id = 0
         self.rpc_calls = {}
 
-    def store(self, name: str) -> MafStore:
+    def store(self, name: str) -> CobbleStore:
         if name not in self.stores:
-            self.stores[name] = MafStore(self, name)
+            self.stores[name] = CobbleStore(self, name)
         return self.stores[name]
 
     async def rpc(self, method: str, *params):
@@ -53,11 +53,11 @@ class MafClient:
                 if store:
                     store.update(data.data)
                 else:
-                    self.stores[data.store] = MafStore(self, data.store, init=data.data)
+                    self.stores[data.store] = CobbleStore(self, data.store, init=data.data)
             elif packet.type == "ManyStoreUpdate":
                 for data in packet.many_store_update():
                     if data.store not in self.stores:
-                        self.stores[data.store] = MafStore(
+                        self.stores[data.store] = CobbleStore(
                             self, data.store, init=data.data
                         )
                     else:

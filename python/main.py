@@ -1,6 +1,6 @@
 import asyncio
 from websockets import connect
-from client import MafClient
+from client import CobbleClient
 import logging
 
 logging.basicConfig(
@@ -10,7 +10,7 @@ logging.basicConfig(
 
 
 async def main():
-    async with MafClient(
+    async with CobbleClient(
         url="http://localhost:1147",
         app="gilbert/test-2",
     ) as client:
