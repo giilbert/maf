@@ -15,11 +15,10 @@ RUN apt-get update && \
 ADD Cargo.lock ./
 ADD crates/maf_container ./crates/maf_container
 ADD crates/maf_container_host ./crates/maf_container_host
-ADD crates/schemas ./crates/schemas
-ADD wit ./wit
+ADD crates/maf_schemas ./crates/maf_schemas
 
 # Create Cargo.toml with correct workspaces
-RUN echo '[workspace]\nmembers = ["crates/maf_container_host", "crates/maf_container_host/migrations", "crates/maf_container"]\nresolver="2"' > Cargo.toml
+RUN echo '[workspace]\nmembers = ["crates/maf_container_host", "crates/maf_schemas", "crates/maf_container_host/migrations", "crates/maf_container"]\nresolver="2"' > Cargo.toml
 # Build the application
 RUN cargo build --release --package maf_container_host
 
@@ -37,7 +36,7 @@ ENV ENVIRONMENT=production
 
 # Install dependencies
 RUN apt-get update && \
-    apt-get install libssl3 && \
+    apt-get install -y libssl3 && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/target/release/maf_container_host /app/maf_container_host
