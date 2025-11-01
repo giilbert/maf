@@ -49,10 +49,6 @@ export default function Home() {
               <Logo />
               <p className="text-2xl font-bold">Cobble</p>
             </div>
-
-            <p className="text-muted-foreground">
-              mutation authority framework
-            </p>
           </div>
 
           <div className="hidden md:block">

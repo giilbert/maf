@@ -1,5 +1,4 @@
-//! Mutation Authority Framework (Cobble) is an authoritative realtime framework for writing simple,
-//! secure, and scalable apps.
+//! Cobble is an authoritative realtime framework for writing simple, secure, and scalable apps.
 //!
 //! Check out the [Quick Start Guide](https://cobble.gilbertz.me/docs/getting-started/quickstart) on
 //! the [website](https://cobble.gilbertz.me) for the easiest way to get started launching with Cobble.

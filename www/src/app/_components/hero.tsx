@@ -22,7 +22,6 @@ export const Hero: React.FC = () => {
             <div className="hidden md:block w-full h-full absolute bg-background-500 -z-10 top-4 left-4"></div>
 
             <div className="space-y-2">
-              <p className="font-mono">{"//"} mutation authority framework</p>
               <h1 className="font-extrabold text-4xl md:text-5xl xl:text-[3.5rem] leading-[0.9]">
                 <Balancer>
                   Take The <span className="italic">Time</span> Out Of Realtime
