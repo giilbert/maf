@@ -220,8 +220,8 @@ async fn get_app_credentials(context: &Context, name: &str) -> anyhow::Result<()
         CREDENTIALS_PATH,
         format!(
             r#"# Cobble service client credentials for {name}
-Cobble_CLIENT_ID={client_id}
-Cobble_CLIENT_SECRET={secret}"#,
+COBBLE_CLIENT_ID={client_id}
+COBBLE_CLIENT_SECRET={secret}"#,
             name = app.name,
             client_id = app.api_client_id,
             secret = app.api_secret

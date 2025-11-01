@@ -50,11 +50,11 @@ impl GlobalConfig {
             }
         }
 
-        if let Some(token_variable) = dotenvy::var("Cobble_CLI_TOKEN").ok() {
+        if let Some(token_variable) = dotenvy::var("COBBLE_CLI_TOKEN").ok() {
             config_data.token = Some(token_variable);
         }
 
-        if let Some(server_url_variable) = dotenvy::var("Cobble_CLI_SERVER_URL").ok() {
+        if let Some(server_url_variable) = dotenvy::var("COBBLE_CLI_SERVER_URL").ok() {
             config_data.server_url = Some(server_url_variable);
         }
 
