@@ -54,7 +54,7 @@ impl AppState {
 
         let state = Self {
             environment: dotenvy::var("ENVIRONMENT")
-                .map_err(anyhow::Error::from)
+                .or_else(|_| Ok("development".to_string()))
                 .and_then(|s| match s.to_lowercase().as_str() {
                     "development" => Ok(Environment::Development),
                     "production" => Ok(Environment::Production),
