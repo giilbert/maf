@@ -1,0 +1,102 @@
+# flyctl launch added from .gitignore
+**/target
+**/node_modules
+**/.env
+**/var
+
+# flyctl launch added from crates/maf_cli/src/init/templates/rust/.gitignore
+crates/maf_cli/src/init/templates/rust/target
+
+# flyctl launch added from packages/client/examples/api-rooms/.gitignore
+packages/client/examples/api-rooms/**/.api
+
+# flyctl launch added from packages/compiler/.gitignore
+packages/compiler/**/*-debug.log
+packages/compiler/**/*-error.log
+packages/compiler/**/**/.DS_Store
+packages/compiler/.idea
+packages/compiler/dist
+packages/compiler/tmp
+packages/compiler/node_modules
+packages/compiler/**/oclif.manifest.json
+
+
+packages/compiler/**/yarn.lock
+packages/compiler/**/package-lock.json
+
+# flyctl launch added from packages/compiler/examples/basic/.gitignore
+packages/compiler/examples/basic/**/build
+
+# flyctl launch added from packages/react/examples/providers/.gitignore
+# Logs
+packages/react/examples/providers/**/logs
+packages/react/examples/providers/**/*.log
+packages/react/examples/providers/**/npm-debug.log*
+packages/react/examples/providers/**/yarn-debug.log*
+packages/react/examples/providers/**/yarn-error.log*
+packages/react/examples/providers/**/pnpm-debug.log*
+packages/react/examples/providers/**/lerna-debug.log*
+
+packages/react/examples/providers/**/node_modules
+packages/react/examples/providers/**/dist
+packages/react/examples/providers/**/dist-ssr
+packages/react/examples/providers/**/*.local
+
+# Editor directories and files
+packages/react/examples/providers/**/.vscode/*
+!packages/react/examples/providers/**/.vscode/extensions.json
+packages/react/examples/providers/**/.idea
+packages/react/examples/providers/**/.DS_Store
+packages/react/examples/providers/**/*.suo
+packages/react/examples/providers/**/*.ntvs*
+packages/react/examples/providers/**/*.njsproj
+packages/react/examples/providers/**/*.sln
+packages/react/examples/providers/**/*.sw?
+
+# flyctl launch added from python/.gitignore
+python/**/venv
+python/**/__pycache__
+
+# flyctl launch added from www/.gitignore
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+www/node_modules
+www/.pnp
+www/**/.pnp.*
+www/**/.yarn/*
+!www/**/.yarn/patches
+!www/**/.yarn/plugins
+!www/**/.yarn/releases
+!www/**/.yarn/versions
+
+# testing
+www/coverage
+
+# next.js
+www/.next
+www/out
+
+# production
+www/build
+
+# misc
+www/**/.DS_Store
+www/**/*.pem
+
+# debug
+www/**/npm-debug.log*
+www/**/yarn-debug.log*
+www/**/yarn-error.log*
+www/**/.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+www/**/.env*
+
+# vercel
+www/**/.vercel
+
+# typescript
+www/**/*.tsbuildinfo
+www/**/next-env.d.ts
+fly.toml

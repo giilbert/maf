@@ -16,6 +16,7 @@ ADD Cargo.lock ./
 ADD crates/maf_container ./crates/maf_container
 ADD crates/maf_container_host ./crates/maf_container_host
 ADD crates/maf_schemas ./crates/maf_schemas
+ADD crates/maf/wit ./crates/maf/wit
 
 # Create Cargo.toml with correct workspaces
 RUN echo '[workspace]\nmembers = ["crates/maf_container_host", "crates/maf_schemas", "crates/maf_container_host/migrations", "crates/maf_container"]\nresolver="2"' > Cargo.toml

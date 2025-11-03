@@ -1,4 +1,4 @@
-app = "maf-server"
+app = "maf-platform-host"
 
 [[vm]]
 memory = "1GB"
@@ -17,9 +17,7 @@ destination = "/app/bundle"
 
 [http_service]
 internal_port = 1147
-force_https = false
 auto_start_machines = true
-auto_restart = true
 min_machines_running = 0
 
 [http_service.concurrency]
