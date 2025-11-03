@@ -627,156 +627,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f46ad14479a25103f283c0f10005961cf086d8dc42205bb44c46ac563475dca6"
 
 [[package]]
-name = "cobble"
-version = "0.1.0-alpha.2"
-dependencies = [
- "anyhow",
- "cobble_schemas",
- "futures-util",
- "http",
- "schemars",
- "serde",
- "serde_json",
- "thiserror 2.0.12",
- "tokio",
- "url",
- "uuid",
- "wasi 0.14.2+wasi-0.2.4",
- "wit-bindgen",
-]
-
-[[package]]
-name = "cobble_cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "async_zip",
- "axum",
- "clap",
- "cobble_container",
- "cobble_schemas",
- "cobble_typed",
- "colored",
- "dialoguer",
- "directories",
- "dotenvy",
- "futures-util",
- "include_dir",
- "indicatif",
- "notify",
- "notify-debouncer-full",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
- "tokio-util",
- "toml",
- "tracing",
- "tracing-subscriber",
- "url",
- "uuid",
-]
-
-[[package]]
-name = "cobble_container"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "axum",
- "bytes",
- "cobble_schemas",
- "futures-util",
- "rand 0.9.1",
- "serde",
- "serde_json",
- "tokio",
- "tokio-util",
- "tracing",
- "uuid",
- "wasmtime",
- "wasmtime-wasi",
- "wasmtime-wasi-http",
- "wasmtime-wasi-io",
-]
-
-[[package]]
-name = "cobble_container_host"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "async_zip",
- "axum",
- "base64",
- "bitflags 2.9.1",
- "bytes",
- "chrono",
- "cobble_container",
- "cobble_schemas",
- "colored",
- "dashmap",
- "dotenvy",
- "fmtsize",
- "futures-util",
- "migrations",
- "rand 0.9.1",
- "sea-orm",
- "serde",
- "serde_json",
- "thiserror 2.0.12",
- "tokio",
- "tokio-tungstenite",
- "tokio-util",
- "toml",
- "tracing",
- "tracing-subscriber",
- "uuid",
-]
-
-[[package]]
-name = "cobble_native"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "cobble",
- "cobble_schemas",
- "futures-util",
- "serde_json",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "cobble_schemas"
-version = "0.1.0-alpha.2"
-dependencies = [
- "anyhow",
- "axum",
- "colored",
- "rand 0.9.1",
- "schemars",
- "serde",
- "serde_json",
- "tracing",
- "uuid",
-]
-
-[[package]]
-name = "cobble_typed"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "cobble",
- "cobble_schemas",
- "schemars",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "cobs"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2320,6 +2170,156 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19b955cdeb2a02b9117f121ce63aa52d08ade45de53e48fe6a38b39c10f6f709"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "maf"
+version = "0.1.0-alpha.2"
+dependencies = [
+ "anyhow",
+ "futures-util",
+ "http",
+ "maf_schemas",
+ "schemars",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.12",
+ "tokio",
+ "url",
+ "uuid",
+ "wasi 0.14.2+wasi-0.2.4",
+ "wit-bindgen",
+]
+
+[[package]]
+name = "maf_cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "async_zip",
+ "axum",
+ "clap",
+ "colored",
+ "dialoguer",
+ "directories",
+ "dotenvy",
+ "futures-util",
+ "include_dir",
+ "indicatif",
+ "maf_container",
+ "maf_schemas",
+ "maf_typed",
+ "notify",
+ "notify-debouncer-full",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "uuid",
+]
+
+[[package]]
+name = "maf_container"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "axum",
+ "bytes",
+ "futures-util",
+ "maf_schemas",
+ "rand 0.9.1",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "uuid",
+ "wasmtime",
+ "wasmtime-wasi",
+ "wasmtime-wasi-http",
+ "wasmtime-wasi-io",
+]
+
+[[package]]
+name = "maf_container_host"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "async_zip",
+ "axum",
+ "base64",
+ "bitflags 2.9.1",
+ "bytes",
+ "chrono",
+ "colored",
+ "dashmap",
+ "dotenvy",
+ "fmtsize",
+ "futures-util",
+ "maf_container",
+ "maf_schemas",
+ "migrations",
+ "rand 0.9.1",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.12",
+ "tokio",
+ "tokio-tungstenite",
+ "tokio-util",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
+name = "maf_native"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "futures-util",
+ "maf",
+ "maf_schemas",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "maf_schemas"
+version = "0.1.0-alpha.2"
+dependencies = [
+ "anyhow",
+ "axum",
+ "colored",
+ "rand 0.9.1",
+ "schemars",
+ "serde",
+ "serde_json",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "maf_typed"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "maf",
+ "maf_schemas",
+ "schemars",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

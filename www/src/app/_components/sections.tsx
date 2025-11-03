@@ -68,7 +68,7 @@ export const SetupSection: React.FC<{
         if (textRef.current) textRef.current.textContent = content;
       };
 
-      const COMMAND = "$ cobble create";
+      const COMMAND = "$ maf create";
 
       tl.call(setShouldBlink, [false], 0);
       tl.fromTo(
@@ -186,7 +186,7 @@ export const SetupSection: React.FC<{
             <StepDisplay number={1}>
               Scaffold project with{" "}
               <span className="font-mono bg-muted px-1.5 py-1 rounded">
-                `cobble create`
+                `maf create`
               </span>
             </StepDisplay>
 
@@ -199,7 +199,7 @@ export const SetupSection: React.FC<{
             <StepDisplay number={2}>
               Start a server with{" "}
               <span className="font-mono bg-muted px-1.5 py-1 rounded">
-                `cobble run`
+                `maf run`
               </span>
             </StepDisplay>
 
@@ -233,7 +233,7 @@ export const SetupSection: React.FC<{
 
           <div>
             <StepDisplay number={3}>
-              Connect to the server with a Cobble client
+              Connect to the server with a MAF client
             </StepDisplay>
 
             <ClientScaffoldExamples codeBlocks={codeBlocks} />
@@ -263,7 +263,7 @@ export const PrimitivesSection: React.FC = () => {
     <Wrapper>
       <h2 className="text-4xl xl:text-6xl font-bold">Goodbye Boilerplate!</h2>
       <p className="xl:text-lg">
-        Cobble comes with powerful pre-made building blocks to build your app.
+        MAF comes with powerful pre-made building blocks to build your app.
       </p>
 
       <hr className="my-4" />
@@ -324,7 +324,7 @@ export const PrimitivesSection: React.FC = () => {
 export const DeploySection: React.FC = () => {
   return (
     <Wrapper>
-      <h2 className="text-4xl xl:text-6xl font-bold">Cobble Platform</h2>
+      <h2 className="text-4xl xl:text-6xl font-bold">MAF Platform</h2>
     </Wrapper>
   );
 };
@@ -336,7 +336,7 @@ export const GetStartedSection: React.FC = () => {
         <p className="font-bold text-5xl">It&apos;s time for realtime.</p>
         <Link href="/docs/getting-started/quickstart">
           <Button className="w-full text-lg sm:text-xl md:text-2xl md:py-4">
-            Get Started With Cobble
+            Get Started With MAF
           </Button>
         </Link>
       </div>

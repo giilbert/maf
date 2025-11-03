@@ -9,8 +9,8 @@ export const metadata: Metadata = {
     type: "website",
     title: "Mutation Authority Framework",
     description:
-      "Cobble is a framework for building, deploying, and testing authoritative real-time applications.",
-    images: ["https://cobble.gilbertz.me/cover.png"],
+      "MAF is a framework for building, deploying, and testing authoritative real-time applications.",
+    images: ["https://maf.gilbertz.me/cover.png"],
   },
 };
 

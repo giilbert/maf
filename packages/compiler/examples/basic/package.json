@@ -1,8 +1,8 @@
 {
-  "name": "cobble-basic-example",
+  "name": "maf-basic-example",
   "version": "0.1.0",
   "dependencies": {
-    "cobble": "workspace:*",
+    "maf": "workspace:*",
     "zod": "^3.24.2"
   }
 }

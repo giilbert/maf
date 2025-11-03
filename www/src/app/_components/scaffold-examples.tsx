@@ -6,7 +6,7 @@ import { useState } from "react";
 const SERVER_SCAFFOLDS = [
   {
     language: "Rust",
-    files: ["src/lib.rs", "cobble.toml", "Cargo.toml"],
+    files: ["src/lib.rs", "maf.toml", "Cargo.toml"],
   },
 ] as const;
 

@@ -2,11 +2,11 @@ import asyncio
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from client import CobbleClient
+    from client import MafClient
 
 
-class CobbleStore:
-    def __init__(self, client: "CobbleClient", name: str, init=None):
+class MafStore:
+    def __init__(self, client: "MafClient", name: str, init=None):
         self.client = client
         self.name = name
 
@@ -21,11 +21,11 @@ class CobbleStore:
         return self.__data
 
     def changed(self):
-        return CobbleStoreChanged(self)
+        return MafStoreChanged(self)
 
 
-class CobbleStoreChanged:
-    def __init__(self, store: CobbleStore):
+class MafStoreChanged:
+    def __init__(self, store: MafStore):
         self.store = store
 
     def __aiter__(self):

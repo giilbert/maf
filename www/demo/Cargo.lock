@@ -455,13 +455,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34080505efa8e45a4b816c349525ebe327ceaa8559756f0356cba97ef3bf7432"
 
 [[package]]
-name = "cobble"
+name = "maf"
 version = "0.1.0-alpha.2"
 dependencies = [
  "anyhow",
  "futures-util",
  "http",
- "cobble_schemas",
+ "maf_schemas",
  "serde",
  "serde_json",
  "thiserror",
@@ -473,16 +473,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "cobble-demo"
+name = "maf-demo"
 version = "0.1.0"
 dependencies = [
- "cobble",
+ "maf",
  "schemars",
  "serde",
 ]
 
 [[package]]
-name = "cobble_schemas"
+name = "maf_schemas"
 version = "0.1.0-alpha.2"
 dependencies = [
  "anyhow",

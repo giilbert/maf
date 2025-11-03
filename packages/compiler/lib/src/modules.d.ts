@@ -8,7 +8,7 @@ declare module "wasi:io/poll@0.2.6" {
   }
 }
 
-declare module "cobble:bindings/bindings" {
+declare module "maf:bindings/bindings" {
   import { Pollable } from "wasi:io/poll@0.2.6";
 
   interface UserMeta {

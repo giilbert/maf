@@ -1,8 +1,8 @@
-import { CobbleServiceClient } from "@usecobble/platform";
+import { MafServiceClient } from "@usemaf/platform";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
-const server = new CobbleServiceClient({
+const server = new MafServiceClient({
   server: "dev",
   // Fake credentials for testing purposes
   // In a real application, you would use actual credentials

@@ -1,23 +1,20 @@
 import { Rooms } from "./rooms";
-import {
-  DEFAULT_DEV_SERVER_URL,
-  type CobbleServerOptions,
-} from "@usecobble/client";
+import { DEFAULT_DEV_SERVER_URL, type MafServerOptions } from "@usemaf/client";
 
-export interface CobbleServiceClientOptions {
-  server: CobbleServerOptions;
+export interface MafServiceClientOptions {
+  server: MafServerOptions;
 
   clientId: string;
   clientSecret: string;
 }
 
-export class CobbleServiceClient {
+export class MafServiceClient {
   public readonly authorization: string;
-  public readonly server: CobbleServerOptions;
+  public readonly server: MafServerOptions;
 
   public readonly rooms: Rooms;
 
-  constructor(options: CobbleServiceClientOptions) {
+  constructor(options: MafServiceClientOptions) {
     this.server = options.server;
     this.authorization = `Basic ${btoa(
       `${options.clientId}:${options.clientSecret}`

@@ -1,5 +1,5 @@
-import { CobbleProvider, type CobbleProviderProps } from "./cobble-provider";
+import { MafProvider, type MafProviderProps } from "./maf-provider";
 import { useStore } from "./hooks/use-store";
 import { useSession } from "./hooks/use-session";
 
-export { CobbleProvider, CobbleProviderProps, useStore, useSession };
+export { MafProvider, MafProviderProps, useStore, useSession };

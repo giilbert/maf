@@ -1,13 +1,13 @@
 export {
-  CobbleClient,
+  MafClient,
   DEFAULT_DEV_SERVER_URL,
-  type CobbleClientOptions,
-  type CobbleServerOptions,
+  type MafClientOptions,
+  type MafServerOptions,
 } from "./client";
 export { Store, type StoreOptions, type StoreEvents } from "./store";
 export {
-  TypedCobbleClient,
-  type CobbleTypes,
+  TypedMafClient,
+  type MafTypes,
   type StoreDefinition,
   type TypedStores,
   type StoreKeys,

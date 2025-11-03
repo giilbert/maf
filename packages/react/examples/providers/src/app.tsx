@@ -1,4 +1,4 @@
-import { useRpc, useStore } from "@usecobble/react";
+import { useRpc, useStore } from "@usemaf/react";
 
 export const App: React.FC = () => {
   const { data } = useStore<number>("count", 0);

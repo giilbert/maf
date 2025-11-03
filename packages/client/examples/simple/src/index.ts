@@ -1,13 +1,13 @@
-import { TypedCobbleClient } from "@usecobble/client";
-import type { CobbleApp } from "./types";
+import { TypedMafClient } from "@usemaf/client";
+import type { MafApp } from "./types";
 
-declare module "@usecobble/client" {
-  interface CobbleTypes {
-    generated: CobbleApp;
+declare module "@usemaf/client" {
+  interface MafTypes {
+    generated: MafApp;
   }
 }
 
-const client = new TypedCobbleClient({
+const client = new TypedMafClient({
   server: "dev",
 });
 

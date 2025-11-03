@@ -1,12 +1,12 @@
 [workspace]
 resolver = "3"
-members = ["crates/*", "crates/cobble_container_host/migrations"]
+members = ["crates/*", "crates/maf_container_host/migrations"]
 exclude = [
     # Examples are excluded as feature flags are weird in examples
-    "crates/cobble/examples/basic",
-    "crates/cobble/examples/basic-typed",
-    "crates/cobble/examples/http",
-    "crates/cobble_native/examples/axum-basic",
-    "crates/cobble_cli/src/init/templates/**",
+    "crates/maf/examples/basic",
+    "crates/maf/examples/basic-typed",
+    "crates/maf/examples/http",
+    "crates/maf_native/examples/axum-basic",
+    "crates/maf_cli/src/init/templates/**",
     "www/demo",
 ]

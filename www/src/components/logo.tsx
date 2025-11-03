@@ -29,7 +29,7 @@ export const Logo: React.FC<{
         />
       </svg>
 
-      {hasText && <p className="text-2xl font-bold">Cobble</p>}
+      {hasText && <p className="text-2xl font-bold">MAF</p>}
     </div>
   );
 };

@@ -1,7 +1,7 @@
 "use client";
 
 import { CircleIcon } from "lucide-react";
-import { CobbleClient } from "@usecobble/client";
+import { MafClient } from "@usemaf/client";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 
@@ -21,23 +21,23 @@ export const DemoApp: React.FC = () => {
         reason?: string;
       }
   >({ type: "connecting" });
-  const cobbleRef = useRef<CobbleClient>(null);
+  const mafRef = useRef<MafClient>(null);
 
   useEffect(() => {
-    const cobble = new CobbleClient({
+    const maf = new MafClient({
       server:
         process.env.NODE_ENV === "development"
           ? "dev"
           : {
               type: "platform",
-              url: "https://cobble-server.fly.dev",
-              app: "gilbert/cobble-demo",
+              url: "https://maf-server.fly.dev",
+              app: "gilbert/maf-demo",
             },
     });
 
-    cobbleRef.current = cobble;
+    mafRef.current = maf;
 
-    const store = cobble.store<StoreData>("LightsOut");
+    const store = maf.store<StoreData>("LightsOut");
     store.init.then(() => {
       setTiles(store.data.tiles);
       setPeople(store.data.people);
@@ -47,7 +47,7 @@ export const DemoApp: React.FC = () => {
       setPeople(store.data.people);
     });
 
-    cobble
+    maf
       .connect()
       .then(() => setConnectionStatus({ type: "connected" }))
       .catch(() =>
@@ -57,7 +57,7 @@ export const DemoApp: React.FC = () => {
         })
       );
 
-    cobble.once("close", () => {
+    maf.once("close", () => {
       console.log("Connection closed...");
       console.log("Reconnecting...");
 
@@ -67,7 +67,7 @@ export const DemoApp: React.FC = () => {
       });
 
       const interval = setInterval(() => {
-        cobble
+        maf
           .connect()
           .then(() => {
             setConnectionStatus({ type: "connected" });
@@ -85,13 +85,13 @@ export const DemoApp: React.FC = () => {
     });
 
     return () => {
-      if (cobble.ws.readyState === WebSocket.OPEN) {
-        cobble.ws.close();
-        cobbleRef.current = null;
-      } else if (cobble.ws.readyState === WebSocket.CONNECTING) {
-        cobble.ws.onopen = () => {
-          cobble.ws.close();
-          cobbleRef.current = null;
+      if (maf.ws.readyState === WebSocket.OPEN) {
+        maf.ws.close();
+        mafRef.current = null;
+      } else if (maf.ws.readyState === WebSocket.CONNECTING) {
+        maf.ws.onopen = () => {
+          maf.ws.close();
+          mafRef.current = null;
         };
       }
     };
@@ -135,10 +135,10 @@ export const DemoApp: React.FC = () => {
             <div
               key={index}
               onClick={() => {
-                const cobble = cobbleRef.current;
-                if (!cobble) return;
+                const maf = mafRef.current;
+                if (!maf) return;
 
-                cobble.rpc("toggle_tile", index);
+                maf.rpc("toggle_tile", index);
               }}
               className={cn(
                 "transform scale-100 hover:border cursor-pointer hover:scale-105 flex items-center justify-center max-w-full max-h-full w-16 h-16 transition-all",

@@ -34,7 +34,7 @@ fn build() -> App {
         .build()
 }
 
-cobble::register!(build);
+maf::register!(build);
 ```
 
 </TabsContent>
@@ -51,9 +51,9 @@ cobble::register!(build);
 <TabsContent value="javascript">
 
 ```ts
-const cobble = new CobbleClient(/* ... */);
+const maf = new MafClient(/* ... */);
 
-const channel = cobble.channel<string>("hello");
+const channel = maf.channel<string>("hello");
 channel.send("Hello, world!");
 ```
 

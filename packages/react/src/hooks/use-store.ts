@@ -1,19 +1,19 @@
 import { useEffect, useState } from "react";
-import { useCobble } from "../cobble-provider";
-import type { StoreKeys, StoreSelect } from "@usecobble/client";
+import { useMaf } from "../maf-provider";
+import type { StoreKeys, StoreSelect } from "@usemaf/client";
 
-export enum CobbleStatus {
+export enum MafStatus {
   LOADING = "loading",
   READY = "ready",
 }
 
 type UseStoreDiscUnion<TData, TFallback> =
   | {
-      status: CobbleStatus.LOADING;
+      status: MafStatus.LOADING;
       data: TFallback;
     }
   | {
-      status: CobbleStatus.READY;
+      status: MafStatus.READY;
       data: TData;
     };
 
@@ -52,31 +52,31 @@ export function useStore<TData, TFallback>(
   TData | undefined,
   TFallback extends undefined ? never : TFallback
 > {
-  const [status, setStatus] = useState<CobbleStatus>(CobbleStatus.LOADING);
+  const [status, setStatus] = useState<MafStatus>(MafStatus.LOADING);
   const [data, setData] = useState<TData | TFallback>(
     fallback as TFallback extends undefined ? never : TFallback
   );
-  const client = useCobble();
+  const client = useMaf();
 
   useEffect(() => {
     const store = client.store<TData>(storeName);
 
     store.init.then(() => {
       setData(store.data);
-      setStatus(CobbleStatus.READY);
+      setStatus(MafStatus.READY);
       store.on("change", () => setData(store.data));
     });
   }, [client]);
 
-  if (status === CobbleStatus.LOADING) {
+  if (status === MafStatus.LOADING) {
     return {
-      status: CobbleStatus.LOADING,
+      status: MafStatus.LOADING,
       data: fallback as TFallback extends undefined ? never : TFallback,
     };
   }
 
   return {
-    status: CobbleStatus.READY,
+    status: MafStatus.READY,
     data: data as TData,
   };
 }

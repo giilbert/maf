@@ -1,21 +1,21 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { CobbleProvider, useStore } from "@usecobble/react";
+import { MafProvider, useStore } from "@usemaf/react";
 import { App } from "./app";
-import type { CobbleApp } from "./types";
+import type { MafApp } from "./types";
 import "./index.css";
 
-declare module "@usecobble/client" {
-  interface CobbleTypes {
-    generated: CobbleApp;
+declare module "@usemaf/client" {
+  interface MafTypes {
+    generated: MafApp;
   }
 }
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <CobbleProvider server="dev">
+    <MafProvider server="dev">
       <App />
-    </CobbleProvider>
+    </MafProvider>
   </StrictMode>
 );
 

@@ -1,6 +1,6 @@
 {
-  "name": "cobble",
-  "description": "Runtime library for JS/TS Cobble server",
+  "name": "maf",
+  "description": "Runtime library for JS/TS MAF server",
   "version": "0.1.0",
   "main": "src/index.ts",
   "exports": {

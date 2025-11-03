@@ -47,7 +47,7 @@ export default function Home() {
           <div className="space-y-1">
             <div className="flex gap-3">
               <Logo />
-              <p className="text-2xl font-bold">Cobble</p>
+              <p className="text-2xl font-bold">MAF</p>
             </div>
 
             <p className="text-muted-foreground">
@@ -62,28 +62,28 @@ export default function Home() {
 
         <div className="md:ml-auto space-y-2 flex flex-col md:items-end">
           <Link
-            href="https://github.com/giilbert/cobble"
+            href="https://github.com/giilbert/maf"
             className={FOOTER_LINK_CLASSES}
             target="_blank"
             rel="noopener noreferrer"
           >
-            github.com/giilbert/cobble
+            github.com/giilbert/maf
           </Link>
           <Link
-            href="https://www.npmjs.com/package/@usecobble/client"
+            href="https://www.npmjs.com/package/@usemaf/client"
             className={FOOTER_LINK_CLASSES}
             target="_blank"
             rel="noopener noreferrer"
           >
-            npmjs.com/package/@usecobble/client
+            npmjs.com/package/@usemaf/client
           </Link>
           <Link
-            href="https://crates.io/crates/cobble"
+            href="https://crates.io/crates/maf"
             className={FOOTER_LINK_CLASSES}
             target="_blank"
             rel="noopener noreferrer"
           >
-            crates.io/crates/cobble
+            crates.io/crates/maf
           </Link>
         </div>
 
@@ -100,9 +100,7 @@ const PlatformIndicator: React.FC = () => {
   return (
     <div className="flex gap-2 items-center">
       <div className="w-3 h-3 bg-green-500 rounded-full" />
-      <p className="text-sm text-muted-foreground">
-        Cobble Platform is healthy
-      </p>
+      <p className="text-sm text-muted-foreground">MAF Platform is healthy</p>
     </div>
   );
 };

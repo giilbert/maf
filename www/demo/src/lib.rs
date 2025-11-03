@@ -1,4 +1,4 @@
-use cobble::prelude::*;
+use maf::prelude::*;
 use schemars::JsonSchema;
 
 #[derive(Debug, Clone, JsonSchema, serde::Serialize)]
@@ -85,4 +85,4 @@ fn build() -> App {
         .build()
 }
 
-cobble::register!(build);
+maf::register!(build);
