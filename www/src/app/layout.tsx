@@ -4,10 +4,10 @@ import { Provider } from "react-wrap-balancer";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Cobble",
+  title: "Mutation Authority Framework",
   openGraph: {
     type: "website",
-    title: "Cobble",
+    title: "Mutation Authority Framework",
     description:
       "Cobble is a framework for building, deploying, and testing authoritative real-time applications.",
     images: ["https://cobble.gilbertz.me/cover.png"],
