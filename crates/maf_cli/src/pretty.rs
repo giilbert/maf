@@ -2,7 +2,7 @@ macro_rules! info {
     ($($arg:tt)*) => {
         #[allow(unused_imports)]
         use colored::Colorize as _;
-        println!("{}: {}", "INFO".green().bold(), format!($($arg)*));
+        println!("{} {} {}", "info".green().bold(), ":".dimmed(), format!($($arg)*));
     };
 }
 
@@ -10,7 +10,7 @@ macro_rules! _warn {
     ($($arg:tt)*) => {
         #[allow(unused_imports)]
         use colored::Colorize as _;
-        eprintln!("{}: {}", "WARNING".yellow().bold(), format!($($arg)*).yellow());
+        eprintln!("{} {} {}", "warning".yellow().bold(), ":".dimmed(), format!($($arg)*).yellow());
     };
 }
 
@@ -18,7 +18,7 @@ macro_rules! error {
     ($($arg:tt)*) => {
         #[allow(unused_imports)]
         use colored::Colorize as _;
-        eprintln!("{}: {}", "ERROR".red().bold(), format!($($arg)*).red());
+        eprintln!("{} {} {}", "error".red().bold(), ":".dimmed(), format!($($arg)*).red());
     };
 }
 

@@ -10,18 +10,18 @@ use crate::{pretty, Context};
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum ConfigCommands {
-    /// Show all configuration settings
+    /// Show all configuration settings.
     Show,
-    /// Set a configuration settings
+    /// Set a configuration settings.
     Set {
-        /// The configuration key to set
+        /// The configuration key to set. Run `maf config show` to see available keys.
         key: String,
-        /// The value to set for the configuration key
+        /// The value to set for the configuration key.
         value: String,
     },
-    /// Reset a configuration setting to its default value
+    /// Reset a configuration setting to its default value.
     Reset {
-        /// The configuration key to reset
+        /// The key of the configuration setting to reset. Run `maf config show` to see available keys.
         key: String,
     },
 }
@@ -36,14 +36,23 @@ pub fn handle_commands(context: &mut Context, command: ConfigCommands) -> anyhow
 
 fn handle_show(context: &mut Context) -> anyhow::Result<()> {
     let config = context.global_config.clone();
-    println!("{}", "Current configuration:".bold());
+    println!(
+        "{}",
+        format!(
+            "Global config loaded from {}",
+            GlobalConfig::get_config_file()?.display()
+        )
+        .dimmed()
+    );
 
-    for (key, value) in [
+    for (key, name, value) in [
         (
+            "server_url",
             "Server URL",
             config.server_url.as_deref().map(|url| url.to_string()),
         ),
         (
+            "token",
             "Token",
             config
                 .token
@@ -51,10 +60,12 @@ fn handle_show(context: &mut Context) -> anyhow::Result<()> {
                 .map(|t| t[0..5].to_string() + &".".repeat(t.len() - 5)),
         ),
     ] {
-        match value {
-            Some(value) => println!("{}: {}", key.bold(), value),
-            None => println!("{}: {}", key.bold(), "<not set>".dimmed()),
-        }
+        println!(
+            "{} {}: {}",
+            name.bold(),
+            format!("`{}`", key).dimmed(),
+            value.unwrap_or_else(|| "<not set>".dimmed().to_string())
+        )
     }
 
     Ok(())
