@@ -1,3 +1,15 @@
+//! Entrypoints for WebSocket and HTTP hook requests to apps.
+//!
+//! This module defines the API routes for connecting to app rooms via WebSockets and handling hook
+//! requests. It is responsible for routing incoming requests to appropriate rooms and managing room
+//! creation strategies based on app configurations.
+//!
+//! **Routes:**
+//! - `GET /@/{org_slug}/{app_name}/{room_id}/connect`:
+//!   Establishes a WebSocket connection to the specified room.
+//! - `POST /@/{org_slug}/{app_name}/{room_key}/hooks/{method}`:
+//!   Handles hook requests for the specified room.
+
 use axum::{
     body::Body,
     extract::{Path, Query, State, WebSocketUpgrade},
@@ -6,9 +18,8 @@ use axum::{
     Router,
 };
 use maf_container::{
-    server::{handle_ws_upgrade, RoomInner},
+    server::handle_ws_upgrade,
     wasi::bindings::{self, HookRequestCaller},
-    ContainerResourceLimit,
 };
 use maf_schemas::{
     apps::{AppNameAndOrgSlug, RoomCreationStrategy},
@@ -18,10 +29,7 @@ use maf_schemas::{
 use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::{
-    api::rooms::{InsertRoom, Room},
-    storage::{db::app, repos::app_repo},
-};
+use crate::storage::repos::app_repo;
 
 use super::state::{AppState, Environment};
 
@@ -38,14 +46,20 @@ pub struct ConnectQueryParams {
     secret: Option<String>,
 }
 
+/// GET /@/{org_slug}/{app_name}/{room_id}/connect
+///
+/// FIXME: There is no way for clients to get an error message if something goes wrong here since
+/// it is a WebSocket upgrade request. Consider adding a preliminary HTTP request to validate
+/// parameters before attempting the upgrade.
 async fn connect_route(
     State(state): State<AppState>,
     Path((org_slug, app_name, room_id)): Path<(String, String, String)>,
     Query(query_params): Query<ConnectQueryParams>,
     ws: WebSocketUpgrade,
 ) -> Result<Response, ErrorResponse> {
+    // Fetch the app and determine its room creation strategy, defaulting based on environment and
+    // whether it is set
     let app = app_repo::get_app_by_name_and_org_slug(&state.db, &app_name, &org_slug).await?;
-
     let room_creation_strategy = match app.as_ref().map(|app| app.config.clone()).flatten() {
         Some(config) => {
             let parsed_config = toml::from_str::<ProjectConfigFile>(&config).map_err(|_| {
@@ -64,6 +78,8 @@ async fn connect_route(
     };
 
     let room = match room_creation_strategy {
+        // If the room was created via an authenticated API request, validate the secret and fetch
+        // the room. If the room does not exist or the secret is invalid, return an error.
         RoomCreationStrategy::AuthenticatedApiRequest => {
             let room = state
                 .rooms
@@ -97,13 +113,17 @@ async fn connect_route(
                 )));
             }
 
-            fetch_autocreated_room(app, &state, org_slug).await?
+            state
+                .rooms
+                .fetch_autocreated_room(&state, app, org_slug)
+                .await?
         }
     };
 
     Ok(handle_ws_upgrade(ws, room.inner).await)
 }
 
+/// POST /@/{org_slug}/{app_name}/{room_key}/hooks/{method}
 async fn hook_request_handler(
     State(state): State<AppState>,
     Path((org_slug, app_name, room_key, method)): Path<(String, String, String, String)>,
@@ -146,100 +166,4 @@ async fn hook_request_handler(
     };
 
     Ok(response)
-}
-
-async fn fetch_autocreated_room(
-    app: Option<app::Model>,
-    state: &AppState,
-    org_slug: String,
-) -> Result<Room, ErrorResponse> {
-    // The code is structured this way to avoid deadlocks
-    let existing_room_id = state
-        .rooms
-        .auto_created_rooms
-        .read()
-        .await
-        .get(&AppNameAndOrgSlug {
-            app: app
-                .as_ref()
-                .map(|a| a.name.clone())
-                .unwrap_or("development".to_string()),
-            org: org_slug.clone(),
-        })
-        .cloned();
-
-    let room_id = match existing_room_id {
-        Some(id) => id,
-        None => {
-            let (room, mut container) = match &app {
-                Some(app) => {
-                    RoomInner::new(
-                        &state.container_runtime,
-                        state
-                            .bundle_storage
-                            .load_app_bundle(app.id)
-                            .await?
-                            .ok_or_else(|| {
-                                ErrorResponse::not_found(Some("app bundle not found"))
-                            })?,
-                        ContainerResourceLimit::sensible_default(),
-                    )
-                    .await?
-                }
-                None if state.environment == Environment::Development => {
-                    tracing::info!("App not found. Defaulting to test app (development only)");
-                    RoomInner::new(
-                        &state.container_runtime,
-                        state.bundle_storage.load_test_app().await?,
-                        ContainerResourceLimit::sensible_default(),
-                    )
-                    .await?
-                }
-                None => return Err(ErrorResponse::not_found(Some("app not found"))),
-            };
-
-            // In development, if the app is not found, we use the test app
-            let app_name = app
-                .as_ref()
-                .map(|a| a.name.clone())
-                .unwrap_or("development".to_string());
-
-            let app_name_clone = app_name.clone();
-            let room_id = room.id();
-            state
-                .rooms
-                .insert(InsertRoom {
-                    room,
-                    strategy: RoomCreationStrategy::AutoCreate,
-                    app: AppNameAndOrgSlug {
-                        app: app_name_clone,
-                        org: org_slug.clone(),
-                    },
-                    key: "default".to_string(),
-                })
-                .await;
-
-            let state = state.clone();
-            container.pass_output();
-            container.start_inactive_shutdown_task();
-
-            tokio::spawn(async move {
-                if let Err(e) = container.run().await {
-                    tracing::error!("container {} error: {e:?}", container.room_id);
-                }
-                tracing::info!("container {} stopped", container.room_id);
-
-                state.rooms.remove(&room_id).await;
-            });
-
-            room_id
-        }
-    };
-
-    Ok(state
-        .rooms
-        .get(&room_id)
-        .await
-        .expect("room not found")
-        .clone())
 }

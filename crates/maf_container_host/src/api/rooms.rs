@@ -3,11 +3,18 @@ use std::{
     sync::Arc,
 };
 
-use maf_container::server::RoomInner;
-use maf_schemas::apps::{
-    generate_room_secret, AppNameAndOrgSlug, RoomCreationStrategy, RoomId, RoomKeyHash,
+use dashmap::{DashMap, DashSet};
+use maf_container::{server::RoomInner, ContainerResourceLimit};
+use maf_schemas::{
+    apps::{generate_room_secret, AppNameAndOrgSlug, RoomCreationStrategy, RoomId, RoomKeyHash},
+    error::ErrorResponse,
 };
-use tokio::sync::{RwLock, RwLockReadGuard};
+use tokio::sync::{Notify, RwLock, RwLockReadGuard};
+
+use crate::{
+    api::{AppState, Environment},
+    storage::db::app,
+};
 
 #[derive(Debug, Clone)]
 pub struct Room {
@@ -42,6 +49,9 @@ pub struct RoomsStorage {
     pub keys: Arc<RwLock<HashMap<RoomKeyHash, RoomId>>>,
     pub auto_created_rooms: Arc<RwLock<HashMap<AppNameAndOrgSlug, RoomId>>>,
     pub api_created_rooms: Arc<RwLock<HashMap<AppNameAndOrgSlug, HashSet<RoomId>>>>,
+    /// A set of autocreate rooms that are currently being created to prevent race conditions.
+    creating_autocreate_rooms: Arc<DashSet<AppNameAndOrgSlug>>,
+    autocreate_room_notify: Arc<DashMap<AppNameAndOrgSlug, Arc<Notify>>>,
 }
 
 impl RoomsStorage {
@@ -149,5 +159,166 @@ impl RoomsStorage {
         });
 
         Some(room)
+    }
+
+    /// Finds the autocreated room for the given app and org slug, creating it if it does not exist.
+    #[tracing::instrument(skip(self, state))]
+    pub async fn fetch_autocreated_room(
+        &self,
+        state: &AppState,
+        app: Option<app::Model>,
+        org_slug: String,
+    ) -> Result<Room, ErrorResponse> {
+        let app_org = AppNameAndOrgSlug {
+            app: app
+                // In development, if the app is not found, we use the test app
+                .as_ref()
+                .map(|a| a.name.clone())
+                .unwrap_or("development".to_string()),
+            org: org_slug.clone(),
+        };
+
+        // The code is structured this way to avoid deadlocks
+        let existing_room_id = self.auto_created_rooms.read().await.get(&app_org).cloned();
+
+        let room_id = match existing_room_id {
+            Some(id) => id,
+            // Room does not exist, create it
+            None => {
+                // Check if another task is already creating this room. If so, wait for it to finish
+                // and then return the room.
+
+                // If entry is newly inserted, this task is responsible for creating the room.
+                let is_first = self.creating_autocreate_rooms.insert(app_org.clone());
+
+                if !is_first {
+                    // Another task is creating the room, wait for it to finish.
+                    let notify = self
+                        .autocreate_room_notify
+                        .entry(app_org.clone())
+                        .or_insert_with(|| Arc::new(Notify::new()))
+                        .clone();
+
+                    // Double-check in case the room is already available to avoid a missed-notify
+                    // race (Notify does not buffer past signals).
+                    if let Some(room) = self.get_by_key_or_id(&app_org, "default").await {
+                        return Ok(room.clone());
+                    }
+
+                    notify.notified().await;
+
+                    return Ok(self
+                        .get_by_key_or_id(&app_org, "default")
+                        .await
+                        .ok_or_else(|| anyhow::anyhow!("Room not found after creation"))?
+                        .clone());
+                }
+
+                // This task is responsible for creating the room.
+                self.autocreate_room_notify
+                    .entry(app_org.clone())
+                    .or_insert_with(|| Arc::new(Notify::new()));
+
+                // Re-check if the room was created by another task between the initial read and
+                // acquiring "leadership" (is_first=true).
+                if let Some(already_id) =
+                    self.auto_created_rooms.read().await.get(&app_org).cloned()
+                {
+                    if let Some(n) = self.autocreate_room_notify.get(&app_org) {
+                        n.notify_waiters();
+                    }
+                    self.autocreate_room_notify.remove(&app_org);
+                    self.creating_autocreate_rooms.remove(&app_org);
+
+                    return Ok(state
+                        .rooms
+                        .get(&already_id)
+                        .await
+                        .expect("room not found")
+                        .clone());
+                }
+
+                // Perform creation inside an inner async block so we can always run cleanup
+                // (notify + set removals) even on early errors.
+                let result: Result<RoomId, ErrorResponse> = async {
+                    let (room, mut container) = match &app {
+                        Some(app) => {
+                            RoomInner::new(
+                                &state.container_runtime,
+                                state
+                                    .bundle_storage
+                                    .load_app_bundle(app.id)
+                                    .await?
+                                    .ok_or_else(|| {
+                                        ErrorResponse::not_found(Some("app bundle not found"))
+                                    })?,
+                                ContainerResourceLimit::sensible_default(),
+                            )
+                            .await?
+                        }
+                        None if state.environment == Environment::Development => {
+                            tracing::info!(
+                                "App not found. Defaulting to test app (development only)"
+                            );
+                            RoomInner::new(
+                                &state.container_runtime,
+                                state.bundle_storage.load_test_app().await?,
+                                ContainerResourceLimit::sensible_default(),
+                            )
+                            .await?
+                        }
+                        None => return Err(ErrorResponse::not_found(Some("app not found"))),
+                    };
+
+                    let room_id = room.id();
+                    state
+                        .rooms
+                        .insert(InsertRoom {
+                            room,
+                            strategy: RoomCreationStrategy::AutoCreate,
+                            app: app_org.clone(),
+                            key: "default".to_string(),
+                        })
+                        .await;
+
+                    let state = state.clone();
+                    container.pass_output();
+                    container.start_inactive_shutdown_task();
+
+                    tokio::spawn(async move {
+                        if let Err(e) = container.run().await {
+                            tracing::error!("container {} error: {e:?}", container.room_id);
+                        }
+                        tracing::info!("container {} stopped", container.room_id);
+
+                        state.rooms.remove(&room_id).await;
+                    });
+
+                    Ok(room_id)
+                }
+                .await;
+
+                // Notify other tasks waiting for this room to be created and clean up, regardless
+                // of success or error.
+                if let Some(n) = self.autocreate_room_notify.get(&app_org) {
+                    n.notify_waiters();
+                }
+                self.autocreate_room_notify.remove(&app_org);
+                self.creating_autocreate_rooms.remove(&app_org);
+
+                // Return based on creation result
+                match result {
+                    Ok(room_id) => room_id,
+                    Err(e) => return Err(e),
+                }
+            }
+        };
+
+        Ok(state
+            .rooms
+            .get(&room_id)
+            .await
+            .expect("room not found")
+            .clone())
     }
 }
