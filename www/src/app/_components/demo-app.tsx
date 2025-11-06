@@ -30,7 +30,7 @@ export const DemoApp: React.FC = () => {
           ? "dev"
           : {
               type: "platform",
-              url: "https://maf-server.fly.dev",
+              url: "https://onmaf.gilbertz.me",
               app: "gilbert/maf-demo",
             },
     });
