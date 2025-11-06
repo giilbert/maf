@@ -1,7 +1,5 @@
 # This Dockerfile should be built from the root of the repository.
-# `docker build -f scripts/fly.dockerfile -t maf-server:latest .`
-
-# TODO: cache the build better
+# `just docker-build` or `docker build -f scripts/fly.dockerfile -t maf-server:latest .`
 
 FROM rust:1.86-slim-bookworm AS builder
 
@@ -20,8 +18,12 @@ ADD crates/maf/wit ./crates/maf/wit
 
 # Create Cargo.toml with correct workspaces
 RUN echo '[workspace]\nmembers = ["crates/maf_container_host", "crates/maf_schemas", "crates/maf_container_host/migrations", "crates/maf_container"]\nresolver="2"' > Cargo.toml
-# Build the application
-RUN cargo build --release --package maf_container_host
+# Build maf_container_host with caching on target and cargo registry (packages)
+RUN \
+    --mount=type=cache,target=/app/target \
+    --mount=type=cache,target=/usr/local/cargo/registry \
+    cargo build --release --package maf_container_host && \
+    cp ./target/release/maf_container_host /app/maf_container_host
 
 FROM debian:latest AS app
 
@@ -40,7 +42,7 @@ RUN apt-get update && \
     apt-get install -y libssl3 && \
     rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/target/release/maf_container_host /app/maf_container_host
+COPY --from=builder /app/maf_container_host /app/maf_container_host
 
 EXPOSE 1147
 USER maf_container_host
