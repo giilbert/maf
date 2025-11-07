@@ -2174,7 +2174,7 @@ dependencies = [
 
 [[package]]
 name = "maf"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 dependencies = [
  "anyhow",
  "futures-util",
@@ -2297,7 +2297,7 @@ dependencies = [
 
 [[package]]
 name = "maf_schemas"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 dependencies = [
  "anyhow",
  "axum",
