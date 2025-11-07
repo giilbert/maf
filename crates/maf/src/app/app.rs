@@ -44,6 +44,7 @@ use super::{
     state::StateStore,
 };
 
+/// A complete MAF application, containing stores, RPC functions, background tasks, and more.
 #[derive(Clone)]
 pub struct App {
     pub(crate) inner: Arc<AppInner>,
@@ -72,6 +73,8 @@ pub struct AppState {
     pub(crate) user_rx_channels: RwLock<HashMap<(Uuid, String), UntypedChannelBroadcast>>,
 }
 
+/// Builder for constructing a MAF application. Used to register stores, RPC functions, background
+/// tasks, and more.
 #[derive(Default)]
 pub struct AppBuilder {
     on_connect: Option<Arc<OnConnectDisconnectFn>>,
@@ -90,10 +93,13 @@ pub struct AppBuilder {
 }
 
 impl App {
+    /// Begin building a new application.
     pub fn builder() -> AppBuilder {
         AppBuilder::default()
     }
 
+    /// Fetches a store instance for the given store data type. If the store does not exist, it
+    /// will be created and initialized with the default value.
     pub async fn store<T: StoreData>(&self) -> Store<T> {
         Store::<T>::new(self.clone()).await
     }

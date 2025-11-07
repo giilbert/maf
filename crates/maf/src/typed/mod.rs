@@ -7,8 +7,9 @@
 //! custom types, it can be implemented using the derive macro.
 //!
 //! [`schemars::JsonSchema`] is compatible with [`serde`], recognizing `#[serde]` attributes like
-//! field renames, enum tagging, defaults, and so on. See the [`schemars` documentation]
-//! (https://graham.cool/schemars/examples/2-serde_attrs) for more information.
+//! field renames, enum tagging, defaults, and so on. See the
+//! [`schemars` documentation](https://graham.cool/schemars/examples/2-serde_attrs) for more
+//! information.
 //!
 //! ## Example
 //!
@@ -67,14 +68,6 @@ impl App {
             .try_read()
             .expect("Failed to read stores");
         let rpcs = &self.inner.rpc_functions.inner;
-
-        // for (key, store) in stores.iter() {
-        //     println!("store: key = {:?}, desc = {:?}", key.as_ref(), store.desc);
-        // }
-
-        // for rpc in rpcs.values() {
-        //     println!("rpc: method = {:?} desc = {:?}", rpc.method, rpc.desc);
-        // }
 
         let mut generator = schemars::SchemaGenerator::default();
         let select_stores = self

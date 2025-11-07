@@ -69,21 +69,64 @@ pub struct StoreKey(Arc<str>);
 /// Describes the data stored in a [`Store`].
 pub trait StoreData: Send + Sync + 'static {
     #[cfg(not(feature = "typed"))]
+    /// The type of data selected to be serialized and sent to clients. This type must implement
+    /// `serde::Serialize`.
     type Select<'this>: Serialize;
     #[cfg(feature = "typed")]
+    /// The type of data selected to be serialized and sent to clients. This type must implement
+    /// `serde::Serialize` and `schemars::JsonSchema`.
     type Select<'this>: Serialize + JsonSchema;
 
+    /// Returns the name of the store to be used by clients to identify it.
+    ///
+    /// If not specified, the default is the Rust type name of `Self`.
     fn name() -> impl AsRef<str> + Send {
         std::any::type_name::<Self>()
     }
 
+    /// Returns the key of the store used internally to identify it. You should rarely need to or
+    /// want to override this.
     fn key() -> impl Into<StoreKey> {
         StoreKey::from(Self::name().as_ref())
     }
 
+    /// Selects the portion of the store data to be serialized and sent to the given user.
+    ///
+    /// The lifetime `'this` enables returning references into `self`.
+    ///
+    /// ## Example
+    /// ```rust
+    /// use maf::prelude::*;
+    ///
+    /// struct Message {
+    ///     text: String,
+    ///     secret: String,
+    /// }
+    ///
+    /// impl StoreData for Message {
+    ///     // The 'this lifetime refers to the lifetime of the data being selected and it allows
+    ///     // zero-copy serialization by returning references into self. This is an optional
+    ///     // feature--you can also return owned data if preferred.
+    ///     type Select<'this> = &'this String;
+    ///
+    ///     fn init() -> Self {
+    ///         Message {
+    ///             text: "Hello, world!".to_string(),
+    ///             secret: "This is a secret.".to_string(),
+    ///         }
+    ///     }
+    ///
+    ///     fn select(&self, user: &User) -> Self::Select<'_> {
+    ///         // Send only the public text, not the secret to the client
+    ///         &self.text
+    ///     }
+    /// }
+    ///
+    /// ```
     #[allow(unused_variables)]
     fn select(&self, user: &User) -> Self::Select<'_>;
 
+    /// Initializes the store data with a default value.
     fn init() -> Self;
 }
 

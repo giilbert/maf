@@ -7,9 +7,11 @@ pub mod bindgen {
         }
     });
 
+    #[allow(unused)] // This is used in generated code
     pub use maf::bindings::bindings::*;
 }
 
+#[allow(unused)] // This is used in generated code
 pub fn init_panic_hook() {
     std::panic::set_hook(Box::new(|panic_info| println!("{}", panic_info)));
 }

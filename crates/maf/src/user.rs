@@ -12,6 +12,26 @@ use crate::{
     Channel,
 };
 
+/// Represents a connected user.
+///
+/// ## Extractor
+/// The [`User`] type can be used as an extractor in RPC functions to access information about the
+/// user that made the request. For example:
+/// ```rust
+/// use maf::prelude::*;
+///
+/// async fn greet_user(user: User) -> String {
+///     format!("Hello, user with ID: {}", user.meta().id())
+/// }
+///
+/// fn build() -> App {
+///     App::builder()
+///         .rpc("greet_user", greet_user)
+///         .build()
+/// }
+///
+/// maf::register!(build);
+/// ```
 #[derive(Debug, Clone)]
 pub struct User {
     meta: UserMeta,
@@ -19,6 +39,7 @@ pub struct User {
     inner: Arc<platform::RawUser>,
 }
 
+/// MAF user metadata
 #[derive(Debug, Clone)]
 pub struct UserMeta {
     pub id: Uuid,

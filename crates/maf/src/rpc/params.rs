@@ -4,6 +4,31 @@ use crate::callable::CallableParam;
 
 use super::{RpcError, RpcRequestContext, RpcRequestData, RpcRequestInit};
 
+/// Extractor for RPC function parameters.
+///
+/// ```rust
+/// use maf::prelude::*;
+///
+/// // A simple RPC that takes a single integer parameter.
+/// async fn increment_counter(Params(counter): Params<i32>, test: Store<CounterStore>) -> i32 {
+///     let mut store = test.write().await;
+///     store.count += counter;
+///     store.count
+/// }
+///
+/// async fn set_counter(
+///     // Multiple parameters can be extracted as a tuple.
+///     Params((new_value, stop, reason)): Params<(i32, boolean, String)>,
+///     test: Store<CounterStore>
+/// ) {
+///     let mut store = test.write().await;
+///     println!("Setting counter to {} because {}", new_value, reason);
+///     store.count = new_value;
+///     if stop {
+///         // Do something to stop the counter...
+///     }
+/// }
+/// ```
 #[derive(Debug)]
 pub struct Params<T: DeserializeOwned>(pub T);
 

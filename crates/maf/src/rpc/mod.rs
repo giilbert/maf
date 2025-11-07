@@ -2,9 +2,49 @@
 //!
 //! It allows a MAF client to call functions on the server and receive responses.
 //!
-//! ## Parameters
-//! An RPC function can accept parameters in the form of [`Params<T>`], where `T` is the type of the
-//! parameter. If multiple inputs are needed, they can be passed as a tuple, e.g.
+//! ## Defining RPC Functions
+//! RPC functions are defined as regular Rust functions (async or sync) that take in parameters that
+//! are *extractors* and return a value. Extractors are types that retrieve data from the RPC
+//! request context, such as parameters, the app instance, the user making the request, or stores
+//! (see below for more details). The return value can be any type that implements
+//! [`serde::Serialize`]. The function must be registered with the MAF app using
+//! [`crate::AppBuilder::rpc`] and given a unique method name.
+//!
+//! ```rust
+//! use maf::prelude::*; // maf::prelude imports commonly used MAF types
+//!
+//! // An RPC function that adds a given amount to a counter store.
+//! async fn add_counter(
+//!     Params(amount): Params<i32>, // `Params<T>` extractor for input parameters
+//!     counter: Store<Counter> // `Store<T>` extractor for accessing a store
+//! ) -> i32 {
+//!     let mut store = counter.write().await;
+//!     store.count += amount;
+//!     store.count
+//! }
+//!
+//! async fn reset_counter(
+//!     user: User, // `User` extractor for accessing the user making the request
+//!     counter: Store<Counter>
+//! ) {
+//!     println!("User {} reset the counter", user.meta().id());
+//!     let mut store = counter.write().await;
+//!     store.count = 0;
+//! }
+//!
+//! fn build() -> App {
+//!     App::builder()
+//!         .store::<Counter>()
+//!         .rpc("add_counter", add_counter) // Register the add_counter RPC function
+//!         .rpc("reset_counter", reset_counter) // Register the reset_counter RPC function
+//! }
+//!
+//! maf::register!(build); // Register the app with MAF
+//! ```
+//!
+//! ## Inputs to RPC Functions
+//! An RPC function can accept parameters from callers in the form of [`Params<T>`], where `T` is
+//! the type of the parameter. If multiple inputs are needed, they can be passed as a tuple, e.g.
 //! `Params<(i32, String)>`. The parameters will be deserialized from the JSON request body, leaving
 //! it up to the client to ensure the correct types are sent and are in the correct order.
 //!
@@ -12,7 +52,7 @@
 //! The return value of an RPC function can be any type that implements [`serde::Serialize`]. The
 //! response will be serialized to JSON and sent back to the client.
 //!
-//! ## Additional APIs
+//! ## Extractors
 //! An RPC function declaration can take in additional parameters which can be used to access
 //! additional MAF APIs:
 //!

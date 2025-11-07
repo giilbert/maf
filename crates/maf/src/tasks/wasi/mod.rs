@@ -16,10 +16,12 @@ use runtime::JoinHandle;
 pub use runtime::Runtime;
 use timers::SleepFuture;
 
+/// Spawns a new asynchronous task on the current runtime.
 pub fn spawn<T: IntoFuture + 'static>(fut: T) -> JoinHandle<T::Output> {
     Runtime::current().spawn(fut)
 }
 
+/// Sleeps until the specified instant.
 pub fn sleep_until(instant: std::time::Instant) -> SleepFuture {
     let duration = instant
         .checked_duration_since(std::time::Instant::now())
@@ -27,6 +29,7 @@ pub fn sleep_until(instant: std::time::Instant) -> SleepFuture {
     SleepFuture::new(duration)
 }
 
+/// Sleeps for the specified duration.
 pub fn sleep(duration: std::time::Duration) -> SleepFuture {
     SleepFuture::new(duration)
 }
