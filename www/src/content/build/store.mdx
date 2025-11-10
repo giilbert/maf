@@ -11,11 +11,12 @@ real-time capabilities.
 
 ## Usage
 
-### Server
+## Server
 
-<Tabs defaultValue="rust">
+<Tabs defaultValue="rust" docId="server">
   <TabsList>
     <TabsTrigger value="rust">Rust</TabsTrigger>
+    <TabsTrigger value="typescript">TypeScript</TabsTrigger>
   </TabsList>
 
 <TabsContent value="rust">
@@ -48,7 +49,7 @@ fn build() -> App {
 maf::register!(build);
 ```
 
-#### Implementing `StoreData`
+### Implementing `StoreData`
 
 The `StoreData` trait defines the necessary methods for a store, including
 initialization, selection, and key generation. Only the `init` method and `Data`
@@ -76,7 +77,7 @@ pub trait StoreData: 'static {
 }
 ```
 
-##### `Data`
+#### `Data`
 
 The `Data` associated type represents the data structure that the store will
 manage. It must implement `Send`, `Sync`, and `'static` traits to ensure thread
@@ -84,19 +85,19 @@ safety.
 
 `Data` will commonly be `Self`, but can be other types if needed.
 
-##### `name`
+#### `name`
 
 The `name` method returns the _name_ of the store, which is used client-side to
 refer to the store. It defaults to the type name of the struct implementing
 `StoreData`.
 
-##### `key`
+#### `key`
 
 The `key` method returns a unique identifier for the store, which is used to
 distinguish it from other stores. It defaults to the store's name. `key` will be
 used in the future to allow multiple stores of the same type.
 
-##### `select`
+#### `select`
 
 The `select` method is used to select a subset of the store's data to be sent
 to the client.
@@ -115,7 +116,7 @@ fn select(data: &Self::Data, user: &User) -> impl serde::Serialize
 }
 ```
 
-##### `init`
+#### `init`
 
 The `init` method is called when the store is initialized. It should return an
 instance of the `Data` type that the store will manage. This is where you can
@@ -144,11 +145,19 @@ async fn some_rpc_function(store: Store<Counter>) {
 
 </TabsContent>
 
+<TabsContent value="typescript">
+
+In TypeScript, a store is created using the `m.store()` factory method.
+
+### Factory
+
+</TabsContent>
+
 </Tabs>
 
-### Client
+## Client
 
-<Tabs defaultValue="javascript">
+<Tabs defaultValue="javascript" docId="client">
   <TabsList>
     <TabsTrigger value="javascript">JavaScript</TabsTrigger>
   </TabsList>

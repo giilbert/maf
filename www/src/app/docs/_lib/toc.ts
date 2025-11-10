@@ -12,7 +12,16 @@ export interface Heading {
   level: number;
   slug: string;
   title: string;
+  tabId?: string;
+  tabValue?: string;
 }
+
+type ExtendedHeadingNode = MdNode &
+  MdParent &
+  MdHeading & {
+    tabId?: string;
+    tabValue?: string;
+  };
 
 const generateSlug = (title: string, usedSlugs: Set<string>) => {
   const slug = slugify(title);
@@ -37,11 +46,60 @@ const getHeadingTextMdast = (node: MdNode & MdParent): string => {
     .join("");
 };
 
+type JsxAttribute = {
+  type: "mdxJsxAttribute";
+  name: string;
+  value: string;
+};
+
 const extractTocTransformer: Transformer<Root> = (ast, _file) => {
   const headings: Heading[] = [];
   const usedSlugs = new Set<string>();
+  const defaultTabSelection: Record<string, string> = {};
 
-  visit(ast, "heading", (node: MdNode & MdParent & MdHeading) => {
+  visit(ast, "mdxJsxFlowElement", (node) => {
+    if (node.name !== "Tabs") return CONTINUE;
+
+    const docAttr = node.attributes.find(
+      (attr) => attr.type === "mdxJsxAttribute" && attr.name === "docId"
+    ) as JsxAttribute | undefined;
+
+    if (!docAttr || !docAttr.value) {
+      console.warn("Tabs component is missing docId attribute", node);
+      return CONTINUE;
+    }
+    const tabsId = docAttr.value;
+
+    defaultTabSelection[tabsId] =
+      (
+        node.attributes.find(
+          (attr) =>
+            attr.type === "mdxJsxAttribute" && attr.name === "defaultValue"
+        ) as JsxAttribute | undefined
+      )?.value || "";
+
+    visit(node, "mdxJsxFlowElement", (childNode) => {
+      if (childNode.name !== "TabsContent") return CONTINUE;
+
+      const valueAttr = childNode.attributes.find(
+        (attr) => attr.type === "mdxJsxAttribute" && attr.name === "value"
+      ) as JsxAttribute | undefined;
+
+      if (!valueAttr || !valueAttr.value) {
+        console.warn("TabContent component is missing value attribute", node);
+        return CONTINUE;
+      }
+      const tabValue = valueAttr.value;
+
+      visit(childNode, "heading", (headingNode: ExtendedHeadingNode) => {
+        headingNode.tabValue = tabValue;
+        headingNode.tabId = tabsId;
+        // console.log("Found heading inside TabContent", headingNode);
+      });
+    });
+  });
+
+  visit(ast, "heading", (node: ExtendedHeadingNode) => {
     const title = getHeadingTextMdast(node);
 
     if (node.depth < 2) return CONTINUE;
@@ -50,6 +108,8 @@ const extractTocTransformer: Transformer<Root> = (ast, _file) => {
       level: node.depth,
       slug: generateSlug(title, usedSlugs),
       title,
+      tabId: node.tabId,
+      tabValue: node.tabValue,
     });
   });
 
@@ -71,6 +131,14 @@ const extractTocTransformer: Transformer<Root> = (ast, _file) => {
                   type: "VariableDeclarator",
                   id: { type: "Identifier", name: "headings" },
                   init: { type: "Literal", value: JSON.stringify(headings) },
+                },
+                {
+                  type: "VariableDeclarator",
+                  id: { type: "Identifier", name: "defaultTabSelection" },
+                  init: {
+                    type: "Literal",
+                    value: JSON.stringify(defaultTabSelection),
+                  },
                 },
               ],
             },

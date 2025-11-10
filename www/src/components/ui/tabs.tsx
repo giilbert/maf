@@ -1,10 +1,48 @@
 "use client";
 
-import { forwardRef } from "react";
+import {
+  createContext,
+  forwardRef,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+} from "react";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import { cn } from "@/lib/cn";
 
-const Tabs = TabsPrimitive.Root;
+interface DocsTabsContextValue {
+  tabSelections: Map<string, string>;
+  updateTabSelection: (id: string, selection: string) => void;
+}
+
+export const DocsTabsContext = createContext<DocsTabsContextValue | null>(null);
+
+const Tabs = forwardRef<
+  React.ComponentRef<typeof TabsPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Root> & {
+    docId?: string;
+  }
+>(({ onValueChange, docId, ...props }, ref) => {
+  const context = useContext(DocsTabsContext);
+
+  if (context && !docId) {
+    throw new Error(
+      "Tabs must have an `docId` when used within <DocsTabsContext>. This is required to track tab selection."
+    );
+  }
+
+  return (
+    <TabsPrimitive.Root
+      ref={ref}
+      onValueChange={(value) => {
+        if (docId && context) context.updateTabSelection(docId, value);
+        onValueChange?.(value);
+      }}
+      {...props}
+    />
+  );
+});
+Tabs.displayName = TabsPrimitive.Root.displayName;
 
 const TabsList = forwardRef<
   React.ComponentRef<typeof TabsPrimitive.List>,
