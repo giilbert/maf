@@ -14,8 +14,8 @@
     "docs": [
       "build/channel",
       "build/store",
-      "build/state",
       "build/rpc",
+      "build/local",
       "build/rooms",
       "build/type-generation"
     ]
