@@ -11,7 +11,7 @@ use crate::callable::{CallableFetch, CallableParam};
 use super::App;
 
 #[derive(Debug, Default)]
-pub struct StateStore {
+pub struct LocalStateStore {
     states: HashMap<TypeId, AnyState>,
 }
 
@@ -20,23 +20,23 @@ pub struct AnyState {
     data: Arc<RwLock<Box<dyn Any + Send + Sync>>>,
 }
 
-/// [`State`] is a wrapper around shared data that can be accessed throughout the app **without
+/// [`Local`] is a wrapper around shared data that can be accessed throughout the app **without
 /// being synchronized to clients**.
 ///
 /// If client synchronization is needed, use [`crate::Store`] instead.
 #[derive(Debug, Clone)]
-pub struct State<T> {
+pub struct Local<T> {
     inner: AnyState,
     _phantom: std::marker::PhantomData<T>,
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum StateError {
-    #[error("state of type {0} not found")]
+pub enum LocalStateError {
+    #[error("local state of type {0} not found")]
     NotFound(String),
 }
 
-impl StateStore {
+impl LocalStateStore {
     pub fn insert<T: Send + Sync + 'static>(&mut self, data: T) {
         self.states.insert(
             TypeId::of::<T>(),
@@ -46,15 +46,15 @@ impl StateStore {
         );
     }
 
-    pub fn get<T: Send + Sync + 'static>(&self) -> Option<State<T>> {
-        self.states.get(&TypeId::of::<T>()).map(|state| State {
+    pub fn get<T: Send + Sync + 'static>(&self) -> Option<Local<T>> {
+        self.states.get(&TypeId::of::<T>()).map(|state| Local {
             inner: state.clone(),
             _phantom: std::marker::PhantomData,
         })
     }
 }
 
-impl<T: 'static> State<T> {
+impl<T: 'static> Local<T> {
     pub async fn read(&self) -> RwLockReadGuard<'_, T> {
         RwLockReadGuard::map(self.inner.data.read().await, |inner| {
             inner
@@ -73,9 +73,9 @@ impl<T: 'static> State<T> {
 }
 
 impl<T: Send + Sync + 'static, Ctx: CallableFetch<App> + Send + Sync, Init: Send + Sync>
-    CallableParam<Ctx, Init> for State<T>
+    CallableParam<Ctx, Init> for Local<T>
 {
-    type Error = StateError;
+    type Error = LocalStateError;
 
     async fn extract(ctx: &mut Ctx, _init: &Init) -> Result<Self, Self::Error> {
         let state = ctx
@@ -83,7 +83,7 @@ impl<T: Send + Sync + 'static, Ctx: CallableFetch<App> + Send + Sync, Init: Send
             .inner
             .states
             .get::<T>()
-            .ok_or_else(|| StateError::NotFound(std::any::type_name::<T>().to_string()))?;
+            .ok_or_else(|| LocalStateError::NotFound(std::any::type_name::<T>().to_string()))?;
 
         Ok(state)
     }

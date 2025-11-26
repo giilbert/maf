@@ -36,13 +36,13 @@
 mod app;
 mod background;
 pub(crate) mod hooks;
+mod local;
 mod on_connect_disconnect;
 mod plugin;
-mod state;
 
 pub use app::{App, AppBuilder};
+pub use local::Local;
 pub use plugin::Plugin;
-pub use state::State;
 
 pub(crate) use app::AppState;
-pub(crate) use state::StateError;
+pub(crate) use local::LocalStateError;

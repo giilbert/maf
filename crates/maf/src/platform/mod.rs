@@ -1,4 +1,8 @@
 //! Platform-specific implementations for MAF.
+//!
+//! This crate contains code that enables MAF applications to run on WASI standards (`wasi` module)
+//! and native code (`native` module). By default, MAF is set to compile for WASI. The `native`
+//! feature can be enabled to compile to native code.
 
 #[cfg(feature = "native")]
 mod actor;

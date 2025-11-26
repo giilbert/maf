@@ -38,10 +38,10 @@ use crate::{
 use super::{
     background::{BackgroundFn, BackgroundFnError},
     hooks::{HookContext, HookError, HookFunction, HookStore},
+    local::LocalStateStore,
     on_connect_disconnect::{
         OnConnectDiconnectContext, OnConnectDisconnectError, OnConnectDisconnectFn,
     },
-    state::StateStore,
 };
 
 /// A complete MAF application, containing stores, RPC functions, background tasks, and more.
@@ -53,7 +53,7 @@ pub struct App {
 pub struct AppInner {
     pub(crate) state: Arc<AppState>,
     pub(crate) rpc_functions: RpcStore,
-    pub(crate) states: StateStore,
+    pub(crate) states: LocalStateStore,
     pub(crate) hooks: HookStore,
     pub(crate) store_dirty_rx: RwLock<mpsc::Receiver<StoreKey>>,
     pub(crate) on_connect: Option<Arc<OnConnectDisconnectFn>>,
@@ -81,7 +81,7 @@ pub struct AppBuilder {
     on_disconnect: Option<Arc<OnConnectDisconnectFn>>,
     background: Option<Arc<BackgroundFn>>,
     rpc_functions: RpcStore,
-    states: StateStore,
+    local_states: LocalStateStore,
     hooks: HookStore,
     stores: HashMap<StoreKey, AnyStore>,
     selects: HashMap<SelectKey, AnySelect>,
@@ -673,9 +673,36 @@ impl AppBuilder {
         self
     }
 
-    /// Declare a store
-    pub fn state<T: Send + Sync + 'static>(mut self, state: T) -> Self {
-        self.states.insert(state);
+    /// Declares a [`crate::Local`], a piece of state that **does not need to be synchronized** with
+    /// connect clients. If synchronization with clients is needed, use [`crate::Store`]
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// use maf::prelude::*;
+    ///
+    /// struct Points {
+    ///     points: u32,
+    /// }
+    ///
+    /// // [`Points`] does not need to be `serde::Serialize` and is not visible to clients
+    /// async fn score_point(points: Local<Points>) {
+    ///     let points = points.write().await;
+    ///     points += 1;
+    ///     if points > 100 {
+    ///         println!("You win!");
+    ///     }
+    /// }
+    ///
+    /// fn build() -> App {
+    ///     App::builder()
+    ///         .local::<Points>()
+    ///         .rpc("scope_point", score_point)
+    ///         .build()
+    /// }
+    /// ```
+    pub fn local<T: Send + Sync + 'static>(mut self, state: T) -> Self {
+        self.local_states.insert(state);
         self
     }
 
@@ -713,6 +740,9 @@ impl AppBuilder {
         self
     }
 
+    /// Binds the MAF app to a specified [`TargetPlatform`].
+    ///
+    /// See [`crate::platform`] for more details on platforms.
     pub fn platform(mut self, platform: TargetPlatform) -> Self {
         self.platform = Some(platform);
         self
@@ -734,7 +764,7 @@ impl AppBuilder {
         let inner = AppInner {
             state,
             store_dirty_rx: RwLock::new(store_dirty_rx),
-            states: self.states,
+            states: self.local_states,
             rpc_functions: self.rpc_functions,
             on_connect: self.on_connect,
             on_disconnect: self.on_disconnect,

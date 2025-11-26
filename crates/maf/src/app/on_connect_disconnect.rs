@@ -1,9 +1,12 @@
+//! Utilities for registering [`crate::AppBuilder::on_connect`] and
+//! [`crate::AppBuilder::on_disconnect`] handlers.
+
 use crate::{
     callable::{BoxedCallable, CallableFetch},
     App, User,
 };
 
-use super::state::StateError;
+use super::local::LocalStateError;
 
 pub type OnConnectDisconnectFn =
     BoxedCallable<OnConnectDiconnectContext, (), OnConnectDisconnectError>;
@@ -16,7 +19,7 @@ pub struct OnConnectDiconnectContext {
 #[derive(Debug, thiserror::Error)]
 pub enum OnConnectDisconnectError {
     #[error("state error: {0}")]
-    State(#[from] StateError),
+    State(#[from] LocalStateError),
     #[error("infalliable error: {0}")]
     Infalliable(#[from] std::convert::Infallible),
 }

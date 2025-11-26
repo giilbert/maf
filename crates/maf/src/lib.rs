@@ -79,13 +79,13 @@ pub(crate) mod bindings;
 #[cfg(feature = "typed")]
 pub mod typed;
 
-pub(crate) use app::StateError;
+pub(crate) use app::LocalStateError;
 
 /// Re-exports of commonly used items from MAF and its dependencies.
 pub mod prelude {
     use super::*;
 
-    pub use app::{App, AppBuilder, Plugin, State};
+    pub use app::{App, AppBuilder, Local, Plugin};
     pub use channel::{Channel, RecvError};
     pub use rpc::{Params, RpcFunction, RpcRequest};
     pub use store::{Store, StoreData};
