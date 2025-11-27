@@ -16,7 +16,7 @@ use crate::{
     App, User,
 };
 
-use super::change_detection::StoreMut;
+use super::pointers::StoreMut;
 
 #[derive(Clone)]
 pub struct AnyStore {

@@ -5,7 +5,10 @@ use std::{
 
 use tokio::sync::RwLockMappedWriteGuard;
 
-use crate::App;
+use crate::{
+    callable::{CallableFetch, CallableParam},
+    App,
+};
 
 use super::AnyStore;
 
@@ -13,6 +16,10 @@ use super::AnyStore;
 ///
 /// This is used to modify the store's data and mark the store as dirty, which will queue it for
 /// update to clients.
+///
+/// ## As a [`CallableParam`]
+/// [`StoreMut`] can be used as a parameter in callables, allowing direct modification of store data
+/// within callable functions.
 pub struct StoreMut<'a, T> {
     app: &'a App,
     inner: &'a AnyStore,
