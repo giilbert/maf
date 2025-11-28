@@ -180,12 +180,14 @@ impl RpcStore {
 }
 
 impl CallableFetch<App> for RpcRequestContext {
+    #[inline]
     fn fetch(&self) -> App {
         self.app.clone()
     }
 }
 
 impl CallableFetch<User> for RpcRequestContext {
+    #[inline]
     fn fetch(&self) -> User {
         self.request.user.clone()
     }

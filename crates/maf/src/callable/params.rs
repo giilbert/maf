@@ -1,6 +1,6 @@
 use std::future::Future;
 
-use crate::{App, User};
+use crate::{callable::SupportsAsync, App, User};
 
 /// A parameter that could appear in a callable function (e.g. `rpc` or `on_connect`).
 ///
@@ -35,3 +35,6 @@ macro_rules! impl_callable_param_fetch {
 
 impl_callable_param_fetch!(User);
 impl_callable_param_fetch!(App);
+
+impl SupportsAsync for User {}
+impl SupportsAsync for App {}

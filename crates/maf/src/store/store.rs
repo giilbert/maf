@@ -9,14 +9,17 @@ use std::{
 #[cfg(feature = "typed")]
 use schemars::{JsonSchema, SchemaGenerator};
 use serde::Serialize;
-use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use tokio::sync::{
+    OwnedRwLockReadGuard, OwnedRwLockWriteGuard, RwLock, RwLockReadGuard, RwLockWriteGuard,
+};
 
 use crate::{
-    callable::{CallableFetch, CallableParam},
+    callable::{CallableFetch, CallableParam, SupportsAsync},
+    store::pointers::OwnedStoreWriteLock,
     App, User,
 };
 
-use super::pointers::StoreMut;
+use super::pointers::StoreWriteLock;
 
 #[derive(Clone)]
 pub struct AnyStore {
@@ -59,7 +62,7 @@ pub enum StoreSerializeError {
 /// methods.
 pub struct Store<T: StoreData> {
     app: App,
-    inner: AnyStore,
+    pub(crate) inner: AnyStore,
     _phantom: std::marker::PhantomData<T>,
 }
 
@@ -191,8 +194,8 @@ impl<T: StoreData> Store<T> {
         })
     }
 
-    pub async fn write(&self) -> StoreMut<'_, T> {
-        StoreMut::new(
+    pub async fn write(&self) -> StoreWriteLock<'_, T> {
+        StoreWriteLock::new(
             &self.app,
             &self.inner,
             RwLockWriteGuard::map(self.inner.data.write().await, |inner| {
@@ -203,6 +206,29 @@ impl<T: StoreData> Store<T> {
         )
     }
 
+    pub async fn read_owned(&self) -> OwnedRwLockReadGuard<dyn Any + Send + Sync, T> {
+        OwnedRwLockReadGuard::map(self.inner.data.clone().read_owned().await, |inner| {
+            inner
+                .downcast_ref::<T>()
+                .expect("failed to downcast store (is the store of the right type?)")
+        })
+    }
+
+    pub async fn write_owned(&self) -> OwnedStoreWriteLock<T> {
+        OwnedStoreWriteLock {
+            app: self.app.clone(),
+            store: self.clone(),
+            guard: OwnedRwLockWriteGuard::map(
+                self.inner.data.clone().write_owned().await,
+                |inner| {
+                    inner
+                        .downcast_mut::<T>()
+                        .expect("failed to downcast store (is the store of the right type?)")
+                },
+            ),
+        }
+    }
+
     pub async fn flush(&self) {
         if self.inner.dirty.load(atomic::Ordering::Relaxed) {
             self.inner.dirty.store(false, atomic::Ordering::Relaxed);
@@ -210,6 +236,9 @@ impl<T: StoreData> Store<T> {
     }
 }
 
+/// Implement [`CallableParam`] for [`Store<T>`] to allow it to be used as a parameter in **async
+/// AND sync** callables (e.g. [`crate::rpc`] methods, [`crate::AppBuilder::on_connect`] handlers,
+/// etc).
 impl<T: StoreData, Ctx: CallableFetch<App> + Send + Sync, Init: Send + Sync>
     CallableParam<Ctx, Init> for Store<T>
 {
@@ -236,6 +265,8 @@ impl<T: StoreData, Ctx: CallableFetch<App> + Send + Sync, Init: Send + Sync>
         })
     }
 }
+
+impl<T: StoreData> SupportsAsync for Store<T> {}
 
 impl<T: StoreData> Clone for Store<T> {
     fn clone(&self) -> Self {

@@ -20,9 +20,7 @@ impl StoreData for CounterStore {
     }
 }
 
-async fn increment_counter(Params(counter): Params<i32>, test: Store<CounterStore>) -> i32 {
-    let mut store = test.write().await;
-
+fn increment_counter(Params(counter): Params<i32>, mut store: StoreMut<CounterStore>) -> i32 {
     store.count += counter;
 
     println!(
@@ -33,8 +31,7 @@ async fn increment_counter(Params(counter): Params<i32>, test: Store<CounterStor
     store.count
 }
 
-async fn counter_read_hook(test: Store<CounterStore>) -> i32 {
-    let store = test.read().await;
+fn counter_read_hook(store: StoreRef<CounterStore>) -> i32 {
     println!("counter read hook: {}", store.count);
     store.count
 }
@@ -49,8 +46,8 @@ fn build() -> App {
         .store::<CounterStore>()
         .rpc("increment_counter", increment_counter)
         .hook("counter", counter_read_hook)
-        .select("count_times_two", |store: Store<CounterStore>| async move {
-            store.read().await.count * 2
+        .select("count_times_two", |store: StoreRef<CounterStore>| {
+            store.count * 2
         })
         .background(|app: App| async move {
             println!("hello world!");

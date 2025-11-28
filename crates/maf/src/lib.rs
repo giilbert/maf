@@ -75,7 +75,8 @@ pub mod store;
 pub mod tasks;
 pub mod user;
 
-pub(crate) mod bindings;
+#[doc(hidden)]
+pub mod bindings;
 #[cfg(feature = "typed")]
 pub mod typed;
 
@@ -88,7 +89,7 @@ pub mod prelude {
     pub use app::{App, AppBuilder, Local, Plugin};
     pub use channel::{Channel, RecvError};
     pub use rpc::{Params, RpcFunction, RpcRequest};
-    pub use store::{Store, StoreData};
+    pub use store::{Store, StoreData, StoreMut, StoreRef};
     pub use user::User;
     pub use uuid::Uuid;
 

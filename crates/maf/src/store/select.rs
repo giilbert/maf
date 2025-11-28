@@ -3,7 +3,7 @@ use std::{any::TypeId, collections::HashSet, future::Future, pin::Pin, sync::Arc
 #[cfg(feature = "typed")]
 use schemars::SchemaGenerator;
 
-use crate::{callable::CallableFetch, App, Store, StoreData, User};
+use crate::{callable::CallableFetch, App, Store, StoreData, StoreMut, StoreRef, User};
 
 pub type SelectKey = Arc<str>;
 
@@ -68,6 +68,30 @@ pub trait SelectDependency {
 }
 
 impl<T> SelectDependency for Store<T>
+where
+    T: StoreData,
+{
+    const IS_DEPENDENCY: bool = true;
+
+    #[inline(always)]
+    fn depends_on() -> SelectDependencyType {
+        SelectDependencyType::Store(TypeId::of::<T>())
+    }
+}
+
+impl<T> SelectDependency for StoreRef<T>
+where
+    T: StoreData,
+{
+    const IS_DEPENDENCY: bool = true;
+
+    #[inline(always)]
+    fn depends_on() -> SelectDependencyType {
+        SelectDependencyType::Store(TypeId::of::<T>())
+    }
+}
+
+impl<T> SelectDependency for StoreMut<T>
 where
     T: StoreData,
 {

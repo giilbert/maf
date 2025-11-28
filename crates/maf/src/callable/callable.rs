@@ -1,6 +1,6 @@
-use std::{future::Future, marker::PhantomData, pin::Pin, sync::Arc};
+use std::{future::Future, pin::Pin, sync::Arc};
 
-use crate::callable::CallableParam;
+use crate::callable::{supports::SupportsAsync, CallableParam};
 
 /// A boxed callable function that is able to extract parameters from a context and create a future
 /// that extracts, runs the wrapped function, and returns the result.
@@ -28,7 +28,7 @@ pub trait IntoCallable<Ctx, Params, Ret, Err, Init: Send, const IS_ASYNC: bool>:
 
 /// Helper macro to implement [`IntoCallable`] for functions with varying numbers of parameters.
 macro_rules! impl_into_callable {
-    ($($members:ident),+) => {
+    ($($members:ident),*) => {
         #[allow(unused_parens)]
         impl<
             Ctx,
@@ -37,7 +37,7 @@ macro_rules! impl_into_callable {
             Init,
             $($members),*,
             F
-        > IntoCallable<Ctx, ($($members),*), Ret, Err, Init, false> for F
+        > IntoCallable<Ctx, ($($members,)*), Ret, Err, Init, false> for F
         where
             F: (Fn($($members),*) -> Ret) + Copy + Send + Sync + 'static,
             $($members: CallableParam<Ctx, Init> + Send + Sync),*,
@@ -71,10 +71,11 @@ macro_rules! impl_into_callable {
             $($members),*,
             F,
             Fut
-        > IntoCallable<Ctx, PhantomData<($($members),*)>, Ret, Err, Init, false> for F
+        > IntoCallable<Ctx, ($($members,)*), Ret, Err, Init, true> for F
         where
             F: (Fn($($members),*) -> Fut) + Copy + Send + Sync + 'static,
-            $($members: CallableParam<Ctx, Init>),*,
+            // Every parameter needs to fit this type of callable and support async tasks.
+            $($members: CallableParam<Ctx, Init> + SupportsAsync),*,
             $($members::Error: Send + Sync),*,
             $(Err: From<$members::Error>),*,
             // TODO: Replace the trait bound with not just items that can be serialized.
@@ -124,57 +125,8 @@ where
     }
 }
 
-// Implementation of IntoCallable for functions with one parameter
-impl<Ctx, Ret, Err, Init, T1, F> IntoCallable<Ctx, (T1,), Ret, Err, Init, false> for F
-where
-    F: (Fn(T1) -> Ret) + Copy + Send + Sync + 'static,
-    T1: CallableParam<Ctx, Init>,
-    Err: From<T1::Error>,
-    // TODO: Replace the trait bound with not just items that can be serialized.
-    Ret: serde::Serialize,
-    Init: Send + Sync + 'static,
-    Ctx: Send + Sync + 'static,
-    Err: From<T1::Error>,
-{
-    #[allow(non_snake_case)]
-    fn into_callable(self, init: Init) -> BoxedCallable<Ctx, Ret, Err> {
-        let init = Arc::new(init);
-        Box::new(move |mut ctx| {
-            let init = init.clone();
-            Box::pin(async move {
-                let (T1,) = (T1::extract(&mut ctx, &init).await?,);
-                Ok(self(T1))
-            })
-        })
-    }
-}
-
-// Implementation of IntoCallable for async functions with one parameter
-impl<Ctx, Ret, Err, Init, T1, F, Fut> IntoCallable<Ctx, (T1,), Ret, Err, Init, true> for F
-where
-    F: (Fn(T1) -> Fut) + Copy + Send + Sync + 'static,
-    T1: CallableParam<Ctx, Init>,
-    Err: From<T1::Error>,
-    // TODO: Replace the trait bound with not just items that can be serialized.
-    Ret: serde::Serialize,
-    Init: Send + Sync + 'static,
-    Ctx: Send + Sync + 'static,
-    Fut: Future<Output = Ret> + Send + Sync + 'static,
-{
-    #[allow(non_snake_case)]
-    fn into_callable(self, init: Init) -> BoxedCallable<Ctx, Ret, Err> {
-        let init = Arc::new(init);
-        Box::new(move |mut ctx| {
-            let init = init.clone();
-            Box::pin(async move {
-                let (T1,) = (T1::extract(&mut ctx, &init).await?,);
-                Ok(self(T1).await)
-            })
-        })
-    }
-}
-
-// Implementations of `IntoCallable` for functions with 2 to 8 parameters
+// Implementations of `IntoCallable` for functions with 1 to 8 parameters
+impl_into_callable!(T1);
 impl_into_callable!(T1, T2);
 impl_into_callable!(T1, T2, T3);
 impl_into_callable!(T1, T2, T3, T4);

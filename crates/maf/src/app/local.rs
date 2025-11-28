@@ -6,7 +6,7 @@ use std::{
 
 use tokio::sync::{RwLock, RwLockMappedWriteGuard, RwLockReadGuard, RwLockWriteGuard};
 
-use crate::callable::{CallableFetch, CallableParam};
+use crate::callable::{CallableFetch, CallableParam, SupportsAsync};
 
 use super::App;
 
@@ -88,3 +88,5 @@ impl<T: Send + Sync + 'static, Ctx: CallableFetch<App> + Send + Sync, Init: Send
         Ok(state)
     }
 }
+
+impl SupportsAsync for Local<()> {}

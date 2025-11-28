@@ -1,6 +1,6 @@
 use serde::de::DeserializeOwned;
 
-use crate::callable::CallableParam;
+use crate::callable::{CallableParam, SupportsAsync};
 
 use super::{RpcError, RpcRequestContext, RpcRequestData, RpcRequestInit};
 
@@ -58,3 +58,5 @@ impl<T: DeserializeOwned + Send + Sync> CallableParam<RpcRequestContext, RpcRequ
         Ok(Self(data))
     }
 }
+
+impl<T: DeserializeOwned> SupportsAsync for Params<T> {}
