@@ -1,0 +1,14 @@
+[package]
+name = "counter"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+maf = { path = "../../crates/maf" }
+# To use the latest version, you can use the following instead:
+# maf = { git = "https://github.com/giilbert/maf" }
+# serde is a library for serializing and deserializing data
+serde = { version = "^1", features = ["derive"] }
+
+[lib]
+crate-type = ["cdylib"] # This is required for Cargo to build the library

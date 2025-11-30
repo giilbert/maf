@@ -1,0 +1,16 @@
+{
+  "name": "@usemaf/counter-benchmark",
+  "version": "0.1.0",
+  "private": true,
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "run": "bun run client.ts"
+  },
+  "keywords": [],
+  "author": "giilbert",
+  "license": "ISC",
+  "dependencies": {
+    "@usemaf/client": "workspace:*"
+  }
+}

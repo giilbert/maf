@@ -8,6 +8,12 @@ importers:
 
   .: {}
 
+  benchmarks/counter:
+    dependencies:
+      '@usemaf/client':
+        specifier: workspace:*
+        version: link:../../packages/client
+
   packages/client:
     dependencies:
       emittery:

@@ -8,5 +8,6 @@ exclude = [
     "crates/maf/examples/http",
     "crates/maf_native/examples/axum-basic",
     "crates/maf_cli/src/init/templates/**",
+    "benchmarks/counter",
     "www/demo",
 ]
