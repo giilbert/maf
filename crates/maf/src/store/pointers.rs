@@ -15,12 +15,8 @@ use super::AnyStore;
 
 /// A mutable reference to a store's data with automatic dirty tracking.
 ///
-/// This is used to modify the store's data and mark the store as dirty, which will queue it for
-/// update to clients.
-///
-/// ## As a [`CallableParam`]
-/// [`StoreMut`] can be used as a parameter in callables, allowing direct modification of store data
-/// within callable functions.
+/// This is returned by [`Store::write`] and is used to modify the store's data and mark the store
+/// as dirty, which will queue it for update to clients.
 pub struct StoreWriteLock<'a, T: StoreData> {
     app: &'a App,
     inner: &'a AnyStore,
@@ -62,6 +58,9 @@ impl<T: StoreData> Drop for StoreWriteLock<'_, T> {
 }
 
 /// An owned mutable reference to a store's data with automatic dirty tracking.
+///
+/// This is returned by [`Store::write_owned`] and is used to modify the store's data and mark the
+/// store as dirty, which will queue it for update to clients.
 pub struct OwnedStoreWriteLock<T: StoreData> {
     pub(crate) app: App,
     pub(crate) store: Store<T>,
@@ -106,6 +105,11 @@ impl<T: StoreData> Drop for OwnedStoreWriteLock<T> {
 }
 
 /// A mutable reference to a store's data used in callables.
+///
+/// When used in a callable, **this struct acquires a lock on the store's data for the duration of
+/// the callable**. As such, MAF prevents using this struct in async callables to avoid deadlocks.
+///
+/// For more information on locking behavior, see [`Store`].
 pub struct StoreMut<T: StoreData> {
     inner: OwnedStoreWriteLock<T>,
 }
@@ -124,6 +128,11 @@ impl<T: StoreData, Ctx: CallableFetch<App>, Init: Send + Sync> CallableParam<Ctx
 }
 
 /// A read-only reference to a store's data used in callables.
+///
+/// When used in a callable, **this struct acquires a lock on the store's data for the duration of
+/// the callable**. As such, MAF prevents using this struct in async callables to avoid deadlocks.
+///
+/// For more information on locking behavior, see [`Store`].
 pub struct StoreRef<T: StoreData> {
     inner: OwnedRwLockReadGuard<dyn Any + Send + Sync, T>,
 }

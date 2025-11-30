@@ -78,6 +78,7 @@ use crate::{
     App, LocalStateError, User,
 };
 
+/// A type-erased RPC function handler.
 pub struct RpcFunction {
     pub(crate) method: String,
     pub(crate) type_id: TypeId,
@@ -98,8 +99,9 @@ impl std::fmt::Debug for RpcFunction {
     }
 }
 
+/// A raw RPC request received from a client.
 #[derive(Debug)]
-pub struct RpcRequest {
+pub struct RawRpcRequest {
     pub id: u32,
     pub user: User,
     pub data: Option<RpcRequestData>,
@@ -107,12 +109,13 @@ pub struct RpcRequest {
 
 #[derive(Debug)]
 pub enum RpcRequestData {
+    /// JSON data that can have arbitrary structure.
     Typed(serde_json::Value),
 }
 
 pub struct RpcRequestContext {
     pub app: App,
-    pub request: RpcRequest,
+    pub request: RawRpcRequest,
 }
 
 pub struct RpcRequestInit {
@@ -166,7 +169,7 @@ impl RpcStore {
             .get(&method)
             .ok_or_else(|| RpcError::MethodNotFound(method))?;
 
-        let request = RpcRequest {
+        let request = RawRpcRequest {
             id: packet.id,
             user: user.clone(),
             data: Some(RpcRequestData::Typed(packet.params)),

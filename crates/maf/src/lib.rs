@@ -88,7 +88,7 @@ pub mod prelude {
 
     pub use app::{App, AppBuilder, Local, Plugin};
     pub use channel::{Channel, RecvError};
-    pub use rpc::{Params, RpcFunction, RpcRequest};
+    pub use rpc::{Params, RawRpcRequest, RpcFunction};
     pub use store::{Store, StoreData, StoreMut, StoreRef};
     pub use user::User;
     pub use uuid::Uuid;
