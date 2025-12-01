@@ -5,6 +5,7 @@ import { getDocsCategory } from "../helpers/content";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { Logo } from "@/components/logo";
+import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 
 export const SideNav: React.FC<{
   categories: Awaited<ReturnType<typeof getDocsCategory>>;
@@ -38,23 +39,59 @@ export const CategoriesRenderer: React.FC<{
       {categories.map((category) => (
         <div key={category.name} className="space-y-1">
           <h2 className="text font-semibold">{category.name}</h2>
-          <ul className="flex flex-col gap-1 ml-3">
-            {category.docs.map((doc) => (
-              <li key={doc.slug}>
-                <Link
-                  href={`/docs/${doc.slug}`}
-                  onClick={() => onNavigate?.()}
-                  className={cn(
-                    "text-sm",
-                    docsSlug === doc.slug
-                      ? "text-primary"
-                      : "text-muted-foreground hover:text-primary hover:underline"
+          <ul className="flex flex-col gap-2">
+            {category.docs.map((doc) => {
+              const isSelected = docsSlug === doc.slug;
+              const isChildSelected = docsSlug.startsWith(doc.slug + "/");
+              const hasChildren = doc.children.length > 0;
+
+              return (
+                <li key={doc.slug}>
+                  <Link
+                    href={`/docs/${doc.slug}`}
+                    onClick={() => onNavigate?.()}
+                    className={cn(
+                      "text-sm flex items-center justify-between",
+                      isSelected
+                        ? "text-primary"
+                        : "text-muted-foreground hover:text-primary hover:underline"
+                    )}
+                  >
+                    {doc.title}
+                    {hasChildren &&
+                      (isSelected || isChildSelected ? (
+                        <ChevronUpIcon size={18} />
+                      ) : (
+                        <ChevronDownIcon size={18} className="opacity-50" />
+                      ))}
+                  </Link>
+
+                  {hasChildren && (isSelected || isChildSelected) && (
+                    <ul className="flex flex-col gap-1 ml-4 mt-1">
+                      {doc.children.map((child) => {
+                        const isChildSelected = docsSlug === child.slug;
+                        return (
+                          <li key={child.slug}>
+                            <Link
+                              href={`/docs/${child.slug}`}
+                              onClick={() => onNavigate?.()}
+                              className={cn(
+                                "text-sm",
+                                isChildSelected
+                                  ? "text-primary"
+                                  : "text-muted-foreground hover:text-primary hover:underline"
+                              )}
+                            >
+                              {child.title}
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
                   )}
-                >
-                  {doc.title}
-                </Link>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         </div>
       ))}

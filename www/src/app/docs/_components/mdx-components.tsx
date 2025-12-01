@@ -2,6 +2,12 @@ import { type MDXComponents } from "next-mdx-remote-client";
 import Link from "next/link";
 import { type BundledLanguage, codeToHtml } from "shiki";
 import * as UiTabs from "@/components/ui/tabs";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 export const mdxComponents: MDXComponents = {
   p: (props) => <p className="leading-relaxed" {...props}></p>,
@@ -46,6 +52,20 @@ export const mdxComponents: MDXComponents = {
       <UiTabs.TabsContent value={props.value} className="space-y-5">
         {props.children}
       </UiTabs.TabsContent>
+    );
+  },
+  Collapsible: (props: { title: string; children: React.ReactNode }) => {
+    return (
+      <Accordion type="single" collapsible>
+        <AccordionItem value="_">
+          <AccordionTrigger className="bg-muted py-2 px-4">
+            {props.title}
+          </AccordionTrigger>
+          <AccordionContent className="py-2 mt-2">
+            {props.children}
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
     );
   },
 };

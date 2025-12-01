@@ -9,6 +9,7 @@ const CONTENT_PATH = process.cwd() + "/src/content";
 const docAttributesSchema = z.object({
   title: z.string(),
   category: z.string(),
+  parent: z.string().optional(),
 });
 
 interface Doc extends z.infer<typeof docAttributesSchema> {
@@ -82,18 +83,31 @@ export const getDocsCategory = async () => {
   const index = indexSchema.parse(rawIndex);
 
   return await Promise.all(
-    index.map(async (category) => ({
-      name: category.name,
-      docs: await Promise.all(
+    index.map(async (category) => {
+      const categoryDocs = await Promise.all(
         category.docs.map(async (docSlug) => {
           const doc = await getDocMeta(docSlug);
 
           if (!doc) throw new Error(`Doc not found: ${docSlug}`);
 
-          return { slug: docSlug, title: doc.title };
+          return {
+            slug: docSlug,
+            title: doc.title,
+            parent: doc.parent || null,
+          };
         })
-      ),
-    }))
+      );
+
+      return {
+        name: category.name,
+        docs: categoryDocs
+          .filter((doc) => doc.parent === null)
+          .map((doc) => ({
+            ...doc,
+            children: categoryDocs.filter((d) => d.parent === doc.slug),
+          })),
+      };
+    })
   );
 };
 

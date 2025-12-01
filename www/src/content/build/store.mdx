@@ -9,9 +9,52 @@ Stores keep track of synchronized state between the client and server. They are
 used to manage data that needs to be updated or fetched from the server with
 real-time capabilities.
 
-## Usage
+## Comparisons
 
-## Server
+**Use Stores When...**
+
+- You want a _variable_ that is shared between the client and server.
+- You need real-time updates to data on the client when it changes on the
+  server.
+- You want to make sure clients have access to the latest data from the server.
+
+**Other Options...**
+
+- You want a value that is only updatable and visible on the server: use
+  [Local](/docs/build/local).
+- You want to push data from the server to the client without storing it:
+  use [Channels](/docs/build/channel).
+
+## Features
+
+### Synchronization
+
+Stores automatically synchronize their data between the server and connected
+clients. When the store's data is updated on the server, all subscribed clients
+receive the updated data in real-time.
+
+Additionally, when a client connects to the server, it receives the current
+state of the store—you do not need to manually push an update.
+
+### Selection
+
+Stores support _selection_, allowing you to control what data is sent to each
+client. This is useful for filtering sensitive information or sending only the
+relevant subset of data to a client based on their context (e.g., user role).
+
+As an example, you can model as a game of Poker as a store where each player
+only sees their own hand of cards, while the server maintains the full game
+state. When a player connects, the store's `select` method is used to send only
+the relevant data (their hand) to that player.
+
+Implementing selection is described in more detail in the
+[server usage](#server-usage) section below.
+
+## Server Usage
+
+This is a quick overview of how to create and use stores on the server. For more
+detailed information on how to use features described, see subpages like
+[Store Selection](/docs/build/store/select).
 
 <Tabs defaultValue="rust" docId="server">
   <TabsList>
@@ -20,10 +63,16 @@ real-time capabilities.
 
 <TabsContent value="rust">
 
-In Rust, a store is created by implementing `StoreData` on a struct (1) and
-either using it (2) or declaring it when building the app (3).
+In Rust, a store is created by:
+
+1. Defining a struct that implements the `StoreData` trait.
+2. Accessing the store in RPC functions using the `Store<T>` type (or others).
+3. Statically declaring the store in the `App` builder.
+
+We will be using a simple counter store as an example throughout this section.
 
 ```rust
+/// A simple store that keeps track of a counter.
 struct Counter {
     count: u32,
 }
@@ -34,12 +83,13 @@ impl StoreData for Counter {
 }
 
 // (2) Using the store in an RPC function
-async fn some_rpc_function(store: Store<Counter>) {
+async fn increment_counter(store: Store<Counter>) {
     // ... RPC function body
 }
 
 fn build() -> App {
     App::builder()
+        .rpc("increment_counter", increment_counter)
         // (3) Statically declaring the store
         .store::<Counter>()
         .build()
@@ -55,71 +105,121 @@ initialization, selection, and key generation. Only the `init` method and `Data`
 associated type are required, while the others can be overridden for custom
 behavior.
 
-```rust
-pub trait StoreData: 'static {
-    type Data: Send + Sync + 'static;
+Here is the full definition of the `StoreData` trait:
 
+```rust
+/// Describes the data stored in a [`Store`].
+pub trait StoreData: Send + Sync + 'static {
+    /// The type of data selected to be serialized and sent to clients.
+    /// This type must implement [`serde::Serialize`].
+    type Select<'this>: Serialize;
+
+    /// Returns the name of the store to be used by clients to identify it.
+    ///
+    /// If not specified, the default is the Rust type name of `Self`.
     fn name() -> impl AsRef<str> + Send {
         std::any::type_name::<Self>()
     }
 
+    /// Returns the key of the store used internally to identify it. You should
+    /// rarely need to or want to override this.
     fn key() -> impl Into<StoreKey> {
         StoreKey::from(Self::name().as_ref())
     }
 
-    #[allow(unused_variables)]
-    fn select(data: &Self::Data, user: &User) -> impl serde::Serialize {
-        ()
-    }
+    /// Selects the portion of the store data to be serialized and sent to the
+    /// given user.
+    ///
+    /// *some comments left out*
+    fn select(&self, user: &User) -> Self::Select<'_>;
 
-    fn init() -> Self::Data;
+    /// Initializes the store data with a default value.
+    fn init() -> Self;
+}
+
+```
+
+#### `type Select` and `fn select`
+
+`Select` is an associated type that defines what is sent to the client when the
+store is synchronized. It must implement `serde::Serialize`. This allows you to
+customize the data sent to clients, which is especially useful for implementing
+authorization and filtering.
+
+The `select` method is called whenever the store needs to be serialized for a
+client. It receives a reference to the `User` representing the client, allowing
+you to tailor the selected data based on the user's context.
+
+**Example Implementation:**
+
+```rust
+impl StoreData for Counter {
+    // ... other methods ...
+    type Select<'this> = u32;
+
+    fn select(&self, _user: &User) -> Self::Select<'_> {
+        self.count
+    }
 }
 ```
 
-#### `Data`
+👻 **What is the `<'this>` for?**
+The `<'this>` lifetime parameter allows the `Select` type to borrow data from
+the store instance if needed. This is useful for avoiding unnecessary cloning of
+data when selecting what to send to the client. It is completely optional to use
+this feature; if your `Select` type does not need to borrow from the store, you
+can ignore this lifetime parameter.
 
-The `Data` associated type represents the data structure that the store will
-manage. It must implement `Send`, `Sync`, and `'static` traits to ensure thread
-safety.
+For more information on lifetimes in Rust, refer to the
+[Rust Book](https://doc.rust-lang.org/book/ch10-03-lifetime-syntax.html).
 
-`Data` will commonly be `Self`, but can be other types if needed.
+Also see the [Store Selection](/docs/build/store/select) page for more details
+and examples on how to use selection effectively.
 
-#### `name`
+#### `fn name`
 
 The `name` method returns the _name_ of the store, which is used client-side to
 refer to the store. It defaults to the type name of the struct implementing
 `StoreData`.
 
-#### `key`
+You may want to change this if the type name is long or not descriptive enough.
+As an example, instead of using `my_crate::players::PlayerStore`, you might want
+to just use `players`.
+
+**Example Implementation:**
+
+```rust
+impl StoreData for PlayerStore {
+    // ... other methods ...
+    fn name() -> impl AsRef<str> + Send {
+        "players"
+    }
+}
+```
+
+#### `fn key`
 
 The `key` method returns a unique identifier for the store, which is used to
 distinguish it from other stores. It defaults to the store's name. `key` will be
 used in the future to allow multiple stores of the same type.
 
-#### `select`
+⚠️ This feature is experimental and still being developed. You should
+_probably_ not need to override this method for now.
 
-The `select` method is used to select a subset of the store's data to be sent
-to the client.
-
-**NOTE**: By default, it returns an empty tuple, meaning no data is sent to the
-client. You can override this method to return any serializable data that you
-want to send to the client.
-
-If you want to send the entire data structure, you can return `data` directly:
-
-```rust
-// NOTE: Self::Data should implement `serde::Serialize`
-fn select(data: &Self::Data, user: &User) -> impl serde::Serialize
-{
-    data
-}
-```
-
-#### `init`
+#### `fn init`
 
 The `init` method is called when the store is initialized. It should return an
 instance of the `Data` type that the store will manage. This is where you can
 set up the initial state of the store.
+
+```rust
+impl StoreData for Counter {
+    // ... other methods ...
+    fn init() -> Self {
+        Self { count: 0 }
+    }
+}
+```
 
 ### Accessing Stores In RPC Functions
 
@@ -127,26 +227,72 @@ Stores can be accessed in RPC functions by declaring them as parameters to the
 handler. Reading and writing to the store is done using `Store.read()` and
 `Store.write()`, with a locking API similar to `RwLock<T>`.
 
-Example:
+**Example**:
 
 ```rust
 // Access a store with Store<T: StoreData>
-async fn some_rpc_function(store: Store<Counter>) {
-    // Access the store's data with `Store.read()`
-    let count = store.read().await.count;
-
+async fn increment_counter(store: Store<Counter>) {
     // Modify the store's data with `Store.write()`
     store.write().await.count += 1;
 
-    // ...
+    // Access the store's data with `Store.read()`
+    let count = store.read().await.count;
+    println!("counter incremented to {}", count);
 }
 ```
+
+<Collapsible title="Full Example Code">
+
+```rust
+use maf::prelude::*;
+
+/// A simple store that keeps track of a counter.
+struct Counter {
+    count: u32,
+}
+
+// (1) Implementing StoreData for a struct
+impl StoreData for Counter {
+    type Select<'this> = u32;
+
+    fn select(&self, _user: &User) -> Self::Select<'_> {
+        self.count
+    }
+
+    fn init() -> Self {
+        Self { count: 0 }
+    }
+}
+
+// (2) Using the store in an RPC function
+async fn increment_counter(store: Store<Counter>) {
+    // Modify the store's data with `Store.write()`
+    store.write().await.count += 1;
+
+    // Access the store's data with `Store.read()`
+    let count = store.read().await.count;
+    println!("counter incremented to {}", count);
+
+}
+
+fn build() -> App {
+    App::builder()
+        .rpc("increment_counter", increment_counter)
+        // (3) Statically declaring the store
+        .store::<Counter>()
+        .build()
+}
+
+maf::register!(build);
+```
+
+</Collapsible>
 
 </TabsContent>
 
 </Tabs>
 
-## Client
+## Client Usage
 
 <Tabs defaultValue="javascript" docId="client">
   <TabsList>

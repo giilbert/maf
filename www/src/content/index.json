@@ -14,6 +14,7 @@
     "docs": [
       "build/channel",
       "build/store",
+      "build/store/select",
       "build/rpc",
       "build/local",
       "build/rooms",
