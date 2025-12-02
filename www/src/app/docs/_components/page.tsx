@@ -20,6 +20,7 @@ export const RenderPage: React.FC<{
   const [tabSelection, setTabSelection] = useState(() => {
     return new Map<string, string>(Object.entries(defaultTabSelection));
   });
+  const [scrollTops, setScrollTops] = useState<Map<string, number>>(new Map());
 
   const updateTabSelection = useCallback((id: string, selection: string) => {
     setTabSelection((prev) => {
@@ -29,11 +30,21 @@ export const RenderPage: React.FC<{
     });
   }, []);
 
+  const setScrollTopCallback = useCallback((id: string, scrollTop: number) => {
+    setScrollTops((prev) => {
+      const newMap = new Map(prev);
+      newMap.set(id, scrollTop);
+      return newMap;
+    });
+  }, []);
+
   return (
     <DocsTabsContext.Provider
       value={{
         tabSelections: tabSelection,
         updateTabSelection,
+        scrollTops: scrollTops,
+        setScrollTop: setScrollTopCallback,
       }}
     >
       <div className="space-y-4 lg:col-span-3 mt-4 w-full min-w-0">

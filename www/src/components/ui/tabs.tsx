@@ -12,6 +12,8 @@ import { cn } from "@/lib/cn";
 
 interface DocsTabsContextValue {
   tabSelections: Map<string, string>;
+  scrollTops: Map<string, number>;
+  setScrollTop: (id: string, scrollTop: number) => void;
   updateTabSelection: (id: string, selection: string) => void;
 }
 

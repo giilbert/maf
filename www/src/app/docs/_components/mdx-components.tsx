@@ -8,16 +8,35 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { HeadingWrap } from "./heading-wrap";
 
 export const mdxComponents: MDXComponents = {
   p: (props) => <p className="leading-relaxed" {...props}></p>,
-  h1: (props) => <h1 className="text-4xl font-bold mb-2" {...props} />,
-  h2: (props) => {
-    return <h2 className="text-2xl font-bold pt-4" {...props} />;
-  },
-  h3: (props) => <h3 className="text-xl font-semibold pt-2" {...props} />,
-  h4: (props) => <h4 className="text-lg font-semibold pt-2" {...props} />,
-  h5: (props) => <h5 className="text-base font-semibold pt-2" {...props} />,
+  h1: (props) => (
+    <HeadingWrap id={props.id}>
+      <h1 className="text-4xl font-bold mb-2" {...props} />
+    </HeadingWrap>
+  ),
+  h2: (props) => (
+    <HeadingWrap id={props.id}>
+      <h2 className="text-2xl font-bold pt-4" {...props} />
+    </HeadingWrap>
+  ),
+  h3: (props) => (
+    <HeadingWrap id={props.id}>
+      <h3 className="text-xl font-semibold pt-2" {...props} />
+    </HeadingWrap>
+  ),
+  h4: (props) => (
+    <HeadingWrap id={props.id}>
+      <h4 className="text-lg font-semibold pt-2" {...props} />
+    </HeadingWrap>
+  ),
+  h5: (props) => (
+    <HeadingWrap id={props.id}>
+      <h5 className="text-base font-semibold pt-2" {...props} />
+    </HeadingWrap>
+  ),
   code: (props) => {
     const { className } = props;
     const lang = className?.replace("language-", "") as BundledLanguage;
