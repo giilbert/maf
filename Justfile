@@ -9,5 +9,7 @@ docker-build:
     docker build -f scripts/fly.dockerfile -t maf-server:latest .
 
 # build and run maf_cli in development mode
+[working-directory: "."]
 dev-cli *args:
-    cargo run --bin maf_cli -- {{args}}
+    cargo build --bin maf_cli
+    cd "{{invocation_directory()}}" && {{justfile_directory()}}/target/debug/maf_cli "{{args}}"
