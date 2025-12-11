@@ -15,7 +15,7 @@
     "emittery": "^1.2.0"
   },
   "devDependencies": {
-    "tsup": "^8.5.1",
+    "tsdown": "^0.17.2",
     "typescript": "^5.8.2"
   }
 }
