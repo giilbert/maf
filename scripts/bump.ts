@@ -28,6 +28,7 @@ let nameMaxWidth = packages.reduce(
   0
 );
 
+console.log("");
 console.group("the following packages will be modified:");
 for (const pkg of packages) {
   console.log(
@@ -46,9 +47,19 @@ if (input.trim().toLowerCase() !== "y") {
   console.warn(chalk.yellow("aborting."));
   process.exit(0);
 }
+console.log("");
 
 for (const pkg of packages) {
   const packageJson = JSON.parse(await Bun.file(pkg.path).text());
   packageJson.version = version;
   await Bun.write(pkg.path, JSON.stringify(packageJson, null, 2) + "\n");
+  console.log(
+    "bumped",
+    chalk.cyan(pkg.name.padEnd(nameMaxWidth)),
+    "to",
+    chalk.green(version)
+  );
 }
+
+console.log("");
+console.log(chalk.green("all done!"));
