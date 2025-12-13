@@ -1,5 +1,4 @@
-import { MafClient } from "@usemaf/client";
-import { ConnectOptions, MafServerOptions } from "@usemaf/client/src/client";
+import { ConnectOptions, MafClient, MafServerOptions } from "@usemaf/client";
 import React, { createContext, useEffect, useState } from "react";
 
 export interface MafProviderProps {

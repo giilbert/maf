@@ -1,8 +1,10 @@
 export {
   MafClient,
   DEFAULT_DEV_SERVER_URL,
+  type ConnectOptions,
   type MafClientOptions,
   type MafServerOptions,
+  type SessionInfo,
 } from "./client";
 export { Store, type StoreOptions, type StoreEvents } from "./store";
 export {

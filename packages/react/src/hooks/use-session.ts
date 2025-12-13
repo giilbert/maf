@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMaf } from "../maf-provider";
-import { SessionInfo } from "@usemaf/client/src/client";
+import { SessionInfo } from "@usemaf/client";
 import { MafStatus } from "./use-store";
 
 export type UseSession =

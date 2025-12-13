@@ -16,6 +16,16 @@ dev-cli *args:
     cargo build --bin maf_cli
     cd "{{invocation_directory()}}" && {{justfile_directory()}}/target/debug/maf_cli "{{args}}"
 
+# starts a development server that watches for changes in packages/react and packages/client and rebuilds them on change
+[group('npm')]
+watch:
+    pnpm --parallel --filter=@usemaf/react --filter=@usemaf/client dev
+
+# checks types in @usemaf/react and @usemaf/client
+[group('npm')]
+type-check:
+    pnpm --parallel --filter=@usemaf/react --filter=@usemaf/client type-check
+
 # builds @usemaf/react and @usemaf/client
 [group('npm')]
 npm-build:
