@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack --port 3001",
-    "build": "next build",
+    "build": "sh ./build.sh",
+    "next:build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
@@ -16,6 +17,7 @@
     "@radix-ui/react-tabs": "^1.1.11",
     "@radix-ui/react-visually-hidden": "^1.2.3",
     "@usemaf/client": "workspace:*",
+    "@usemaf/panel": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "glob": "^11.0.2",

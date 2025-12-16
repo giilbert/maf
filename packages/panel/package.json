@@ -1,0 +1,31 @@
+{
+  "name": "@usemaf/panel",
+  "version": "0.1.0-alpha.8",
+  "description": "",
+  "type": "module",
+  "main": "src/index.tsx",
+  "types": "src/index.tsx",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@tanstack/react-query": "^5.90.12",
+    "@tanstack/react-router": "^1.141.2",
+    "@tanstack/react-router-devtools": "^1.141.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.18",
+    "@types/react": "^19",
+    "tailwindcss": "^4",
+    "tw-animate-css": "^1.3.5",
+    "typescript": "^5.8.2",
+    "vite": "^6.2.3"
+  }
+}
