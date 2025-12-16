@@ -20,7 +20,7 @@
     "@usemaf/panel": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "glob": "^11.0.2",
+    "glob": "^13.0.0",
     "gray-matter": "^4.0.3",
     "gsap": "^3.13.0",
     "lucide-react": "^0.509.0",
