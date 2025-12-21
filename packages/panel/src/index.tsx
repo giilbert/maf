@@ -33,9 +33,22 @@ const homeRoute = createRoute({
   },
 });
 
+const layoutRoute = createRoute({
+  id: "_layout",
+  getParentRoute: () => rootRoute,
+  component: () => {
+    return (
+      <div>
+        <p>Layout</p>
+        <Outlet />
+      </div>
+    );
+  },
+});
+
 const loaderRoute = createRoute({
   path: "/loader",
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => layoutRoute,
   loader: async () => {
     await new Promise((r) => setTimeout(r, 1000));
     return { message: "hello from the loader!" };
@@ -46,7 +59,7 @@ const loaderRoute = createRoute({
 
 const dynamicRoute = createRoute({
   path: "/dynamic/$param",
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => layoutRoute,
   pendingComponent: () => <p>/dynamic is pending...</p>,
   component: lazyRouteComponent(
     () => import("./routes/dynamic"),
@@ -56,8 +69,7 @@ const dynamicRoute = createRoute({
 
 export const routeTree = rootRoute.addChildren([
   homeRoute,
-  loaderRoute,
-  dynamicRoute,
+  layoutRoute.addChildren([loaderRoute, dynamicRoute]),
 ]);
 
 export const createAppRouter = () =>

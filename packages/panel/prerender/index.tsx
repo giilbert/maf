@@ -45,17 +45,8 @@ const preRenderRoute = async (ctx: Ctx, route: AnyRoute) => {
   log(chalk.dim(`starting prerender at ${new Date().toLocaleString()}`));
   const start = Date.now();
 
-  // we want to render only the shell if (OR):
-  // - the route has a loader
-  // - the route has params
-  // otherwise, we can render the full content at prerender time
-  const hasLoader = !!route.options.loader;
-  const hasParams = route.fullPath.includes("$");
-  const isShell = hasLoader || hasParams;
-
   router.update({
     history: createMemoryHistory({ initialEntries: [routePath] }),
-    isShell,
   });
 
   await router.load();
@@ -92,7 +83,20 @@ if (await htmlFile.exists()) {
   const allRoutes: RouteDescription[] = [];
 
   const walk = (route: AnyRoute) => {
-    if (!route.isRoot) allRoutes.push({ route });
+    const isLayout = !("path" in route.options);
+    if (!route.isRoot && !isLayout) {
+      // ssr should be disabled if the route has a loader or depends on any data
+      // from the url
+      const hasLoader = typeof route.options.loader === "function";
+      const hasUrlParams = route.fullPath.includes("$");
+      const hasQueryParams = route.options.validateSearch !== undefined;
+
+      if (route.options.ssr === undefined)
+        route.options.ssr = !hasLoader && !hasUrlParams && !hasQueryParams;
+      allRoutes.push({ route });
+    } else {
+      tracing.log(chalk.dim(`skipping transparent route: id=${route.id}`));
+    }
     for (const child of route.children || []) walk(child);
   };
   walk(router.routeTree);
