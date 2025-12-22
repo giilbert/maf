@@ -6,6 +6,16 @@
   "type": "module",
   "main": "src/index.tsx",
   "types": "src/index.tsx",
+  "exports": {
+    ".": {
+      "import": "./src/index.tsx",
+      "types": "./src/index.tsx"
+    },
+    "./prerender": {
+      "import": "./prerender/index.tsx",
+      "types": "./prerender/index.tsx"
+    }
+  },
   "scripts": {
     "dev": "vite",
     "start": "bun run ./prerender --serve",

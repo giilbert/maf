@@ -7,18 +7,19 @@
 set -e 
 
 # build @usemaf/panel
-echo "[build.sh] panel packages with vite"
+echo "[build.sh] panel packages with vite and prerender script"
 cd ../packages/panel
 pnpm build
 echo ""
 
-# cp the @usemaf/panel/dist to www/public/_panel
-echo "[build.sh] copy panel dist to www/public/_panel"
+# cp the build output to www/public/_panel
+echo "[build.sh] copy panel dist/prerender and dist/assets to www/public/_panel"
 rm -rf ../../www/public/_panel
-cp -r dist ../../www/public/_panel
+mkdir -p ../../www/public/_panel
+cp -r dist/assets dist/prerender ../../www/public/_panel
 echo ""
 
-# build the www package
+# build next.js now that panel static files are in place
 echo "[build.sh] build www package with pnpm"
 cd ../../www
 pnpm next:build
