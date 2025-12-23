@@ -8,12 +8,15 @@ pub enum AuthCommands {
     Login,
     /// Logout from the CLI
     Logout,
+    /// Display information about the current authentication status
+    Status,
 }
 
 pub fn handle_commands(context: &mut Context, command: AuthCommands) -> anyhow::Result<()> {
     match command {
         AuthCommands::Login => handle_login(context, command),
         AuthCommands::Logout => handle_logout(context, command),
+        AuthCommands::Status => handle_status(context, command),
     }
 }
 
@@ -54,6 +57,22 @@ fn handle_logout(context: &mut Context, _command: AuthCommands) -> anyhow::Resul
     context.global_config.save()?;
 
     pretty::info!("Logged out successfully.");
+
+    Ok(())
+}
+
+fn handle_status(context: &mut Context, _command: AuthCommands) -> anyhow::Result<()> {
+    if let Some(token) = &context.global_config.token {
+        pretty::info!("You are logged in with token: {}...", &token[..8]);
+    } else {
+        pretty::info!("You are not logged in.");
+    }
+
+    if let Some(server_url) = &context.global_config.server_url {
+        pretty::info!("Server URL: {}", server_url);
+    } else {
+        pretty::info!("Server URL: Not set");
+    }
 
     Ok(())
 }
