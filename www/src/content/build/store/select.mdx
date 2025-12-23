@@ -5,3 +5,190 @@ parent: build/store
 ---
 
 # Selecting Data in Stores
+
+It is useful for your server to be able to selectively determine what data to
+send to the clients.
+
+Take this example store:
+
+```rust
+use maf::prelude::*;
+// Abstractions for a game of Texas Hold'em.
+use texas_holdem::Card;
+
+struct TexasHoldemGame {
+    /// The deck of cards that have not been dealt yet.
+    cards_left: Vec<Card>,
+    /// The hands of each player, indexed by their UUID.
+    hands: HashMap<Uuid, Vec<Card>>,
+    /// <a lot of other states...>
+}
+
+impl StoreData for TexasHoldemGame {
+    type Select<'this> = // Will be explained below!
+
+    // Initialize the game state to a new deck and no hands dealt.
+    fn init() -> Self {
+        StoreData {
+            cards_left: Card::new_deck(),
+            hands: HashMap::new(),
+            // <initialize other states...>
+        }
+    }
+
+    // This store should be visible to the clients as "game"
+    fn name() -> impl AsRef<str> + Send {
+        "game"
+    }
+
+    fn select(&self, user: &User) -> Self::Select<'_> {
+        // Will be explained below!
+    }
+}
+```
+
+In the case of a poker game, the server needs to send each player their own hand
+of cards, but not the hands of other players and other sensitive information
+like the remaining deck of cards (_because otherwise players could cheat!_).
+
+To achieve this, we can use the `select` method and the `Select` associated type
+of the `StoreData` trait.
+
+## The `select` Method and `Select` Associated Type
+
+The `select` method is called by MAF to determine what data to send to a
+specific user. It takes a reference to the store data and a reference to the
+user, and returns a value of the `Select` associated type.
+
+The `Select` associated type is a generic type that can depend on the lifetime
+of the store data. This allows us to return references to the store data that
+are valid for the lifetime of the store data.
+
+In our poker game example, we can define the `Select` associated type to be a
+struct that contains only the data that we want to send to the user:
+
+```rust
+/// The `Select` type should be `serde::Serialize`-able.
+#[derive(serde::Serialize)]
+struct TexasHoldemGameView<'a> {
+    /// For a user, their own hand of cards.
+    hand: &'a Vec<Card>,
+    // <other public states...>
+}
+
+impl StoreData for TexasHoldemGame {
+    type Select<'this> = TexasHoldemGameView<'this>;
+
+    // ... other methods ...
+
+    // The server *controls what data is sent to each user*.
+    //
+    // Here, we send each user their own hand of cards, borrowed from the
+    // store's data.
+    fn select(&self, user: &User) -> Self::Select<'_> {
+        TexasHoldemGameView {
+            hand: self.hands.get(&user.id).expect("user must have a hand"),
+            // <other public states...>
+        }
+    }
+}
+```
+
+With this implementation, when a user connects to the store, they will only
+receive their own hand of cards, and not the hands of other players or the
+remaining deck of cards.
+
+## Using the Lifetime Parameter
+
+The lifetime parameter in the `Select` associated type allows us to return
+references to the store data that are valid for the lifetime of the store data.
+This is important because it allows us to avoid unnecessary cloning of data,
+which can be expensive for large data structures.
+
+In the poker game example, we return a reference to the user's hand of cards
+(that is, a `&'a Vec<Card>`) instead of cloning the vector of cards. This is
+more efficient and avoids unnecessary memory allocation.
+
+**This pattern is recommended but not strictly required.** If your selected data
+is `Copy`, cheap to clone, or if you need to perform transformations that
+do not lend themselves to borrowing, you can return owned data instead. For
+example:
+
+```rust
+struct Counter {
+    milliseconds: u64,
+}
+
+impl StoreData for Counter {
+    // Here, we return an owned `u32` representing seconds.
+    type Select<'this> = u32;
+
+    // ... other methods ...
+
+    fn select(&self, _user: &User) -> Self::Select<'_> {
+        self.milliseconds / 1_000 as u32 // Return the count in seconds.
+    }
+}
+```
+
+## The `select` Function
+
+When building your app (in `fn build`), you can create a store with values
+derived from server-side data by using the `select` method on `AppBuilder`.
+These special "pseudo-stores" do not have their own state; instead, their values
+are computed from other stores. MAF will keep track of dependencies and
+automatically update the derived store values when the underlying stores change.
+
+For example:
+
+```rust
+use maf::prelude::*;
+
+struct Counter {
+    milliseconds: u64,
+}
+
+impl StoreData for Counter {
+    // ... implement StoreData ...
+}
+
+struct Chat {
+    messages: Vec<String>,
+}
+
+impl StoreData for Chat {
+    // ... implement StoreData ...
+}
+
+fn build() -> App {
+    App::builder()
+        // Create two stores like normal.
+        .store::<Counter>()
+        .store::<Chat>()
+        // Create a third store whose value is derived from the `Counter` store.
+        //
+        // Clients will see a `seconds: u32` store that updates automatically as
+        // the `Counter` store changes.
+        .select("seconds", |counter: StoreRef<Counter>| {
+            counter.milliseconds / 1_000 as u32
+        })
+        // `select` can use multiple stores as inputs.
+        //
+        // `messages_per_second` will automatically update whenever either the
+        // `Counter` OR `Chat` stores change.
+        .select(
+            "messages_per_second",
+            |counter: StoreRef<Counter>, chat: StoreRef<Chat>| {
+                if counter.milliseconds == 0 {
+                    0.0
+                } else {
+                    chat.messages.len() as f64
+                        / (counter.milliseconds as f64 / 1_000.0)
+                }
+            }
+        )
+        .build()
+}
+
+maf::register!(build);
+```

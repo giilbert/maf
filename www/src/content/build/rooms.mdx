@@ -5,4 +5,43 @@ category: Build Your App
 
 # Rooms
 
-Rooms info bleh bleh
+Rooms are a way to partition/separate different groups of clients and data
+within a MAF app. To make this more concrete, let's consider an example of a
+chat application.
+
+In your chat application, you might have multiple chat groups (e.g. "Sports",
+"Music", "Movies") that are independent of each other (i.e., messages and users
+in one group should not affect or be visible to another group). You can model
+each chat group as a separate room in your MAF app.
+
+**Each room maintains its own set of connected clients, stores, and channels**.
+When a client connects to a room, they only have access to the data and
+functionality within that room. This allows you to isolate different groups of
+users and data, ensuring that they do not interfere with each other.
+
+Your MAF server code will be ran multiple times, once for each room. Each
+instance of your server code will handle the clients and data for a specific
+room. When a frontend is loaded, it connects to a specific room on the server,
+and all interactions (e.g., store updates, channel messages) are scoped to that
+room.
+
+## Sharding
+
+MAF Apps have to run on real servers and unfortunately, real apps have to deal
+with real server limitations. **A key limitation is that a single server can
+only handle a limited number of concurrent connections. To scale beyond that
+limit, you need to run multiple server instances.**
+
+Rooms provide a natural way to shard your MAF app across multiple server
+instances. You can assign different rooms to different server instances,
+allowing you to distribute the load and handle more concurrent connections. For
+example, you might run one server instance for the "Sports" room, another for
+the "Music" room, and so on.
+
+When deploying on MAF Platform, this is handled automatically for you. MAF
+Platform will automatically create and manage multiple server instances as
+needed, distributing rooms across them to handle the load.
+
+If there is a need for rooms to communicate with each other (e.g., sending a
+message from one room to another or sharing data between rooms), you can use
+MAF's distributed features like ✨ coming soon ✨.

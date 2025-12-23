@@ -212,6 +212,9 @@ pub trait StoreData: Send + Sync + 'static {
     /// [`serde::Serialize`] and [`schemars::JsonSchema`].
     type Select<'this>: Serialize + JsonSchema;
 
+    /// Initializes the store data with a default value.
+    fn init() -> Self;
+
     /// Returns the name of the store to be used by clients to identify it.
     ///
     /// If not specified, the default is the Rust type name of `Self`.
@@ -260,9 +263,6 @@ pub trait StoreData: Send + Sync + 'static {
     /// ```
     #[allow(unused_variables)]
     fn select(&self, user: &User) -> Self::Select<'_>;
-
-    /// Initializes the store data with a default value.
-    fn init() -> Self;
 }
 
 impl AnyStore {
