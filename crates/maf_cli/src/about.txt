@@ -1,0 +1,8 @@
+Mutation Authority Framework (MAF) is a toolkit for making realtime apps.
+
+Ready to get started? Here are some commands to try:
+- `maf init` to create a new MAF project
+- `maf dev` to run the development server
+
+Website: https://maf.gilbertz.me
+GitHub: https://github.com/giilbert/maf

@@ -11,8 +11,8 @@ use clap::Subcommand;
 use colored::Colorize;
 use futures_util::{io::Cursor, TryStreamExt};
 use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
-use reqwest::Body;
 use maf_schemas::apps::CreateUserAppRequest;
+use reqwest::Body;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio_util::{
     codec::{BytesCodec, FramedRead},
