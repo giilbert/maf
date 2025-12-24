@@ -1,3 +1,6 @@
+// Definitions of data sent and received over the wire.
+
+// Data sent from client to server
 export type TxPacket =
   | {
       type: "ChannelSend";
@@ -15,6 +18,7 @@ export type TxPacket =
       };
     };
 
+// Data received from server to client
 export type RxPacket =
   | {
       type: "ChannelSend";

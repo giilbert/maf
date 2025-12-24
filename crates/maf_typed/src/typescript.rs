@@ -51,6 +51,7 @@ impl TypeScriptCodegen {
 
         output.push_str(
             r#"export type MafApp = {
+  __isTyped: true;
   stores: MafStoresList;
   rpcs: MafRpcsList;
 };

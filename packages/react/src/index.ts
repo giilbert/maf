@@ -1,5 +1,7 @@
-import { MafProvider, type MafProviderProps } from "./maf-provider";
-import { useStore } from "./hooks/use-store";
-import { useSession } from "./hooks/use-session";
-
-export { MafProvider, MafProviderProps, useStore, useSession };
+export {
+  useMafClient,
+  MafProvider,
+  type MafProviderProps,
+} from "./maf-provider";
+export { useStore } from "./hooks/use-store";
+export { useSession } from "./hooks/use-session";

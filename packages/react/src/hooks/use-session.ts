@@ -1,19 +1,42 @@
 import { useEffect, useState } from "react";
-import { useMaf } from "../maf-provider";
+import { useMafClient } from "../maf-provider";
 import { SessionInfo } from "@usemaf/client";
-import { MafStatus } from "./use-store";
 
+type UseSessionStatus = "loading" | "ready";
+
+/**
+ * The type returned by the {@link useSession} hook. Represents session loading
+ * state.
+ */
 export type UseSession =
-  | { status: MafStatus.LOADING; data: null }
-  | { status: MafStatus.READY; data: SessionInfo };
+  | { status: "loading"; data: null }
+  | { status: "ready"; data: SessionInfo };
 
+/**
+ * Subscribes to session status and provides session information when ready.
+ *
+ * @example
+ * function App() {
+ *   const session = useSession();
+ *
+ *   // Use discriminated union to handle loading and ready states.
+ *   if (session.status === "loading") {
+ *     return <p>Loading...</p>;
+ *   }
+ *
+ *   // session.status is "ready" here
+ *   return <p>Session User ID: {session.data.id}</p>;
+ * }
+ *
+ * @returns {UseSession} The current session status and data.
+ */
 export function useSession(): UseSession {
-  const [status, setStatus] = useState<MafStatus>(MafStatus.LOADING);
-  const client = useMaf();
+  const [status, setStatus] = useState<UseSessionStatus>("loading");
+  const client = useMafClient();
 
   useEffect(() => {
     const unsubscribe = client.on("ready", () => {
-      setStatus(MafStatus.READY);
+      setStatus("ready");
     });
 
     return () => {
@@ -21,15 +44,15 @@ export function useSession(): UseSession {
     };
   }, [client]);
 
-  if (status === MafStatus.LOADING) {
+  if (status === "loading") {
     return {
-      status: MafStatus.LOADING,
+      status: "loading",
       data: null,
     };
   }
 
   return {
-    status: MafStatus.READY,
+    status: "ready",
     data: client.sessionInfo,
   };
 }

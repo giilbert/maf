@@ -7,7 +7,7 @@ console.log("maf client connected!");
 
 const ROUNDs = 10_000;
 
-const times = [];
+const times: number[] = [];
 for (let i = 0; i < ROUNDs; i++) {
   const start = performance.now();
   await client.rpc("increment_counter", 1);

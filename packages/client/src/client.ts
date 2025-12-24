@@ -2,12 +2,23 @@ import Emittery from "emittery";
 import { Channel } from "./channel";
 import { Store, StoreOptions } from "./store";
 import { RxPacket, TxPacket } from "./packet";
-import type { MafTypes } from "./typed";
+import type { TypedMafClient } from "./typed";
 
 export interface MafClientOptions {
   server: MafServerOptions;
 }
 
+/**
+ * Options for connecting to a MAF server.
+ *
+ * This will be in the form of either:
+ * - `{ type: "dev" }` or `"dev"` (as a string literal) to connect to the
+ * default development server at `http://localhost:1147`.
+ * - `{ type: "dev", url: URL | string }` to connect to a development server
+ * hosted at a custom URL.
+ * - `{ type: "platform", url: URL | string, app: string }` to connect to MAF
+ * Platform at the specified URL for the specified app.
+ */
 export type MafServerOptions =
   | { type: "dev"; url?: string | URL }
   | {
@@ -19,6 +30,11 @@ export type MafServerOptions =
 
 export const DEFAULT_DEV_SERVER_URL = "http://localhost:1147";
 
+/**
+ * Events emitted by the {@link MafClient}
+ *
+ * @see MafClient
+ */
 export interface MafClientEvents {
   ready: SessionInfo;
   close: void;
@@ -255,15 +271,43 @@ export class MafUntypedBaseClient extends Emittery<MafClientEvents> {
   }
 }
 
+/**
+ * A MAF client for connecting to a MAF server.
+ *
+ * This is an untyped client, meaning that MAF types (stores and RPCs) are not
+ * known and must be specified manually.
+ *
+ * @see TypedMafClient
+ */
 export class MafClient extends MafUntypedBaseClient {
   constructor(options: MafClientOptions) {
     super(options);
   }
 
+  /**
+   * Get a store by name.
+   *
+   * @param name The name of the store as defined on the server. Check the
+   * server-side guide for how to define stores.
+   * @param options Options for the store.
+   * @returns The store instance.
+   *
+   * @see https://maf.gilbertz.me/docs/build/store
+   */
   public store<T>(name: string, options?: StoreOptions<T>): Store<T> {
     return this.untypedStore(name, options) as Store<T>;
   }
 
+  /**
+   * Invoke an RPC method by name. The parameters and return type should be
+   * serializable data.
+   *
+   * @param method The name of the RPC method to invoke.
+   * @param params Any number of parameters to invoke the RPC method with.
+   * @returns The return value of the RPC, serialized from the server.
+   *
+   * @see https://maf.gilbertz.me/docs/build/rpc
+   */
   public rpc<T>(method: string, ...params: unknown[]) {
     return this.untypedRpc<T>(method, ...params);
   }
