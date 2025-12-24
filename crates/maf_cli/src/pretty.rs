@@ -10,7 +10,7 @@ macro_rules! _warn {
     ($($arg:tt)*) => {
         #[allow(unused_imports)]
         use colored::Colorize as _;
-        eprintln!("{} {}", "warning".yellow().bold(), format!($($arg)*).yellow());
+        eprintln!("{} {}", "warn".yellow().bold(), format!($($arg)*).yellow());
     };
 }
 

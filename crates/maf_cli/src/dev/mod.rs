@@ -80,8 +80,6 @@ pub async fn handle_run(
 pub fn run_build_command(base_path: &Path, command: &str) -> anyhow::Result<()> {
     print_dimmed!("[dev] Running build command `{}`", command);
 
-    println!("\n");
-
     let start = std::time::Instant::now();
     let mut command = command.split(" ");
     let executable = command.next().expect("Command must have an executable");
@@ -93,8 +91,6 @@ pub fn run_build_command(base_path: &Path, command: &str) -> anyhow::Result<()> 
         .current_dir(&base_path)
         .spawn()?
         .wait()?;
-
-    println!("\n");
 
     if !status.success() {
         println!(
@@ -112,8 +108,6 @@ pub fn run_build_command(base_path: &Path, command: &str) -> anyhow::Result<()> 
     }
 
     print_dimmed!("[dev] Build completed in {:.2?}", start.elapsed());
-
-    println!("\n");
 
     Ok(())
 }

@@ -10,6 +10,14 @@ deploy:
 docker-build:
     docker build -f scripts/fly.dockerfile -t maf-server:latest .
 
+# start the platform server in development mode
+dev-platform:
+    RUST_LOG=info cargo run --bin maf_container_host
+
+# apply the schema migrations
+migrate:
+    cargo run --package migrations up --verbose
+
 # build and run maf_cli in development mode
 [working-directory: "."]
 dev-cli *args:

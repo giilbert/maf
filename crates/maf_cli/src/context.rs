@@ -64,7 +64,9 @@ impl Context {
         if token.is_some_and(|t| t.len() > 0) {
             return;
         } else {
-            pretty::error!("MAF_CLI_TOKEN environment variable is not set");
+            pretty::error!(
+                "You need to be logged in to perform this action. Please run `maf auth login`."
+            );
             std::process::exit(1);
         }
     }

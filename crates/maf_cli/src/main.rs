@@ -12,6 +12,7 @@ use admin::AdminCommands;
 use app::AppCommands;
 use clap::{Parser, Subcommand};
 
+use colored::Colorize;
 pub use context::Context;
 use dev::DevCommands;
 use tracing_subscriber::{fmt, layer::SubscriberExt as _, util::SubscriberInitExt as _, EnvFilter};
@@ -103,10 +104,9 @@ async fn main() {
     match try_main().await {
         Ok(_) => {}
         Err(e) => {
-            pretty::error!("Something went very wrong!\n{:?}", e);
-            if dotenvy::var("RUST_BACKTRACE").is_ok() {
-                pretty::error!("Backtrace:\n{}", e.backtrace());
-            }
+            eprintln!();
+            eprintln!("{}\n", "A fatal error occured! :(".bold().red());
+            eprintln!("{}", format!("{e:?}").red());
             std::process::exit(1);
         }
     }

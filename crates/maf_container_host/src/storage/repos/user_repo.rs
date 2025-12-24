@@ -42,3 +42,10 @@ pub async fn create_user_with_default_org(
 
     Ok((user, org))
 }
+
+pub async fn internal_get_all_users(
+    conn: &impl ConnectionTrait,
+) -> anyhow::Result<Vec<user::Model>> {
+    let users = user::Entity::find().all(conn).await?;
+    Ok(users)
+}

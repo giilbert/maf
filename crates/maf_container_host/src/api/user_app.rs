@@ -10,12 +10,12 @@ use maf_container::{server::RoomInner, ContainerResourceLimit};
 use maf_schemas::{
     apps::{
         AppNameAndOrgSlug, CreateRoomOptions, CreateUserAppRequest, RoomCreationStrategy, RoomInfo,
-        RoomKeyHash,
+        RoomKeyHash, UpdateUserAppRequest,
     },
     error::ErrorResponse,
     project_config::ProjectConfigFile,
 };
-use sea_orm::{ActiveValue::Set, ModelTrait};
+use sea_orm::{ActiveModelTrait, ActiveValue::Set, ModelTrait};
 use uuid::Uuid;
 
 use crate::{
@@ -36,7 +36,10 @@ pub fn create_user_app_router(state: AppState) -> Router<AppState> {
     // Router for user operations
     let user_router = Router::new()
         .route("/", post(create_user_app).get(get_user_apps))
-        .route("/{app_name}", get(get_app).delete(delete_app))
+        .route(
+            "/{app_name}",
+            get(get_app).delete(delete_app).post(update_app),
+        )
         .route("/{app_name}/deployments", post(upload_app_bundle))
         .layer(middleware::from_fn_with_state(
             state.clone(),
@@ -159,6 +162,44 @@ async fn upload_app_bundle(
         .map_err(|e| e.error_response())?;
 
     Ok(())
+}
+
+/// **POST** `/api/v1/apps/{org}/{app}`
+///
+/// Updates the app's configuration. Everything except the config is immutable.
+async fn update_app(
+    State(state): State<AppState>,
+    user: AuthedUser,
+    Path(app_name): Path<String>,
+    Json(updated_app): Json<UpdateUserAppRequest>,
+) -> Result<Json<app::Model>, ErrorResponse> {
+    let org = org_repo::get_default_org_of_user(&state.db, user.id())
+        .await?
+        .ok_or_else(|| ErrorResponse::not_found(Some("No default org found.")))?;
+
+    let app = match app_repo::get_app_by_name_and_org_id(&state.db, &app_name, org.id).await? {
+        Some(app) => app,
+        None => return Err(ErrorResponse::not_found(Some("App not found."))),
+    };
+
+    if let Some(config) = &updated_app.config {
+        // TODO: Refactor: this validation logic is duplicated
+        if config.len() > 2000 {
+            return Err(ErrorResponse::bad_request(Some(
+                "Config cannot be longer than 2000 characters.",
+            )));
+        }
+    }
+
+    let mut app_model: app::ActiveModel = app.into();
+    app_model.updated_at = Set(Utc::now().naive_utc());
+    if let Some(config) = updated_app.config {
+        app_model.config = Set(Some(config));
+    }
+
+    let updated_app = app_model.update(&state.db).await?;
+
+    Ok(Json(updated_app))
 }
 
 async fn get_app(

@@ -1,25 +1,14 @@
+mod deploy;
 mod models;
 
-use std::{
-    path::{Path, PathBuf},
-    time::Duration,
-};
+use std::path::PathBuf;
 
 use anyhow::Context as _;
-use async_zip::{tokio::write::ZipFileWriter, Compression, ZipEntryBuilder};
 use clap::Subcommand;
 use colored::Colorize;
-use futures_util::{io::Cursor, TryStreamExt};
-use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
 use maf_schemas::apps::CreateUserAppRequest;
-use reqwest::Body;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio_util::{
-    codec::{BytesCodec, FramedRead},
-    compat::{FuturesAsyncReadCompatExt, TokioAsyncWriteCompatExt},
-};
 
-use crate::{dev::run_build_command, input::input, pretty, Context};
+use crate::{input::input, pretty, Context};
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum AppCommands {
@@ -27,17 +16,19 @@ pub enum AppCommands {
     List,
     /// Create a new app
     Create,
-    /// Get service account credentials for an app by name, or the current project's app if no name is provided
+    /// Get service account credentials for an app by name, or the current project's app if no name
+    /// is provided
     Credentials { name: Option<String> },
     /// Show information about an app by name, or the current project's app if no name is provided
     View { name: Option<String> },
     /// Delete an app by name, or the current project's app if no name is provided
     Delete { name: Option<String> },
-    /// Deploy an app by name and path, or the current project's app if no name or path is provided
+    /// Deploy an app by name and bundle, or the current project's app if neither is provided
     Deploy {
-        #[clap(requires = "path")]
+        #[clap(requires = "bundle_path")]
         name: Option<String>,
-        path: Option<String>,
+        /// Where to find the app's bundle zip file
+        bundle_path: Option<PathBuf>,
     },
 }
 
@@ -66,21 +57,9 @@ pub async fn handle_commands(context: &mut Context, command: AppCommands) -> any
                 delete_app(context, project.data.name.clone()).await
             }
         },
-        AppCommands::Deploy { name, path } => match (name, path) {
-            (Some(name), Some(path)) => deploy_bundle(context, name, &PathBuf::from(path)).await,
-            _ => {
-                let project = context.assert_project();
-                let name = project.data.name.clone();
-
-                run_build_command(&project.base, &project.data.release.command)?;
-
-                let output_path =
-                    tokio::fs::canonicalize(project.base.join(project.data.release.output.clone()))
-                        .await
-                        .context("Unable to find output file")?;
-                deploy_bundle(context, name, &output_path).await
-            }
-        },
+        AppCommands::Deploy { name, bundle_path } => {
+            deploy::handle_deploy(context, name, bundle_path).await
+        }
     }
 }
 
@@ -101,10 +80,16 @@ async fn list_apps(context: &Context) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn show_short_app_info(context: &Context, name: &str) -> anyhow::Result<models::App> {
+async fn show_short_app_info(
+    context: &Context,
+    name: &str,
+    silent: bool,
+) -> anyhow::Result<models::App> {
     context.assert_token();
 
-    println!("Fetching app `{name}`...\n");
+    if !silent {
+        println!("Fetching app `{name}`...\n");
+    }
 
     let app = context
         .get::<models::App>(format!("/api/v1/apps/{name}"))
@@ -124,7 +109,7 @@ async fn show_short_app_info(context: &Context, name: &str) -> anyhow::Result<mo
 async fn view_app(context: &Context, name: &str) -> anyhow::Result<()> {
     context.assert_token();
 
-    let app = show_short_app_info(context, name).await?;
+    let app = show_short_app_info(context, name, false).await?;
 
     println!("{}", "Configuration".bold());
     println!(
@@ -161,7 +146,7 @@ async fn create_app(context: &Context) -> anyhow::Result<()> {
             if !success {
                 println!();
                 pretty::error!("Aborted");
-                return Ok(());
+                std::process::exit(0);
             }
 
             CreateUserAppRequest {
@@ -212,7 +197,7 @@ async fn create_app(context: &Context) -> anyhow::Result<()> {
 async fn get_app_credentials(context: &Context, name: &str) -> anyhow::Result<()> {
     context.assert_token();
 
-    let app = show_short_app_info(context, name).await?;
+    let app = show_short_app_info(context, name, false).await?;
 
     const CREDENTIALS_PATH: &str = "credentials.txt";
 
@@ -237,7 +222,7 @@ MAF_CLIENT_SECRET={secret}"#,
 async fn delete_app(context: &Context, name: String) -> anyhow::Result<()> {
     context.assert_token();
 
-    show_short_app_info(context, &name).await?;
+    show_short_app_info(context, &name, false).await?;
 
     println!(
         "{}",
@@ -262,93 +247,4 @@ async fn delete_app(context: &Context, name: String) -> anyhow::Result<()> {
         .await?;
 
     Ok(())
-}
-
-async fn deploy_bundle(context: &Context, name: String, path: &Path) -> anyhow::Result<()> {
-    context.assert_token();
-
-    show_short_app_info(context, &name).await?;
-
-    let mut file = tokio::fs::File::open(&path)
-        .await
-        .with_context(|| format!("failed to open file `{path:?}`"))?;
-
-    let (compressed_data, metadata) = create_zip_bundle(&mut file).await?;
-    let bar = ProgressBar::new(compressed_data.len() as u64);
-    let bar_clone = bar.clone();
-
-    let stream = FramedRead::new(Cursor::new(compressed_data).compat(), BytesCodec::new())
-        .inspect_ok(move |chunk| {
-            bar_clone.update(|state| state.set_pos(state.pos() + chunk.len() as u64));
-        });
-
-    bar.enable_steady_tick(Duration::from_millis(100));
-    bar.set_message(format!("Uploading `{path:?}`\n"));
-    bar.set_style(ProgressStyle::default_bar().template(
-        "{spinner:.magenta} {msg} {wide_bar} {bytes}/{total_bytes} [eta: {eta}] [{elapsed_precise}]",
-    )?);
-
-    let response = context
-        .client
-        .post(context.url(format!("/api/v1/apps/{name}/deployments"))?)
-        .body(Body::wrap_stream(stream))
-        .send()
-        .await?;
-
-    if !response.status().is_success() {
-        anyhow::bail!(crate::context::handle_error_response(response).await?);
-    }
-
-    bar.set_style(ProgressStyle::default_bar().template("{wide_msg} [{elapsed_precise}]")?);
-    bar.finish_with_message(format!(
-        "Uploaded `{path:?}` ({} bytes)",
-        HumanBytes(metadata.len())
-    ));
-
-    println!("");
-
-    Ok(())
-}
-
-async fn create_zip_bundle(
-    file: &mut tokio::fs::File,
-) -> anyhow::Result<(Vec<u8>, std::fs::Metadata)> {
-    let zip_bundle_bar = ProgressBar::new_spinner();
-    zip_bundle_bar.enable_steady_tick(Duration::from_millis(100));
-    zip_bundle_bar.set_style(
-        ProgressStyle::default_spinner()
-            .template("{spinner:.magenta} {wide_msg} [{elapsed_precise}]")?,
-    );
-    zip_bundle_bar.set_message("Creating zip bundle...");
-
-    const ZIP_BUFFER_SIZE: usize = 20 * 1024 * 1024; // 20 MB
-
-    let zip_buffer = tokio::io::BufWriter::with_capacity(ZIP_BUFFER_SIZE, Vec::new());
-    let mut zip = ZipFileWriter::new(zip_buffer.compat_write());
-
-    let metadata = file
-        .metadata()
-        .await
-        .context("failed to get metadata for file")?;
-
-    let mut file_data = Vec::with_capacity(metadata.len() as usize);
-    file.read_to_end(&mut file_data).await?;
-    zip.write_entry_whole(
-        ZipEntryBuilder::new("module.wasm".into(), Compression::Deflate),
-        &file_data,
-    )
-    .await?;
-
-    let mut zip_writer = zip.close().await?.into_inner();
-    zip_writer.flush().await?;
-    zip_writer.shutdown().await?;
-
-    zip_bundle_bar
-        .set_style(ProgressStyle::default_bar().template("{wide_msg} [{elapsed_precise}]")?);
-    zip_bundle_bar.finish_with_message(format!(
-        "Created zip bundle ({} bytes)",
-        HumanBytes(metadata.len())
-    ));
-
-    Ok((zip_writer.into_inner(), metadata))
 }

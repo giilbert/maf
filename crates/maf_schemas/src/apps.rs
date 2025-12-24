@@ -21,6 +21,11 @@ pub struct CreateUserAppRequest {
     pub config: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateUserAppRequest {
+    pub config: Option<String>,
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum RoomCreationStrategy {
     /// Auto-create a room and put everyone in it

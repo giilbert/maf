@@ -40,9 +40,10 @@ impl DevConsole {
 
             match command {
                 "help" | "?" => {
-                    const COMMANDS: [(&str, &str); 2] = [
+                    const COMMANDS: &[(&str, &str)] = &[
                         ("help | ?", "Shows this help message"),
                         ("state | s", "Dumps the current state of the application"),
+                        ("users | u", "Lists all users in the database"),
                     ];
 
                     dev_print!("Available commands:");
@@ -51,6 +52,7 @@ impl DevConsole {
                     }
                 }
                 "state" | "s" => self.handle_state_command().await,
+                "users" | "u" => self.handle_users_command().await?,
                 _ => {
                     dev_print!("Unknown command: `{}`", command);
                     dev_print!("Type `help` for a list of commands.");
@@ -167,5 +169,22 @@ impl DevConsole {
                 }
             }
         }
+    }
+
+    async fn handle_users_command(&self) -> anyhow::Result<()> {
+        let users =
+            crate::storage::repos::user_repo::internal_get_all_users(&self.state.db).await?;
+
+        dev_print!("Users in the database:");
+        for user in users {
+            dev_print!(
+                "- ID: {}, Username: {}, Name: {}",
+                user.id,
+                user.username,
+                user.name
+            );
+        }
+
+        Ok(())
     }
 }
