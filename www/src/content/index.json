@@ -23,6 +23,6 @@
   },
   {
     "name": "Reference",
-    "docs": ["reference/platform"]
+    "docs": ["reference/platform", "reference/cli"]
   }
 ]

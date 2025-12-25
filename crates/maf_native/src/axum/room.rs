@@ -9,7 +9,7 @@ use crate::axum::Connection;
 
 #[derive(Clone)]
 pub struct Room {
-    id: Uuid,
+    _id: Uuid,
     platform: ActorPlatformHandle,
 }
 
@@ -25,7 +25,7 @@ impl Room {
         app.run();
 
         Ok(Self {
-            id: Uuid::new_v4(),
+            _id: Uuid::new_v4(),
             platform: handle,
         })
     }

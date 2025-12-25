@@ -29,7 +29,7 @@ use crate::{
 pub struct DevServerConfig {
     pub port: u16,
     pub wasm_module_path: String,
-    pub watch: bool,
+    pub _watch: bool,
 }
 
 #[derive(Debug, Clone)]

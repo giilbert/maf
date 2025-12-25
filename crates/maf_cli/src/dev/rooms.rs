@@ -1,10 +1,9 @@
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
-    sync::Arc,
-    time::Duration,
 };
 
+use anyhow::Context;
 use colored::Colorize as _;
 use maf_container::{
     server::{Bundle, RoomInner},
@@ -32,7 +31,7 @@ pub struct InsertRoom {
 #[derive(Debug)]
 pub struct DevRoomsStorage {
     pub bundle: Bundle,
-    pub config: Option<ProjectConfig>,
+    pub _config: Option<ProjectConfig>,
     pub inner: RwLock<HashMap<RoomId, DevRoom>>,
     pub keys: RwLock<HashMap<RoomKey, RoomId>>,
     pub auto_created_room: RwLock<Option<RoomId>>,
@@ -50,7 +49,7 @@ pub struct DevRoom {
 pub struct DevRoomMeta {
     pub id: RoomId,
     pub secret: String,
-    pub strategy: RoomCreationStrategy,
+    pub _strategy: RoomCreationStrategy,
     pub key: String,
 }
 
@@ -60,8 +59,13 @@ impl DevRoomsStorage {
         config: Option<ProjectConfig>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
-            config,
-            bundle: Bundle::load_wasm_module_from_file(wasm_module_path)?,
+            _config: config,
+            bundle: Bundle::load_wasm_module_from_file(&wasm_module_path).with_context(|| {
+                format!(
+                    "failed to load WASM module from `{}`",
+                    wasm_module_path.as_ref().display()
+                )
+            })?,
             inner: Default::default(),
             keys: Default::default(),
             auto_created_room: Default::default(),
@@ -129,7 +133,7 @@ impl DevRoomsStorage {
         let meta = DevRoomMeta {
             id: room.id(),
             secret: generate_room_secret(),
-            strategy: param.strategy.clone(),
+            _strategy: param.strategy.clone(),
             key: room_key.clone(),
         };
 
@@ -161,6 +165,7 @@ impl DevRoomsStorage {
         Ok(meta)
     }
 
+    #[allow(dead_code)]
     pub async fn remove(&self, room_id: &RoomId) -> Option<DevRoom> {
         let room = self.inner.write().await.remove(room_id)?;
         self.keys.write().await.remove(room.meta.key.as_str());

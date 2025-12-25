@@ -5,49 +5,49 @@ mod typed;
 
 use std::{path::Path, process};
 
-use clap::Subcommand;
 use dev_server::DevServerConfig;
 
 use crate::Context;
 
-#[derive(Subcommand, Debug, Clone)]
-pub enum DevCommands {
-    Run { file_path: String },
-}
+// FIXME: Actual watch mode implementation?
+// #[derive(Subcommand, Debug, Clone)]
+// pub enum DevCommands {
+//     Run { file_path: String },
+// }
+//
+// pub async fn handle_commands(
+//     context: &mut Context,
+//     file_path: Option<String>,
+//     command: Option<DevCommands>,
+//     port: Option<u16>,
+// ) -> anyhow::Result<()> {
+//     match command {
+//         Some(DevCommands::Run { file_path }) => handle_run(context, Some(file_path), port).await,
+//         None => {
+//             // Use the file path from the project config if available, otherwise use file_path
+//             let file_path = match context
+//                 .project_config
+//                 .as_ref()
+//                 .map(|p| p.data.debug.output.clone())
+//             {
+//                 Some(output) => output,
+//                 None => file_path.ok_or_else(|| {
+//                     anyhow::anyhow!("No file path provided and no project config available")
+//                 })?,
+//             };
 
-pub async fn handle_commands(
-    context: &mut Context,
-    file_path: Option<String>,
-    command: Option<DevCommands>,
-    port: Option<u16>,
-) -> anyhow::Result<()> {
-    match command {
-        Some(DevCommands::Run { file_path }) => handle_run(context, Some(file_path), port).await,
-        None => {
-            // Use the file path from the project config if available, otherwise use file_path
-            let file_path = match context
-                .project_config
-                .as_ref()
-                .map(|p| p.data.debug.output.clone())
-            {
-                Some(output) => output,
-                None => file_path.ok_or_else(|| {
-                    anyhow::anyhow!("No file path provided and no project config available")
-                })?,
-            };
-
-            dev_server::start_local_server(
-                context,
-                DevServerConfig {
-                    port: port.unwrap_or(DEFAULT_PORT),
-                    wasm_module_path: file_path,
-                    watch: true,
-                },
-            )
-            .await
-        }
-    }
-}
+//             dev_server::start_local_server(
+//                 context,
+//                 DevServerConfig {
+//                     port: port.unwrap_or(DEFAULT_PORT),
+//                     wasm_module_path: file_path,
+//                     _watch: true,
+//                 },
+//             )
+//             .await
+//         }
+//     }
+// }
 
 const DEFAULT_PORT: u16 = 1147; // Looks vaguely like MAF
 
@@ -71,7 +71,7 @@ pub async fn handle_run(
                     path.to_string_lossy().to_string()
                 }
             },
-            watch: false,
+            _watch: false,
         },
     )
     .await

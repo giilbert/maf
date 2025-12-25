@@ -1,0 +1,277 @@
+---
+title: MAF CLI Reference
+category: Reference
+---
+
+# MAF CLI Reference
+
+MAF CLI is a tool for developing MAF servers and interfacing with MAF Platform.
+
+## Installation
+
+You can install MAF CLI using Cargo:
+
+```bash
+# Install Rust and Cargo: https://rust-lang.org/tools/install/
+# Then run:
+$ cargo install --git https://github.com/giilbert/maf.git maf_cli
+```
+
+You may want to alias `maf_cli` to `maf` for convenience:
+
+```bash
+# In your shell configuration file (e.g., .bashrc, .zshrc):
+$ alias maf="maf_cli"
+```
+
+**The rest of this reference will refer to the CLI as `maf` (if you choose not
+to alias it, just replace `maf` with `maf_cli` in the commands).**
+
+## Configuration
+
+MAF CLI uses three layers of configuration:
+
+1. **Environment Variables**: You can set configuration options using
+   environment variables (the shell environment or a `.env` file). These take
+   precedence over other configuration methods.
+   - `MAF_CLI_SERVER_URL`: The URL of the MAF Platform server.
+   - `MAF_CLI_TOKEN`: The authentication token for accessing the MAF Platform.
+2. **Configuration File**: MAF creates a configuration file at
+   - `~/.config/maf/config.toml` (on Linux)
+   - `~/Library/Application Support/com.giilbert.maf/config.toml` (on macOS)
+   - `%APPDATA%\Roaming\giilbert\maf\config.toml` (on Windows)
+     You can manually edit this file or use the `maf config` commands to modify
+     it.
+3. **Project Configuration**: You can create a `maf-project.toml` file in your
+   project directory to specify project-specific settings. MAF CLI will look for
+   this files when running commands that operate on a project.
+
+## Commands
+
+The help for these commands can be viewed by running `maf help` or
+`maf <command> --help`.
+
+### `maf app`
+
+#### `maf app list`
+
+Lists all applications deployed to the MAF Platform. To use this command, the
+Platform server should be configured and you should be authenticated (see `maf
+auth` commands).
+
+**Usage**
+
+```bash
+$ maf app list
+```
+
+#### `maf app create`
+
+Interactively creates a new application on the MAF Platform.
+
+**Usage**
+
+```bash
+$ maf app create
+```
+
+#### `maf app credentials`
+
+Fetches the MAF Platform credentials for a specific application.
+
+**Usage**
+
+```bash
+# [1] Fetch credentials for the current project's app
+$ maf app credentials
+# [2] Fetch credentials for a specific app by name
+$ maf app credentials [name]
+```
+
+If no name is provided, the command will attempt to read the `maf-project.toml`
+file in the current directory to determine the app name.
+
+#### `maf app view`
+
+Displays detailed information about a specific application on the MAF Platform.
+
+**Usage**
+
+```bash
+# [1] View the current project's app
+$ maf app view
+# [2] View a specific app by name
+$ maf app view [name]
+```
+
+If no name is provided, the command will attempt to read the `maf-project.toml`
+file in the current directory to determine the app name.
+
+#### `maf app deploy`
+
+Deploys an application to the MAF Platform.
+
+**Usage**
+
+```bash
+# [1] Deploy the current project
+$ maf app deploy
+
+# [2] Deploy a specific WASM module to a named app
+$ maf app deploy [name] [wasm_module_path]
+```
+
+1. With no arguments, deploys the current project (the directory where the
+   command is run) to the MAF Platform. The project must contain a valid
+   `maf-project.toml` file. If the project has not been deployed before, a new
+   application will be created on the Platform. If it has been deployed before,
+   the existing application will be updated.
+
+2. If you provide a name and a path to a WASM module, deploys that module to the
+   specified application on the MAF Platform.
+   - `name`: The name of the application on the MAF Platform.
+   - `wasm_module_path`: The file path to the WASM module to deploy.
+
+### `maf auth`
+
+#### `maf auth login`
+
+Interactively authenticates the MAF CLI with the MAF Platform using an
+authentication token. _NOTE: Platform is in private testing and this command
+should only be used for authorized users._
+
+The token will be stored in the global configuration file for future use.
+
+**Usage**
+
+```bash
+$ maf auth login
+```
+
+#### `maf auth logout`
+
+Clears the stored authentication token, effectively logging out of the MAF
+Platform.
+
+**Usage**
+
+```bash
+$ maf auth logout
+```
+
+#### `maf auth status`
+
+Displays the current authentication status, including whether you are logged in
+and which server you are using.
+
+**Usage**
+
+```bash
+$ maf auth status
+```
+
+### `maf config`
+
+#### `maf config show`
+
+Displays the current MAF CLI configuration, including server URL and token
+status.
+
+**Usage**
+
+```bash
+$ maf config show
+```
+
+#### `maf config set`
+
+Sets a configuration option in the MAF CLI configuration file. You can set the
+server URL or authentication token.
+
+**Usage**
+
+```bash
+# [1] Set the server URL
+$ maf config set server_url [url]
+
+# [2] Set the authentication token
+$ maf config set token [token]
+```
+
+#### `maf config reset`
+
+Resets a configuration option to its default value by removing it from the
+configuration file.
+
+**Usage**
+
+```bash
+# [1] Reset the server URL
+$ maf config reset server_url
+# [2] Reset the authentication token
+$ maf config reset token
+```
+
+### `maf run`
+
+Builds the code and runs the MAF development server for a project.
+
+**Usage**
+
+```bash
+# [1] Run the development server in the current project directory
+$ maf run
+
+# [2] Run the development server given a specific WASM module file
+$ maf run [wasm_module_path]
+```
+
+**Flags**
+
+- `-p / --port <port>`: Specifies the port for the development server to listen
+  on (default: `1147`).
+
+### `maf init`
+
+Initializes a new MAF project in the current directory by creating a
+`maf-project.toml` file and setting up the necessary project structure.
+
+**NOTE**: This command does not create a directory to contain the project; it
+initializes the project in the current working directory.
+
+**NOTE**: This command does not install any toolchain dependencies (like Rust or
+Cargo). You must have the necessary toolchain installed separately.
+
+**Usage**
+
+```bash
+$ maf init
+```
+
+**Flags**
+
+- `-t / --template <template>`: Specifies a project template to use. Currently,
+  only the `rust` template is supported.
+- `-p / --path <path>`: Specifies the path where the project should be
+  initialized. If not provided, the current directory is used.
+
+### `maf create`
+
+Like `maf init`, but creates a new directory for the project.
+
+**Usage**
+
+```bash
+# [1] Create a new MAF project in an interactive prompt
+$ maf create
+# [2] Create a new MAF project with a specified name
+$ maf create [project_name?]
+```
+
+**Flags**
+
+- `-t / --template <template>`: Specifies a project template to use. Currently,
+  only the `rust` template is supported.
+- `-p / --path <path>`: Specifies the path where the project directory should be
+  created. If not provided, an interactive prompt will ask for the directory
+  name.

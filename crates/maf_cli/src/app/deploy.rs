@@ -16,18 +16,18 @@ use tokio_util::{
 
 use crate::{app::show_short_app_info, dev::run_build_command, pretty, Context};
 
-/// `maf app deploy <name> <bundle_path>` command handler
+/// `maf app deploy <name> <wasm_module_path>` command handler
 ///
-/// If both `name` and `bundle_path` are provided, deploys the specified path to the specified app.
-/// If neither is provided, builds and deploys the current project's app.
+/// If both `name` and `wasm_module_path` are provided, deploys the specified path to the specified
+/// app. If neither is provided, builds and deploys the current project's app.
 pub async fn handle_deploy(
     context: &Context,
     name: Option<String>,
-    bundle_path: Option<PathBuf>,
+    wasm_module_path: Option<PathBuf>,
 ) -> anyhow::Result<()> {
     context.assert_token();
 
-    let (name, bundle_path) = match (name, bundle_path) {
+    let (name, wasm_module_path) = match (name, wasm_module_path) {
         // The app is already built into a bundle at the specified path
         (Some(name), Some(path)) => (name, path),
         // The app needs to be built from the current project
@@ -56,13 +56,13 @@ pub async fn handle_deploy(
         pretty::info!("- Create a new app named `{}`.", name.bold(),);
         pretty::info!(
             "- Deploy the bundle located at `{}`.",
-            bundle_path.display()
+            wasm_module_path.display()
         );
     } else {
         pretty::info!("This deployment will:");
         pretty::info!(
             "- Deploy the bundle located at `{}` to existing app {}.",
-            bundle_path.display(),
+            wasm_module_path.display(),
             name.bold()
         );
         pretty::warn!("- This deployment will overwrite the existing deployment.",);
@@ -84,11 +84,11 @@ pub async fn handle_deploy(
 
     pretty::info!("Deploying app `{}`...\n", name.bold());
 
-    deploy_bundle(context, name, &bundle_path).await
+    deploy_wasm_module(context, name, &wasm_module_path).await
 }
 
-/// Deploys a zip bundle located at `path` to the app with the given `name`.
-async fn deploy_bundle(context: &Context, name: String, path: &Path) -> anyhow::Result<()> {
+/// Deploys a WASM module located at `path` to the app named `name`.
+async fn deploy_wasm_module(context: &Context, name: String, path: &Path) -> anyhow::Result<()> {
     let mut file = tokio::fs::File::open(&path)
         .await
         .with_context(|| format!("failed to open file `{path:?}`"))?;

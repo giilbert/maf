@@ -25,10 +25,11 @@ pub enum AppCommands {
     Delete { name: Option<String> },
     /// Deploy an app by name and bundle, or the current project's app if neither is provided
     Deploy {
-        #[clap(requires = "bundle_path")]
+        /// The name of the app to deploy to
+        #[clap(requires = "wasm_module_path")]
         name: Option<String>,
-        /// Where to find the app's bundle zip file
-        bundle_path: Option<PathBuf>,
+        /// Where to the find the WASM module to deploy
+        wasm_module_path: Option<PathBuf>,
     },
 }
 
@@ -57,9 +58,10 @@ pub async fn handle_commands(context: &mut Context, command: AppCommands) -> any
                 delete_app(context, project.data.name.clone()).await
             }
         },
-        AppCommands::Deploy { name, bundle_path } => {
-            deploy::handle_deploy(context, name, bundle_path).await
-        }
+        AppCommands::Deploy {
+            name,
+            wasm_module_path,
+        } => deploy::handle_deploy(context, name, wasm_module_path).await,
     }
 }
 

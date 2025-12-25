@@ -14,7 +14,6 @@ use clap::{Parser, Subcommand};
 
 use colored::Colorize;
 pub use context::Context;
-use dev::DevCommands;
 use tracing_subscriber::{fmt, layer::SubscriberExt as _, util::SubscriberInitExt as _, EnvFilter};
 
 use crate::{auth::AuthCommands, config::ConfigCommands, init::InitOptions};
@@ -50,18 +49,6 @@ enum Commands {
     #[command(subcommand)]
     Config(ConfigCommands),
 
-    /// Start development server or run other development commands.
-    Dev {
-        #[arg(value_name = "FILE_PATH")]
-        file: Option<String>,
-
-        #[arg(long, short, value_name = "PORT")]
-        port: Option<u16>,
-
-        #[command(subcommand)]
-        subcommand: Option<DevCommands>,
-    },
-
     /// Initialize a new MAF application in the current directory.
     Init(InitOptions),
     /// Create a new MAF application prompts to customize it.
@@ -82,11 +69,11 @@ async fn try_main() -> anyhow::Result<()> {
         Commands::App(app) => app::handle_commands(&mut context, app).await?,
         Commands::Auth(auth) => auth::handle_commands(&mut context, auth)?,
         Commands::Config(config) => config::handle_commands(&mut context, config)?,
-        Commands::Dev {
-            file: file_path,
-            subcommand,
-            port,
-        } => dev::handle_commands(&mut context, file_path, subcommand, port).await?,
+        // Commands::Dev {
+        //     file: file_path,
+        //     subcommand,
+        //     port,
+        // } => dev::handle_commands(&mut context, file_path, subcommand, port).await?,
         Commands::Init(options) => init::handle_init(options)?,
         Commands::Create(options) => init::handle_create(options)?,
     }
