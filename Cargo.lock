@@ -2375,6 +2375,7 @@ version = "0.1.0"
 dependencies = [
  "bitflags 2.9.1",
  "chrono",
+ "maf_schemas",
  "rand 0.9.1",
  "sea-orm",
  "sea-orm-migration",

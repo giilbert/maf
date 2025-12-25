@@ -105,3 +105,14 @@ impl Permissions {
         self.contains(Permissions::MANAGE_SERVER)
     }
 }
+
+impl Into<maf_schemas::admin::UserAdminView> for Model {
+    fn into(self) -> maf_schemas::admin::UserAdminView {
+        maf_schemas::admin::UserAdminView {
+            id: self.id,
+            username: self.username,
+            name: self.name,
+            permissions: format!("{:?}", self.permissions),
+        }
+    }
+}

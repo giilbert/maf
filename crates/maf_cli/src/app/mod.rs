@@ -1,5 +1,4 @@
 mod deploy;
-mod models;
 
 use std::path::PathBuf;
 
@@ -68,7 +67,9 @@ pub async fn handle_commands(context: &mut Context, command: AppCommands) -> any
 async fn list_apps(context: &Context) -> anyhow::Result<()> {
     context.assert_token();
 
-    let apps = context.get::<Vec<models::App>>("/api/v1/apps").await?;
+    let apps = context
+        .get::<Vec<maf_schemas::apps::App>>("/api/v1/apps")
+        .await?;
 
     if apps.is_empty() {
         println!("No apps found")
@@ -86,7 +87,7 @@ async fn show_short_app_info(
     context: &Context,
     name: &str,
     silent: bool,
-) -> anyhow::Result<models::App> {
+) -> anyhow::Result<maf_schemas::apps::App> {
     context.assert_token();
 
     if !silent {
@@ -94,7 +95,7 @@ async fn show_short_app_info(
     }
 
     let app = context
-        .get::<models::App>(format!("/api/v1/apps/{name}"))
+        .get::<maf_schemas::apps::App>(format!("/api/v1/apps/{name}"))
         .await
         .context("failed to get app")?;
 
@@ -187,7 +188,7 @@ async fn create_app(context: &Context) -> anyhow::Result<()> {
     };
 
     let app = context
-        .post::<models::App>("/api/v1/apps", &config)
+        .post::<maf_schemas::apps::App>("/api/v1/apps", &config)
         .await
         .context("Failed to create app")?;
 
@@ -245,7 +246,7 @@ async fn delete_app(context: &Context, name: String) -> anyhow::Result<()> {
     println!("Deleting app `{name}`...");
 
     context
-        .delete::<models::App>(format!("/api/v1/apps/{name}"), ())
+        .delete::<maf_schemas::apps::App>(format!("/api/v1/apps/{name}"), ())
         .await?;
 
     Ok(())

@@ -1,4 +1,6 @@
-use sea_orm::{DbErr, RuntimeErr, SqlxError};
+use sea_orm::{DbErr, RuntimeErr, SqlxError, TransactionError};
+
+use crate::storage::db::TxnError;
 
 pub fn is_db_error_code(err: &DbErr, error: impl AsRef<str>) -> bool {
     match err {
@@ -17,5 +19,23 @@ pub trait DbErrorExt {
 impl DbErrorExt for DbErr {
     fn is_unique_violation(&self) -> bool {
         is_db_error_code(&self, "23505")
+    }
+}
+
+impl DbErrorExt for TxnError {
+    fn is_unique_violation(&self) -> bool {
+        match self {
+            TxnError::DbErr { inner } => inner.is_unique_violation(),
+            _ => false,
+        }
+    }
+}
+
+impl DbErrorExt for TransactionError<TxnError> {
+    fn is_unique_violation(&self) -> bool {
+        match self {
+            TransactionError::Connection(err) => err.is_unique_violation(),
+            TransactionError::Transaction(err) => err.is_unique_violation(),
+        }
     }
 }

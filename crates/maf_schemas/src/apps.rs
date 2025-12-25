@@ -1,6 +1,7 @@
 use colored::Colorize;
 use rand::Rng as _;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 pub fn generate_room_secret() -> String {
     let mut rng = rand::rng();
@@ -91,4 +92,14 @@ pub struct CreateRoomOptions {
     /// A key used to identify the room, defaults to the room ID or "default" for autocreated rooms.
     /// The key cannot be a UUID or "default" as they are reserved.
     pub key: Option<String>,
+}
+
+/// An instance of an application returned from the Platform API.
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct App {
+    pub id: Uuid,
+    pub name: String,
+    pub config: Option<String>,
+    pub api_client_id: String,
+    pub api_secret: String,
 }

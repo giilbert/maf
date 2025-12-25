@@ -1,9 +1,8 @@
 use anyhow::Context as _;
 use clap::Subcommand;
-use colored::Colorize;
-use uuid::Uuid;
+use maf_schemas::admin::UserWithOrgsAdminView;
 
-use crate::Context;
+use crate::{pretty, Context};
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum AdminCommands {
@@ -16,46 +15,40 @@ pub enum AdminCommands {
 pub enum UserCommands {
     /// List all users
     List,
+    /// Create a new user
+    Create {
+        /// The username for the new user
+        #[clap(long)]
+        username: String,
+        /// The name for the new user
+        #[clap(long)]
+        name: String,
+    },
 }
 
 pub async fn handle_commands(context: &mut Context, command: AdminCommands) -> anyhow::Result<()> {
     match command {
         AdminCommands::User(user_command) => match user_command {
             UserCommands::List => list_users(context).await,
+            UserCommands::Create { username, name } => create_user(context, &name, &username).await,
         },
     }
 }
 
-#[derive(Debug, Clone, serde::Deserialize)]
-pub struct User {
-    pub id: Uuid,
-    pub username: String,
-    pub name: String,
-    pub permissions: String,
-    pub orgs: Vec<Org>,
-}
-
-#[derive(Debug, Clone, serde::Deserialize)]
-pub struct Org {
-    pub name: String,
-    pub slug: String,
-    pub is_default: bool,
-}
-
-pub async fn list_users(context: &Context) -> anyhow::Result<()> {
+async fn list_users(context: &Context) -> anyhow::Result<()> {
     context.assert_token();
 
     let users = context
-        .get::<Vec<User>>("/api/v1/admin/users")
+        .get::<Vec<UserWithOrgsAdminView>>("/api/v1/admin/users")
         .await
         .context("failed to get users")?;
 
     if users.is_empty() {
-        println!("No users found");
+        pretty::info!("No users found");
     } else {
-        println!("Users ({}):", users.len());
-        for user in users {
-            println!(
+        pretty::info!("Users ({}):", users.len());
+        for UserWithOrgsAdminView { orgs, user } in users {
+            pretty::info!(
                 "- {} Username: {} {} | Permissions: {}",
                 user.id.to_string().dimmed(),
                 user.username.blue(),
@@ -63,8 +56,8 @@ pub async fn list_users(context: &Context) -> anyhow::Result<()> {
                 user.permissions.yellow()
             );
 
-            for org in user.orgs {
-                println!(
+            for org in orgs {
+                pretty::info!(
                     "    - Org: {} {}{}",
                     org.name,
                     format!("`{}`", org.slug.dimmed(),).dimmed(),
@@ -77,6 +70,28 @@ pub async fn list_users(context: &Context) -> anyhow::Result<()> {
             }
         }
     }
+
+    Ok(())
+}
+
+async fn create_user(context: &Context, name: &str, username: &str) -> anyhow::Result<()> {
+    context.assert_token();
+
+    let payload = maf_schemas::admin::CreateUser {
+        name: name.to_string(),
+        username: username.to_string(),
+    };
+
+    let res = context
+        .post::<UserWithOrgsAdminView>("/api/v1/admin/users", &payload)
+        .await
+        .context("failed to create user")?;
+
+    pretty::info!(
+        "Created user {} with ID {} and default org.",
+        res.user.username.blue(),
+        res.user.id.to_string().dimmed()
+    );
 
     Ok(())
 }

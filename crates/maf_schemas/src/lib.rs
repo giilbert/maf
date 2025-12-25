@@ -7,9 +7,11 @@
 //! - [`packet`]: packets sent over WebSocket between clients and servers.
 //! - [`project_config`]: the `maf-project.toml` project configuration file.
 //! - [`typed`]: types that describe a MAF app's type data
+//! - [`admin`]: types used in the admin API.
 //!
 //! - (enabled with the `error-response` feature) `error`: API error responses.
 
+pub mod admin;
 pub mod apps;
 pub mod packet;
 pub mod project_config;
