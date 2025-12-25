@@ -9,6 +9,16 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { HeadingWrap } from "./heading-wrap";
+import Image from "next/image";
+import React from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogOverlay,
+  DialogPortal,
+  DialogTitle,
+  DialogTrigger,
+} from "@radix-ui/react-dialog";
 
 export const mdxComponents: MDXComponents = {
   p: (props) => <p className="leading-relaxed" {...props}></p>,
@@ -85,6 +95,39 @@ export const mdxComponents: MDXComponents = {
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+    );
+  },
+  Image: (props: { src: string; aspectRatio: string; alt?: string }) => {
+    const imgEl = (
+      <Image
+        src={props.src}
+        alt={props.alt ?? ""}
+        className="border w-full h-auto bg-neutral-800 relative before:absolute before:right-4 before:bottom-4"
+        style={{
+          aspectRatio: props.aspectRatio,
+        }}
+        width={9000}
+        height={0}
+      />
+    );
+
+    return (
+      <Dialog>
+        <DialogTrigger className="hover:brightness-75 cursor-pointer transition-all">
+          {React.cloneElement(imgEl)}
+        </DialogTrigger>
+        <DialogPortal>
+          <DialogOverlay className="fixed w-screen h-screen bg-black/80 top-0 left-0 cursor-pointer" />
+          <DialogContent className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 max-w-[90vw] max-h-[90vh] w-full">
+            <DialogTitle className="sr-only">
+              {props.alt ?? "Image"}
+            </DialogTitle>
+            {React.cloneElement(imgEl, {
+              className: "w-full h-auto",
+            })}
+          </DialogContent>
+        </DialogPortal>
+      </Dialog>
     );
   },
 };

@@ -22,6 +22,7 @@ pub struct Room {
     pub meta: RoomMeta,
     pub inner: RoomInner,
 }
+
 /// Contains additional information about the room, not related to the running the container.
 #[derive(Debug, Clone)]
 pub struct RoomMeta {

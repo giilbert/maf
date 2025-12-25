@@ -18,6 +18,7 @@
       "build/rpc",
       "build/local",
       "build/rooms",
+      "build/rooms/authentication",
       "build/type-generation"
     ]
   },
