@@ -12,6 +12,7 @@ use axum::{
     routing::get,
     Router,
 };
+use maf_schemas::error::ErrorResponse;
 pub use state::{AppState, Environment};
 
 pub async fn create_app() -> anyhow::Result<(AppState, Router)> {
@@ -24,7 +25,10 @@ pub async fn create_app() -> anyhow::Result<(AppState, Router)> {
         .layer(middleware::from_fn_with_state(
             state.clone(),
             update_last_activity,
-        ));
+        ))
+        .fallback(|req: Request| async move {
+            ErrorResponse::not_found(Some(&format!("Route {} cannot be found.", req.uri())))
+        });
 
     Ok((state.clone(), router.with_state(state)))
 }

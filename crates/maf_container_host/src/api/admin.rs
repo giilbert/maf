@@ -4,9 +4,15 @@ use axum::{
     response::IntoResponse,
     Json, Router,
 };
-use maf_schemas::{admin::UserWithOrgsAdminView, error::ErrorResponse};
-use migrations::entity::org;
-use sea_orm::{ActiveModelTrait, ActiveValue::*, EntityTrait, TransactionTrait};
+use maf_schemas::{
+    admin::{DeleteUserAdminView, UserWithOrgsAdminView},
+    error::ErrorResponse,
+};
+use migrations::entity::{org, org_member};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue::*, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter,
+    TransactionTrait,
+};
 use uuid::Uuid;
 
 use crate::{
@@ -36,6 +42,7 @@ pub async fn assert_admin(req: Request, next: Next) -> impl IntoResponse {
 pub fn create_admin_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/users", axum::routing::get(get_users).post(create_user))
+        .route("/users/{id}", axum::routing::delete(delete_user))
         .layer(middleware::from_fn(assert_admin))
         .layer(middleware::from_fn_with_state(
             state,
@@ -109,6 +116,15 @@ async fn create_user(
                 let inserted_user = new_user.insert(tx).await?;
                 let inserted_org = new_org.insert(tx).await?;
 
+                // Link the created user and org as owner
+                org_member::ActiveModel {
+                    user_id: Set(inserted_user.id),
+                    org_id: Set(inserted_org.id),
+                    role: Set("OWNER".to_string()),
+                }
+                .insert(tx)
+                .await?;
+
                 Ok(UserWithOrgsAdminView {
                     user: inserted_user.into(),
                     orgs: vec![inserted_org.into()],
@@ -124,4 +140,70 @@ async fn create_user(
                 ErrorResponse::internal_server_error(Some(&format!("Failed to create user: {}", e)))
             }
         })
+}
+
+/// `DELETE /api/v1/admin/users/:id`
+async fn delete_user(
+    State(state): State<AppState>,
+    axum::extract::Path(user_id): axum::extract::Path<Uuid>,
+) -> Result<Json<DeleteUserAdminView>, ErrorResponse> {
+    let user_model = user::Entity::find_by_id(user_id)
+        .one(&state.db)
+        .await?
+        .ok_or_else(|| ErrorResponse::not_found(Some("User not found.")))?;
+
+    // Prevent deletion of admin users without removing admin permissions first
+    if user_model.permissions.is_admin() {
+        return Err(ErrorResponse::forbidden(Some(
+            "Cannot delete an admin user. Remove admin permissions first.",
+        )));
+    }
+
+    state
+        .db
+        .transaction::<_, _, TxnError>(|tx| {
+            Box::pin(async move {
+                let mut deleted_user = user::Entity::delete_by_id(user_id)
+                    .exec_with_returning(tx)
+                    .await?;
+
+                let deleted_user = deleted_user
+                    .pop()
+                    .ok_or_else(|| anyhow::anyhow!("User disappeared during deletion"))?;
+
+                let deleted_org_members = org_member::Entity::delete_many()
+                    .filter(org_member::Column::UserId.eq(user_id))
+                    .exec_with_returning(tx)
+                    .await?;
+
+                // If the org has no more members, delete the org as well
+                let mut deleted_orgs = Vec::new();
+                for org_member in deleted_org_members {
+                    let org_id = org_member.org_id;
+                    let org_in_use = org_member::Entity::find()
+                        .filter(org_member::Column::OrgId.eq(org_id))
+                        .count(tx)
+                        .await?
+                        > 0;
+
+                    if !org_in_use {
+                        if let Some(deleted_org) = org::Entity::delete_by_id(org_id)
+                            .exec_with_returning(tx)
+                            .await?
+                            .pop()
+                        {
+                            deleted_orgs.push(deleted_org.into());
+                        }
+                    }
+                }
+
+                Ok(DeleteUserAdminView {
+                    deleted_user: deleted_user.into(),
+                    deleted_orgs,
+                })
+            })
+        })
+        .await
+        .map(Json)
+        .map_err(Into::into)
 }

@@ -28,3 +28,9 @@ pub struct CreateUser {
     pub name: String,
     pub username: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeleteUserAdminView {
+    pub deleted_user: UserAdminView,
+    pub deleted_orgs: Vec<OrgAdminView>,
+}
