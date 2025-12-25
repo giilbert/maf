@@ -97,7 +97,7 @@ async fn show_short_app_info(
     let app = context
         .get::<maf_schemas::apps::App>(format!("/api/v1/apps/{name}"))
         .await
-        .context("failed to get app")?;
+        .with_context(|| format!("Failed to get app `{name}`"))?;
 
     println!(
         "{} {}",
