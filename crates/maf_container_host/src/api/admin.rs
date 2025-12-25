@@ -50,7 +50,7 @@ pub fn create_admin_router(state: AppState) -> Router<AppState> {
         ))
 }
 
-/// `GET /api/v1/admin/users`
+/// **GET** `/api/v1/admin/users`
 /// Returns a list of users with their associated orgs as [`UserWithOrgsAdminView`].
 async fn get_users(
     State(state): State<AppState>,
@@ -69,7 +69,7 @@ async fn get_users(
     Ok(axum::Json(users))
 }
 
-/// `POST /api/v1/admin/users` [`maf_schemas::admin::CreateUser`]
+/// **POST** `/api/v1/admin/users` [`maf_schemas::admin::CreateUser`]
 /// Creates a new user and their default org, returning the created [`UserWithOrgsAdminView`].
 #[tracing::instrument(level = "trace", skip_all)]
 async fn create_user(
@@ -142,7 +142,7 @@ async fn create_user(
         })
 }
 
-/// `DELETE /api/v1/admin/users/:id`
+/// **DELETE** `/api/v1/admin/users/:id`
 async fn delete_user(
     State(state): State<AppState>,
     axum::extract::Path(user_id): axum::extract::Path<Uuid>,
