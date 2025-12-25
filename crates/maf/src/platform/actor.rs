@@ -20,7 +20,7 @@ pub struct ActorPlatform {
 pub struct ActorPlatformHandle {
     // NOTE: Use methods on ActorPlatform to user these channels
     users_tx: mpsc::Sender<RawUser>,
-    hook_request_tx: mpsc::Sender<RawHookRequest>,
+    _hook_request_tx: mpsc::Sender<RawHookRequest>,
 }
 
 impl ActorPlatform {
@@ -44,7 +44,7 @@ impl Platform for ActorPlatform {
             hook_request_rx: Mutex::new(hook_request_rx),
             handle: ActorPlatformHandle {
                 users_tx,
-                hook_request_tx,
+                _hook_request_tx: hook_request_tx,
             },
         })
     }
@@ -121,7 +121,7 @@ impl PlatformHookRequest for RawHookRequest {
         todo!()
     }
 
-    fn respond(&self, body: crate::app::hooks::HookBody) -> Result<(), super::SendError> {
+    fn respond(&self, _body: crate::app::hooks::HookBody) -> Result<(), super::SendError> {
         todo!()
     }
 }
