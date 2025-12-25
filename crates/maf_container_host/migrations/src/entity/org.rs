@@ -1,6 +1,8 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::entity::user;
+
 use super::{app, org_member};
 
 pub type OrgSlug = String;
@@ -24,15 +26,25 @@ pub enum Relation {
     App,
 }
 
-impl Related<org_member::Entity> for Entity {
+impl Related<user::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::OrgMember.def()
+        org_member::Relation::User.def()
+    }
+
+    fn via() -> Option<RelationDef> {
+        Some(org_member::Relation::Org.def().rev())
     }
 }
 
 impl Related<app::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::App.def()
+    }
+}
+
+impl Related<org_member::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::OrgMember.def()
     }
 }
 

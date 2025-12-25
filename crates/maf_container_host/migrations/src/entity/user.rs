@@ -5,6 +5,8 @@ use sea_orm::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::entity::org;
+
 use super::{org_member, token};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, DeriveEntityModel)]
@@ -22,6 +24,8 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "token::Entity")]
     Token,
+    #[sea_orm(has_many = "org_member::Entity")]
+    OrgMember,
 }
 
 impl Related<token::Entity> for Entity {
@@ -30,13 +34,19 @@ impl Related<token::Entity> for Entity {
     }
 }
 
-impl Related<org_member::Entity> for Entity {
+impl Related<org::Entity> for Entity {
     fn to() -> RelationDef {
-        org_member::Relation::User.def()
+        org_member::Relation::Org.def()
     }
 
     fn via() -> Option<RelationDef> {
         Some(org_member::Relation::User.def().rev())
+    }
+}
+
+impl Related<org_member::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::OrgMember.def()
     }
 }
 

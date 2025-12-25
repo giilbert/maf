@@ -32,6 +32,14 @@ pub struct User {
     pub username: String,
     pub name: String,
     pub permissions: String,
+    pub orgs: Vec<Org>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct Org {
+    pub name: String,
+    pub slug: String,
+    pub is_default: bool,
 }
 
 pub async fn list_users(context: &Context) -> anyhow::Result<()> {
@@ -51,9 +59,22 @@ pub async fn list_users(context: &Context) -> anyhow::Result<()> {
                 "- {} Username: {} {} | Permissions: {}",
                 user.id.to_string().dimmed(),
                 user.username.blue(),
-                format!("(\"{}\")", user.name).dimmed(),
+                format!("`{}`", user.name).dimmed(),
                 user.permissions.yellow()
             );
+
+            for org in user.orgs {
+                println!(
+                    "    - Org: {} {}{}",
+                    org.name,
+                    format!("`{}`", org.slug.dimmed(),).dimmed(),
+                    if org.is_default {
+                        " [default]".dimmed().to_string()
+                    } else {
+                        "".to_string()
+                    }
+                );
+            }
         }
     }
 
