@@ -42,9 +42,7 @@ pub fn create_gateway_router(_state: AppState) -> Router<AppState> {
 }
 
 #[derive(Deserialize)]
-pub struct ConnectQueryParams {
-    secret: Option<String>,
-}
+pub struct ConnectQueryParams {}
 
 /// GET /@/{org_slug}/{app_name}/{room_id}/connect
 ///
@@ -54,7 +52,7 @@ pub struct ConnectQueryParams {
 async fn connect_route(
     State(state): State<AppState>,
     Path((org_slug, app_name, room_id)): Path<(String, String, String)>,
-    Query(query_params): Query<ConnectQueryParams>,
+    Query(_query_params): Query<ConnectQueryParams>,
     ws: WebSocketUpgrade,
 ) -> Result<Response, ErrorResponse> {
     // Fetch the app and determine its room creation strategy, defaulting based on environment and
@@ -91,18 +89,6 @@ async fn connect_route(
                 .ok_or_else(|| {
                     ErrorResponse::not_found(Some("Room not found or not created via API"))
                 })?;
-
-            if let Some(secret) = query_params.secret {
-                if secret != room.meta.secret {
-                    return Err(ErrorResponse::forbidden(Some(
-                        "Invalid room secret provided.",
-                    )));
-                }
-            } else {
-                return Err(ErrorResponse::bad_request(Some(
-                    "Room secret is required for api-created rooms.",
-                )));
-            }
 
             room.clone()
         }

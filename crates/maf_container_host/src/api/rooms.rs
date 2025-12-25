@@ -27,7 +27,7 @@ pub struct Room {
 pub struct RoomMeta {
     pub id: RoomId,
     pub app: AppNameAndOrgSlug,
-    /// Optional secret for the room, as an extra layer of authentication.
+    /// This is used to create and verify JWT payloads.
     pub secret: String,
     /// The room creation strategy used to create this room. Needed to determine how to handle room
     /// removal and access.

@@ -84,6 +84,7 @@ pub struct RoomKeyHash {
 pub struct RoomInfo {
     pub id: RoomId,
     pub key: String,
+    /// A secret used for signing and verifying JWT payloads.
     pub secret: String,
 }
 
