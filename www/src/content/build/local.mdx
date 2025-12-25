@@ -6,5 +6,66 @@ category: Build Your App
 # Local
 
 Local variables are used to store data that is only accessible and updatable on
-the server. They are not synchronized with the client, making them ideal for
-storing sensitive information or server-specific state.
+the server. They do not have synchronization built in (they are not sent to the
+client), making them ideal for storing sensitive information or server-specific
+state.
+
+## Server Usage
+
+To use local variables in your server, declare them using the `local` method
+when the app is being built, then access them using the `Local` extractor in
+RPCs or the `local` method on `App`.
+
+```rust
+use maf::prelude::*;
+
+/// This struct is a secret from clients!
+struct Points {
+    points: u32,
+}
+
+// [`Points`] does not need to be `serde::Serialize` and is not visible to clients
+async fn score_point(points: Local<Points>) {
+    let points = points.write().await;
+    points += 1;
+    if points > 100 {
+        println!("You win!");
+    }
+}
+
+fn build() -> App {
+    App::builder()
+        .local(Points { points: 0 })
+        //               ^ initialize local state here
+        .rpc("score_point", score_point)
+        .build()
+}
+```
+
+## Accessing Local State
+
+`Local<T>` can be used as an extractor in positions where `CallableFetch<App>`
+is accepted, such as in RPC handlers or background tasks. It can also be
+accessed directly from an `App` instance using the `local<T>()` method.
+
+```rust
+fn an_rpc_function(local_points: Local<Points>) {
+    // Local<T> is usable in RPCs!
+}
+
+async fn a_background_task(app: App, local_points: Local<Points>) {
+    // OR: Use `app.local::<T>()` to fetch it directly from `App`.
+    // let local_points: Local<Points> = app.local().await;
+}
+
+fn build() -> App {
+    App::builder()
+        .local(Points { points: 0 })
+        .rpc("an_rpc_function", an_rpc_function)
+        .on_disconnect(|app: App, local_points: Local<Points>| {
+            // Local<T> is usable in event handlers too!
+        })
+        .background(a_background_task)
+        .build()
+}
+```

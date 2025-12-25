@@ -24,6 +24,8 @@ pub struct AnyState {
 /// being synchronized to clients**.
 ///
 /// If client synchronization is needed, use [`crate::Store`] instead.
+///
+/// See [`crate::AppBuilder::local`] for usage.
 #[derive(Debug, Clone)]
 pub struct Local<T> {
     inner: AnyState,
@@ -89,4 +91,4 @@ impl<T: Send + Sync + 'static, Ctx: CallableFetch<App> + Send + Sync, Init: Send
     }
 }
 
-impl SupportsAsync for Local<()> {}
+impl<T> SupportsAsync for Local<T> {}

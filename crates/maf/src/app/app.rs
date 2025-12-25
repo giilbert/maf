@@ -32,7 +32,7 @@ use crate::{
     },
     tasks::{self},
     user::{UserMessage, UserNextMessageError},
-    Channel, RpcFunction, Store, StoreData, User,
+    Channel, Local, RpcFunction, Store, StoreData, User,
 };
 
 use super::{
@@ -102,6 +102,14 @@ impl App {
     /// will be created and initialized with the default value.
     pub async fn store<T: StoreData>(&self) -> Store<T> {
         Store::<T>::new(self.clone()).await
+    }
+
+    /// Fetches a local state instance for the given type.
+    pub async fn local<T: Send + Sync + 'static>(&self) -> Local<T> {
+        self.inner
+            .states
+            .get::<T>()
+            .expect("local state does not exist")
     }
 
     async fn handle_connections(self) -> anyhow::Result<()> {
@@ -188,8 +196,6 @@ impl App {
                     .await
                     .remove(&user_clone.meta().id);
             });
-
-            println!("here 4");
         }
     }
 
@@ -676,6 +682,8 @@ impl AppBuilder {
     /// Declares a [`crate::Local`], a piece of state that **does not need to be synchronized** with
     /// connect clients. If synchronization with clients is needed, use [`crate::Store`]
     ///
+    /// The initial value of the local state should be provided as an argument.
+    ///
     /// ## Example
     ///
     /// ```rust
@@ -696,8 +704,8 @@ impl AppBuilder {
     ///
     /// fn build() -> App {
     ///     App::builder()
-    ///         .local::<Points>()
-    ///         .rpc("scope_point", score_point)
+    ///         .local(Points { points: 0 })
+    ///         .rpc("score_point", score_point)
     ///         .build()
     /// }
     /// ```
