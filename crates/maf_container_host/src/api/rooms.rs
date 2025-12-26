@@ -27,7 +27,7 @@ pub struct Room {
 #[derive(Debug, Clone)]
 pub struct RoomMeta {
     pub id: RoomId,
-    pub app: AppNameAndOrgSlug,
+    pub app_info: AppNameAndOrgSlug,
     /// This is used to create and verify JWT payloads.
     pub secret: String,
     /// The room creation strategy used to create this room. Needed to determine how to handle room
@@ -86,7 +86,7 @@ impl RoomsStorage {
     pub async fn insert(&self, param: InsertRoom) -> RoomMeta {
         let meta = RoomMeta {
             id: param.room.id(),
-            app: param.app.clone(),
+            app_info: param.app.clone(),
             secret: generate_room_secret(),
             strategy: param.strategy.clone(),
             key: param.key.clone(),
@@ -139,13 +139,16 @@ impl RoomsStorage {
 
         match room.meta.strategy {
             RoomCreationStrategy::AutoCreate => {
-                self.auto_created_rooms.write().await.remove(&room.meta.app);
+                self.auto_created_rooms
+                    .write()
+                    .await
+                    .remove(&room.meta.app_info);
             }
             RoomCreationStrategy::AuthenticatedApiRequest => {
                 self.api_created_rooms
                     .write()
                     .await
-                    .entry(room.meta.app.clone())
+                    .entry(room.meta.app_info.clone())
                     .and_modify(|rooms| {
                         rooms.remove(room_id);
                     });
@@ -155,7 +158,7 @@ impl RoomsStorage {
         // Remove keys from keys index
         let mut keys = self.keys.write().await;
         keys.remove(&RoomKeyHash {
-            app: room.meta.app.clone(),
+            app: room.meta.app_info.clone(),
             key: room.meta.key.clone(),
         });
 

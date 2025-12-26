@@ -1,6 +1,6 @@
 use axum::{
     body::Body,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     middleware,
     routing::{get, post},
     Json, Router,
@@ -241,13 +241,94 @@ async fn delete_app(
     Ok(Json(app))
 }
 
+#[derive(Debug, serde::Deserialize)]
+struct RoomListQueryParams {
+    by_key: Option<String>,
+    by_id: Option<Uuid>,
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(untagged)]
+pub enum RoomQueryResponse {
+    /// A single room. This is returned when filtering by a specific key or ID.
+    Single(RoomInfo),
+    /// Multiple rooms. This is returned when no specific filter is applied.
+    Multiple(Vec<RoomInfo>),
+}
+
 /// **GET** `/api/v1/apps/{org}/{app}/rooms`
+///
+/// Query parameters can be used to filter rooms:
+/// - `by_key`: If provided, only return the room with the specified key.
+/// - `by_id`: If provided, only return the room with the specified ID.
+///
+/// If `by_key` or `by_id` is provided, the response will be a single room if found. If no room can
+/// be found when using these filters, a 404 error is returned.
+///
+/// If no filters are provided, all rooms belonging to the specified app are returned, or an empty
+/// list if no rooms exist.
 async fn service_get_rooms(
     State(state): State<AppState>,
     service_account: AuthedServiceAccount,
-) -> Result<Json<Vec<RoomInfo>>, ErrorResponse> {
+    query: Query<RoomListQueryParams>,
+) -> Result<Json<RoomQueryResponse>, ErrorResponse> {
     let app = service_account.app();
     let org = service_account.org();
+
+    if query.by_id.is_some() && query.by_key.is_some() {
+        return Err(ErrorResponse::bad_request(Some(
+            "Cannot filter by both ID and key simultaneously.",
+        )));
+    }
+
+    if let Some(query_id) = query.by_id {
+        match state.rooms.get(&query_id).await {
+            Some(room) if room.meta.app_info == (&app.name, &org.slug) => {
+                return Ok(Json(RoomQueryResponse::Single(RoomInfo {
+                    id: room.id,
+                    key: room.meta.key.clone(),
+                    secret: room.meta.secret.clone(),
+                })));
+            }
+            _ => {
+                return Err(ErrorResponse::not_found(Some(
+                    "No room found with the specified ID.",
+                )));
+            }
+        }
+    }
+
+    if let Some(query_key) = &query.by_key {
+        let room_key_hash = RoomKeyHash {
+            app: AppNameAndOrgSlug {
+                app: app.name.clone(),
+                org: org.slug.clone(),
+            },
+            key: query_key.clone(),
+        };
+
+        match state.rooms.keys.read().await.get(&room_key_hash) {
+            Some(room_id) => match state.rooms.get(room_id).await {
+                Some(room) => {
+                    return Ok(Json(RoomQueryResponse::Single(RoomInfo {
+                        id: room.id,
+                        key: room.meta.key.clone(),
+                        secret: room.meta.secret.clone(),
+                    })));
+                }
+                None => {
+                    return Err(ErrorResponse::not_found(Some(
+                        "No room found with the specified key.",
+                    )));
+                }
+            },
+            None => {
+                return Err(ErrorResponse::not_found(Some(
+                    "No room found with the specified key.",
+                )));
+            }
+        }
+    }
 
     match state
         .rooms
@@ -271,9 +352,9 @@ async fn service_get_rooms(
                 }
             }
 
-            Ok(Json(rooms))
+            Ok(Json(RoomQueryResponse::Multiple(rooms)))
         }
-        None => Ok(Json(vec![])),
+        None => Ok(Json(RoomQueryResponse::Multiple(vec![]))),
     }
 }
 

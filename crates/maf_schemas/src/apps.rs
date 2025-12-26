@@ -71,6 +71,16 @@ pub struct AppNameAndOrgSlug {
     pub org: String,
 }
 
+impl<S1, S2> PartialEq<(S1, S2)> for AppNameAndOrgSlug
+where
+    S1: AsRef<str>,
+    S2: AsRef<str>,
+{
+    fn eq(&self, other: &(S1, S2)) -> bool {
+        self.app == other.0.as_ref() && self.org == other.1.as_ref()
+    }
+}
+
 /// A struct used for hashing the room key and app name, used to quickly look up rooms by key.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct RoomKeyHash {

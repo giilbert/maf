@@ -101,7 +101,7 @@ impl DevConsole {
                 "- {} {} {} / {}",
                 id,
                 format!("[key {}]", room.meta.key).dimmed(),
-                format!("({}/{})", room.meta.app.org, room.meta.app.app).dimmed(),
+                format!("({}/{})", room.meta.app_info.org, room.meta.app_info.app).dimmed(),
                 format!(
                     "{} reserved ram | {} wasm table entries",
                     (room
@@ -128,7 +128,7 @@ impl DevConsole {
                         "{} room {} {} is autocreated",
                         "+".bold().blue(),
                         room_id,
-                        format!("({}/{})", room.meta.app.org, room.meta.app.app).dimmed()
+                        format!("({}/{})", room.meta.app_info.org, room.meta.app_info.app).dimmed()
                     );
                 }
                 None => {

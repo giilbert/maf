@@ -5,6 +5,7 @@ exclude = [
     # Examples are excluded as feature flags are weird in examples
     "crates/maf/examples/basic",
     "crates/maf/examples/basic-typed",
+    "crates/maf/examples/platform",
     "crates/maf/examples/http",
     "crates/maf_native/examples/axum-basic",
     "crates/maf_cli/src/init/templates/**",

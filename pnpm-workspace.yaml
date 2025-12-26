@@ -10,6 +10,7 @@ packages:
   - "packages/react"
   - "packages/react/examples/*"
   - "packages/platform"
+  - "packages/platform/examples/*"
   - "benchmarks/counter"
 # TODO: Change me!!
 publishBranch: "dev"
