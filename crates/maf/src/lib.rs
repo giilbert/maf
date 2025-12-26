@@ -86,7 +86,7 @@ pub(crate) use app::LocalStateError;
 pub mod prelude {
     use super::*;
 
-    pub use app::{App, AppBuilder, Local, Plugin};
+    pub use app::{App, AppBuilder, Local, MetaEntry, MetaVisibility, Plugin};
     pub use channel::{Channel, RecvError};
     pub use rpc::{Params, RawRpcRequest, RpcFunction};
     pub use store::{Store, StoreData, StoreMut, StoreRef};

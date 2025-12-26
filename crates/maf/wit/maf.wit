@@ -72,11 +72,26 @@ interface bindings {
         not-ready,
         closed
     }
-    
+
+    variant meta-visibility {
+        public,
+        private
+    }
+
+    record meta-entry {
+        visibility: meta-visibility,
+        value: string,
+    }
+
     listen-user: func() -> result<future-user, listen-error>;
     listen-hook-request: func() -> result<future-hook-request, listen-error>;
 
     report-app-schema: func(schema: string);
+
+    set-meta: func(visibility: meta-visibility, key: string, value: string) -> option<meta-entry>;
+    get-meta: func(key: string) -> option<meta-entry>;
+    delete-meta: func(key: string) -> option<meta-entry>;
+    list-meta: func() -> list<tuple<string, meta-entry>>;
 }
 
 world imports {

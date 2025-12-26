@@ -37,11 +37,13 @@ mod app;
 mod background;
 pub(crate) mod hooks;
 mod local;
+pub(crate) mod meta;
 mod on_connect_disconnect;
 mod plugin;
 
 pub use app::{App, AppBuilder};
 pub use local::Local;
+pub use meta::{MetaEntry, MetaVisibility};
 pub use plugin::Plugin;
 
 pub(crate) use app::AppState;

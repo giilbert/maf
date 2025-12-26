@@ -17,6 +17,7 @@
       "build/store/select",
       "build/rpc",
       "build/local",
+      "build/meta",
       "build/rooms",
       "build/rooms/authentication",
       "build/type-generation"

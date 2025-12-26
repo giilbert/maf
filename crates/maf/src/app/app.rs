@@ -21,6 +21,7 @@ use crate::{
     app::{
         background::BackgroundFnContext,
         hooks::{HookBody, HookRequest, HookResponse},
+        meta::MetaStorage,
     },
     callable::{BoxedCallable, IntoCallable},
     channel::UntypedChannelBroadcast,
@@ -50,7 +51,8 @@ pub struct App {
     pub(crate) inner: Arc<AppInner>,
 }
 
-pub struct AppInner {
+// TODO: REFACTOR ME!!!
+pub(crate) struct AppInner {
     pub(crate) state: Arc<AppState>,
     pub(crate) rpc_functions: RpcStore,
     pub(crate) states: LocalStateStore,
@@ -61,7 +63,8 @@ pub struct AppInner {
     pub(crate) background: Option<Arc<BackgroundFn>>,
     pub(crate) selects: HashMap<SelectKey, AnySelect>,
     pub(crate) select_dependencies: HashMap<TypeId, HashSet<SelectKey>>,
-    pub(crate) platform: TargetPlatform,
+    pub(crate) platform: Arc<TargetPlatform>,
+    pub(crate) meta: MetaStorage,
 }
 
 #[derive(Debug)]
@@ -89,9 +92,10 @@ pub struct AppBuilder {
     ///
     /// TODO: refactor into separate storage
     select_dependencies: HashMap<TypeId, HashSet<SelectKey>>,
-    platform: Option<TargetPlatform>,
+    platform: Option<Arc<TargetPlatform>>,
 }
 
+// TODO: Link documentation
 impl App {
     /// Begin building a new application.
     pub fn builder() -> AppBuilder {
@@ -110,6 +114,11 @@ impl App {
             .states
             .get::<T>()
             .expect("local state does not exist")
+    }
+
+    /// Access the meta storage associated with this app.
+    pub fn meta(&self) -> &MetaStorage {
+        &self.inner.meta
     }
 
     async fn handle_connections(self) -> anyhow::Result<()> {
@@ -752,7 +761,7 @@ impl AppBuilder {
     ///
     /// See [`crate::platform`] for more details on platforms.
     pub fn platform(mut self, platform: TargetPlatform) -> Self {
-        self.platform = Some(platform);
+        self.platform = Some(Arc::new(platform));
         self
     }
 
@@ -769,6 +778,10 @@ impl AppBuilder {
             users: Default::default(),
         });
 
+        let platform = self.platform.unwrap_or_else(|| {
+            Arc::new(TargetPlatform::init(()).expect("Failed to initialize platform"))
+        });
+
         let inner = AppInner {
             state,
             store_dirty_rx: RwLock::new(store_dirty_rx),
@@ -780,9 +793,8 @@ impl AppBuilder {
             hooks: self.hooks,
             selects: self.selects,
             select_dependencies: self.select_dependencies,
-            platform: self.platform.unwrap_or_else(|| {
-                TargetPlatform::init(()).expect("Failed to initialize platform")
-            }),
+            platform: platform.clone(),
+            meta: MetaStorage::new(platform),
         };
 
         let app = App {

@@ -4,6 +4,7 @@ use tokio::sync::{
 };
 
 use crate::{
+    app::meta,
     platform::{ListenError, Message, Platform, PlatformHookRequest, PlatformUser},
     user::UserMeta,
 };
@@ -69,6 +70,27 @@ impl Platform for ActorPlatform {
 
     fn report_app_schema(&self, schema: &str) {
         println!("TODO: report_app_schema with {schema}");
+    }
+
+    fn set_meta(
+        &self,
+        _visibility: meta::MetaVisibility,
+        _key: &str,
+        _value: &str,
+    ) -> Option<meta::MetaEntry> {
+        todo!("ActorPlatform::set_meta is not implemented yet")
+    }
+
+    fn get_meta(&self, _key: &str) -> Option<meta::MetaEntry> {
+        todo!("ActorPlatform::get_meta is not implemented yet")
+    }
+
+    fn delete_meta(&self, _key: &str) -> Option<meta::MetaEntry> {
+        todo!("ActorPlatform::delete_meta is not implemented yet")
+    }
+
+    fn list_meta(&self) -> Vec<(String, meta::MetaEntry)> {
+        todo!("ActorPlatform::list_meta is not implemented yet")
     }
 }
 

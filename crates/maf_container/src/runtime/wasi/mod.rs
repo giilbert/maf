@@ -13,6 +13,7 @@ pub use user::{FutureMessageImpl, FutureUserImpl, UserImpl};
 use wasmtime::component::Resource;
 
 use crate::container::ContainerData;
+use crate::container::meta::MetaVisibility;
 use errors::ListenError;
 
 mod generated {
@@ -59,6 +60,47 @@ impl bindings::Host for ContainerData {
             .map_err(|_| anyhow::anyhow!("failed to send app schema, receiver dropped"))?;
 
         Ok(())
+    }
+
+    // TODO: Error handling
+    async fn get_meta(&mut self, key: String) -> anyhow::Result<Option<bindings::MetaEntry>> {
+        self.meta
+            .get(MetaVisibility::Private, &key)
+            .map_err(|e| anyhow::anyhow!(e))
+            .map(|v_opt| v_opt.map(|v| v.into()))
+    }
+
+    async fn set_meta(
+        &mut self,
+        visibility: bindings::MetaVisibility,
+        key: String,
+        value: String,
+    ) -> anyhow::Result<Option<bindings::MetaEntry>> {
+        self.meta
+            .set(
+                match visibility {
+                    bindings::MetaVisibility::Public => MetaVisibility::Public,
+                    bindings::MetaVisibility::Private => MetaVisibility::Private,
+                },
+                key,
+                value,
+            )
+            .map_err(|e| anyhow::anyhow!(e))
+            .map(|v_opt| v_opt.map(|v| v.into()))
+    }
+
+    async fn delete_meta(&mut self, key: String) -> anyhow::Result<Option<bindings::MetaEntry>> {
+        self.meta
+            .delete(&key)
+            .map_err(|e| anyhow::anyhow!(e))
+            .map(|v_opt| v_opt.map(|v| v.into()))
+    }
+
+    async fn list_meta(&mut self) -> anyhow::Result<Vec<(String, bindings::MetaEntry)>> {
+        self.meta
+            .list(MetaVisibility::Private)
+            .map_err(|e| anyhow::anyhow!(e))
+            .map(|entries| entries.into_iter().map(|(k, v)| (k, v.into())).collect())
     }
 
     fn convert_listen_error(&mut self, err: ListenError) -> anyhow::Result<bindings::ListenError> {

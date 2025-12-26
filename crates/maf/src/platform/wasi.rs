@@ -1,7 +1,10 @@
 use uuid::Uuid;
 
 use crate::{
-    app::hooks::{self, HookBody, HookRequestError, HookRequestInit},
+    app::{
+        hooks::{self, HookBody, HookRequestError, HookRequestInit},
+        meta,
+    },
     bindings::bindgen,
     platform::{ListenError, Platform, PlatformHookRequest, PlatformUser, SendError},
     tasks,
@@ -37,6 +40,30 @@ impl Platform for WasiPlatform {
 
     fn report_app_schema(&self, schema: &str) {
         bindgen::report_app_schema(schema);
+    }
+
+    fn set_meta(
+        &self,
+        visibility: meta::MetaVisibility,
+        key: &str,
+        value: &str,
+    ) -> Option<meta::MetaEntry> {
+        bindgen::set_meta(visibility.into(), key, value).map(|entry| entry.into())
+    }
+
+    fn get_meta(&self, key: &str) -> Option<meta::MetaEntry> {
+        bindgen::get_meta(key).map(|entry| entry.into())
+    }
+
+    fn delete_meta(&self, key: &str) -> Option<meta::MetaEntry> {
+        bindgen::delete_meta(key).map(|entry| entry.into())
+    }
+
+    fn list_meta(&self) -> Vec<(String, meta::MetaEntry)> {
+        bindgen::list_meta()
+            .into_iter()
+            .map(|(k, v)| (k, v.into()))
+            .collect()
     }
 }
 
@@ -185,6 +212,42 @@ mod conversion_impls {
         fn from(value: bindgen::HookRequestError) -> Self {
             match value {
                 bindgen::HookRequestError::InitConsumed => hooks::HookRequestError::InitConsumed,
+            }
+        }
+    }
+
+    impl From<bindgen::MetaVisibility> for meta::MetaVisibility {
+        fn from(value: bindgen::MetaVisibility) -> Self {
+            match value {
+                bindgen::MetaVisibility::Public => meta::MetaVisibility::Public,
+                bindgen::MetaVisibility::Private => meta::MetaVisibility::Private,
+            }
+        }
+    }
+
+    impl From<meta::MetaVisibility> for bindgen::MetaVisibility {
+        fn from(value: meta::MetaVisibility) -> Self {
+            match value {
+                meta::MetaVisibility::Public => bindgen::MetaVisibility::Public,
+                meta::MetaVisibility::Private => bindgen::MetaVisibility::Private,
+            }
+        }
+    }
+
+    impl From<bindgen::MetaEntry> for meta::MetaEntry {
+        fn from(value: bindgen::MetaEntry) -> Self {
+            meta::MetaEntry {
+                visibility: value.visibility.into(),
+                value: value.value,
+            }
+        }
+    }
+
+    impl From<meta::MetaEntry> for bindgen::MetaEntry {
+        fn from(value: meta::MetaEntry) -> Self {
+            bindgen::MetaEntry {
+                visibility: value.visibility.into(),
+                value: value.value,
             }
         }
     }

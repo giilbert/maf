@@ -1,0 +1,29 @@
+---
+title: Meta
+category: Build Your App
+---
+
+# Meta
+
+Meta allows your [Rooms](/docs/build/rooms) to expose arbitrary key-value
+metadata that can be set and retrieved at runtime. This can be useful for
+passing information about the room to clients and MAF Platform service accounts.
+
+Some example use cases for meta include:
+
+- You're building a game room and want to expose the current game state (e.g.
+  "waiting for players", "in progress", "game over") to clients.
+- In a collaborative document editing room, you want to expose the current
+  document title and last edited timestamp to clients.
+- You want to store configuration options for your room that can be accessed by
+  the app at runtime.
+
+## Visibility
+
+Meta entries can be marked as either "public" or "private". Public meta can be
+accessed by anyone, including clients. Private meta can only be accessed by the
+app itself (running on MAF Platform) and service accounts. Private meta also
+includes all public meta. This allows you to store sensitive information in
+private meta that should not be exposed to clients.
+
+## Server Usage

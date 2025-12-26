@@ -35,7 +35,7 @@ export const CategoriesRenderer: React.FC<{
   const docsSlug = pathname.replace("/docs/", "");
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-4">
       {categories.map((category) => (
         <div key={category.name} className="space-y-1">
           <h2 className="text font-semibold">{category.name}</h2>

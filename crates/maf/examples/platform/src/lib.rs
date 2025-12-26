@@ -20,13 +20,21 @@ impl StoreData for CounterStore {
     }
 }
 
-fn increment_counter(Params(counter): Params<i32>, mut store: StoreMut<CounterStore>) -> i32 {
+fn increment_counter(
+    app: App,
+    Params(counter): Params<i32>,
+    mut store: StoreMut<CounterStore>,
+) -> i32 {
     store.count += counter;
 
     println!(
         "incremented counter by {counter}. new value: {}",
         store.count
     );
+
+    app.meta()
+        .set(MetaVisibility::Public, "count", store.count)
+        .expect("failed to set meta");
 
     store.count
 }

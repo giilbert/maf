@@ -1,5 +1,6 @@
 mod io;
 mod limits;
+pub mod meta;
 
 use std::{
     sync::{
@@ -21,8 +22,12 @@ use wasmtime as wt;
 use wasmtime_wasi::p2::IoView;
 
 use crate::{
-    ContainerRuntime, container::limits::ContainerResourceLimiter, interface::BoxedConnection,
-    runtime::wasi::Bindings, utils, wasi::HookRequest,
+    ContainerRuntime,
+    container::{limits::ContainerResourceLimiter, meta::MetaStorage},
+    interface::BoxedConnection,
+    runtime::wasi::Bindings,
+    utils,
+    wasi::HookRequest,
 };
 
 /// An instance of user-written WASI code running in a sandboxed environment.
@@ -97,6 +102,7 @@ pub struct ContainerData {
     pub app_schema_tx: Option<oneshot::Sender<AppSchema>>,
     pub app_schema_rx: Option<oneshot::Receiver<AppSchema>>,
 
+    pub(crate) meta: MetaStorage,
     pub(crate) last_activity: Arc<AtomicU64>,
     pub(crate) app_activity: &'static AtomicU64,
     pub(crate) limiter: ContainerResourceLimiter,
@@ -154,6 +160,7 @@ impl Container {
                 hook_request_rx: Some(hook_request_rx),
                 app_schema_rx: Some(app_schema_rx),
                 app_schema_tx: Some(app_schema_tx),
+                meta: MetaStorage::new(),
                 last_activity: Arc::new(AtomicU64::new(utils::now_as_secs())),
                 app_activity: runtime.app_activity,
                 limiter: ContainerResourceLimiter {

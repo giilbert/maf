@@ -8,12 +8,15 @@
 use std::future::Future;
 
 use crate::{
-    app::hooks,
+    app::{hooks, meta},
     platform::{self, ListenError, SendError},
     user::{UserMeta, UserNextMessageError},
 };
 
-pub trait Platform {
+/// Traits defining how a MAF app running should interact with the underlying platform (e.g. MAF
+/// Platform, native server, etc.). This is almost a 1-1 translation of `maf.wit`.
+#[allow(unused)]
+pub(crate) trait Platform {
     type Config;
 
     fn init(config: Self::Config) -> anyhow::Result<Self>
@@ -28,7 +31,18 @@ pub trait Platform {
         &self,
     ) -> impl Future<Output = Result<platform::RawHookRequest, ListenError>>;
 
+    /// Used for type generation.
     fn report_app_schema(&self, schema: &str);
+
+    fn set_meta(
+        &self,
+        visibility: meta::MetaVisibility,
+        key: &str,
+        value: &str,
+    ) -> Option<meta::MetaEntry>;
+    fn get_meta(&self, key: &str) -> Option<meta::MetaEntry>;
+    fn delete_meta(&self, key: &str) -> Option<meta::MetaEntry>;
+    fn list_meta(&self) -> Vec<(String, meta::MetaEntry)>;
 }
 
 pub trait PlatformUser {
