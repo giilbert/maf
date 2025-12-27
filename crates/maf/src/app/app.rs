@@ -22,6 +22,7 @@ use crate::{
         background::BackgroundFnContext,
         hooks::{HookBody, HookRequest, HookResponse},
         meta::MetaStorage,
+        observe::{ObserveDepdendency, ObserveStore, ObserveTarget},
     },
     callable::{BoxedCallable, IntoCallable},
     channel::UntypedChannelBroadcast,
@@ -62,8 +63,8 @@ pub(crate) struct AppInner {
     pub(crate) on_disconnect: Option<Arc<OnConnectDisconnectFn>>,
     pub(crate) background: Option<Arc<BackgroundFn>>,
     pub(crate) selects: HashMap<SelectKey, AnySelect>,
-    pub(crate) select_dependencies: HashMap<TypeId, HashSet<SelectKey>>,
     pub(crate) platform: Arc<TargetPlatform>,
+    pub(crate) observe: ObserveStore,
     pub(crate) meta: MetaStorage,
 }
 
@@ -88,10 +89,7 @@ pub struct AppBuilder {
     hooks: HookStore,
     stores: HashMap<StoreKey, AnyStore>,
     selects: HashMap<SelectKey, AnySelect>,
-    /// Used to track what selects each store affects (maps store type id to the names of selects)
-    ///
-    /// TODO: refactor into separate storage
-    select_dependencies: HashMap<TypeId, HashSet<SelectKey>>,
+    observe: ObserveStore,
     platform: Option<Arc<TargetPlatform>>,
 }
 
@@ -281,7 +279,11 @@ impl App {
         Ok(())
     }
 
-    async fn compute_select_contents(&self, name: &str, user: User) -> anyhow::Result<Value> {
+    pub(super) async fn compute_select_contents(
+        &self,
+        name: &str,
+        user: User,
+    ) -> anyhow::Result<Value> {
         let any_select = self
             .inner
             .selects
@@ -320,46 +322,36 @@ impl App {
         Ok(())
     }
 
-    /// TODO: See comment above
-    pub async fn flush_store_change(&self, store_key: StoreKey) -> anyhow::Result<()> {
-        let store = RwLockReadGuard::try_map(self.inner.state.stores.read().await, |stores| {
-            stores.get(&store_key)
-        })
-        .map_err(|_| anyhow::anyhow!("failed to get store"))?
-        .clone();
+    pub(crate) async fn get_any_store(&self, store_key: &StoreKey) -> anyhow::Result<AnyStore> {
+        let stores = self.inner.state.stores.read().await;
+
+        let store = stores
+            .get(store_key)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("store not found: {}", store_key.as_ref()))?;
+
+        Ok(store)
+    }
+
+    pub(crate) async fn serialize_store(
+        &self,
+        store_key: StoreKey,
+        user: &User,
+    ) -> anyhow::Result<Value> {
+        let store = self.get_any_store(&store_key).await?;
 
         let serializer = store.serializer.clone();
         let data = store.data.read_owned().await;
+        let serialized_data = (serializer)(&data, user)?;
 
-        let select_dependencies = self.inner.select_dependencies.get(&store.type_id);
+        Ok(serialized_data)
+    }
 
-        for (_user_id, user) in self.inner.state.users.read().await.iter() {
-            let mut updates: Vec<OneStoreUpdate<Value>> = vec![];
-
-            let serialized = serializer(&*data, &user)
-                .map_err(|_| anyhow::anyhow!("failed to serialize store"))?;
-
-            updates.push(OneStoreUpdate {
-                store: store_key.as_ref(),
-                data: Bull::Borrowed(&serialized),
-            });
-
-            // Refresh any selects that depend on this store
-            if let Some(selects) = select_dependencies {
-                for select_name in selects {
-                    let value = self
-                        .compute_select_contents(&select_name, user.clone())
-                        .await?;
-
-                    updates.push(OneStoreUpdate {
-                        store: select_name.as_ref(),
-                        data: Bull::Owned(value),
-                    });
-                }
-            }
-
-            user.send(TxPacket::ManyStoreUpdate::<()>(updates)).ok();
-        }
+    /// TODO: See comment above
+    pub async fn flush_store_change(&self, store_key: StoreKey) -> anyhow::Result<()> {
+        let store = self.get_any_store(&store_key).await?;
+        self.trigger_update(&ObserveDepdendency::Store(store.type_id))
+            .await?;
 
         Ok(())
     }
@@ -648,14 +640,12 @@ impl AppBuilder {
         let callable: Arc<BoxedCallable<SelectContext, Ret, std::convert::Infallible>> =
             Arc::from(handler.into_callable(()));
 
-        let dependencies = Params::get_select_dependencies();
-
-        for dependency in &dependencies {
+        for dependency in Params::get_select_dependencies() {
             if let SelectDependencyType::Store(type_id) = dependency {
-                self.select_dependencies
-                    .entry(*type_id)
-                    .or_default()
-                    .insert(name.clone());
+                self.observe.add_dependency(
+                    ObserveDepdendency::Store(type_id),
+                    ObserveTarget::Select(name.clone()),
+                );
             }
         }
 
@@ -670,16 +660,6 @@ impl AppBuilder {
                         serde_json::to_value(result)
                     })
                 }),
-                depends_on_stores: dependencies
-                    .iter()
-                    .filter_map(|d| {
-                        if let SelectDependencyType::Store(type_id) = d {
-                            Some(*type_id)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect(),
                 #[cfg(feature = "typed")]
                 desc: Arc::new(move |generator| Handler::extract(generator, name.to_string())),
             },
@@ -792,7 +772,7 @@ impl AppBuilder {
             background: self.background,
             hooks: self.hooks,
             selects: self.selects,
-            select_dependencies: self.select_dependencies,
+            observe: self.observe,
             platform: platform.clone(),
             meta: MetaStorage::new(platform),
         };

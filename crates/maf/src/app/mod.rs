@@ -38,8 +38,9 @@ mod background;
 pub(crate) mod hooks;
 mod local;
 pub(crate) mod meta;
+mod observe;
 mod on_connect_disconnect;
-mod plugin;
+pub(crate) mod plugin;
 
 pub use app::{App, AppBuilder};
 pub use local::Local;

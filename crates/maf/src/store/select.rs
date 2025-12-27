@@ -20,13 +20,6 @@ pub struct AnySelect {
             > + Send
             + Sync,
     >,
-    /// NOTE: The *type id* of the store is used for dependency tracking instead of the *store key*
-    /// because the store key is not available in the context of a select. This means that granular
-    /// stores within the same type will not be tracked separately.
-    ///
-    /// TODO: Allow for selects on granular stores by somehow passing the store key in?
-    pub(crate) depends_on_stores: HashSet<TypeId>,
-
     #[cfg(feature = "typed")]
     pub(crate) desc:
         Arc<dyn Fn(&mut SchemaGenerator) -> crate::typed::StoreDesc + Send + Sync + 'static>,
