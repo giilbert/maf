@@ -47,11 +47,11 @@ impl<'a, T: StoreData> DerefMut for StoreWriteLock<'a, T> {
 impl<T: StoreData> Drop for StoreWriteLock<'_, T> {
     fn drop(&mut self) {
         if self.inner.dirty.swap(false, atomic::Ordering::Relaxed) {
-            let app = self.app.clone();
-            app.inner
+            self.app
+                .inner
                 .state
                 .store_dirty
-                .try_send(self.inner.key.clone())
+                .try_send(self.inner.id)
                 .expect("failed to mark store as dirty: too many updates");
         }
     }
@@ -94,11 +94,11 @@ impl<T: StoreData> Drop for OwnedStoreWriteLock<T> {
             .dirty
             .swap(false, atomic::Ordering::Relaxed)
         {
-            let app = self.app.clone();
-            app.inner
+            self.app
+                .inner
                 .state
                 .store_dirty
-                .try_send(self.store.inner.key.clone())
+                .try_send(self.store.inner.id)
                 .expect("failed to mark store as dirty: too many updates");
         }
     }

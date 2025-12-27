@@ -3,15 +3,15 @@
 //! When a dependency changes (e.g., a store is updated), we may need to trigger updates
 //! to other parts of the application that depend on that data (e.g., recomputing selects).
 
-use std::{
-    any::TypeId,
-    collections::{HashMap, HashSet},
-};
+use std::collections::{HashMap, HashSet};
 
 use maf_schemas::packet::{Bull, OneStoreUpdate, TxPacket};
 use serde_json::Value;
 
-use crate::{store::SelectKey, App};
+use crate::{
+    store::{SelectKey, StoreId},
+    App,
+};
 
 #[derive(Debug, Default)]
 pub struct ObserveStore {
@@ -21,7 +21,7 @@ pub struct ObserveStore {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ObserveDepdendency {
-    Store(TypeId),
+    Store(StoreId),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

@@ -1,9 +1,11 @@
-use std::{any::TypeId, collections::HashSet, future::Future, pin::Pin, sync::Arc};
+use std::{future::Future, pin::Pin, sync::Arc};
 
 #[cfg(feature = "typed")]
 use schemars::SchemaGenerator;
 
-use crate::{callable::CallableFetch, App, Store, StoreData, StoreMut, StoreRef, User};
+use crate::{
+    callable::CallableFetch, store::StoreId, App, Store, StoreData, StoreMut, StoreRef, User,
+};
 
 pub type SelectKey = Arc<str>;
 
@@ -45,12 +47,13 @@ impl CallableFetch<User> for SelectContext {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SelectDependencyType {
     /// The select depends on a store.
-    Store(TypeId),
+    Store(StoreId),
     /// Not a dependency, used for types that do not cause selects to update.
     None,
 }
 
-pub trait SelectDependency {
+pub(crate) trait SelectDependency {
+    #[allow(unused)]
     const IS_DEPENDENCY: bool = false;
 
     #[inline(always)]
@@ -68,7 +71,7 @@ where
 
     #[inline(always)]
     fn depends_on() -> SelectDependencyType {
-        SelectDependencyType::Store(TypeId::of::<T>())
+        SelectDependencyType::Store(StoreId::of::<T>())
     }
 }
 
@@ -80,7 +83,7 @@ where
 
     #[inline(always)]
     fn depends_on() -> SelectDependencyType {
-        SelectDependencyType::Store(TypeId::of::<T>())
+        SelectDependencyType::Store(StoreId::of::<T>())
     }
 }
 
@@ -92,7 +95,7 @@ where
 
     #[inline(always)]
     fn depends_on() -> SelectDependencyType {
-        SelectDependencyType::Store(TypeId::of::<T>())
+        SelectDependencyType::Store(StoreId::of::<T>())
     }
 }
 

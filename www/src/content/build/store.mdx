@@ -121,12 +121,6 @@ pub trait StoreData: Send + Sync + 'static {
         std::any::type_name::<Self>()
     }
 
-    /// Returns the key of the store used internally to identify it. You should
-    /// rarely need to or want to override this.
-    fn key() -> impl Into<StoreKey> {
-        StoreKey::from(Self::name().as_ref())
-    }
-
     /// Selects the portion of the store data to be serialized and sent to the
     /// given user.
     ///
@@ -196,15 +190,6 @@ impl StoreData for PlayerStore {
     }
 }
 ```
-
-#### `fn key`
-
-The `key` method returns a unique identifier for the store, which is used to
-distinguish it from other stores. It defaults to the store's name. `key` will be
-used in the future to allow multiple stores of the same type.
-
-⚠️ This feature is experimental and still being developed. You should
-_probably_ not need to override this method for now.
 
 #### `fn init`
 

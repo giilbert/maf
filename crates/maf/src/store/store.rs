@@ -18,13 +18,23 @@ use crate::{
 
 use super::pointers::StoreWriteLock;
 
+#[repr(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct StoreId(pub(crate) TypeId);
+
+impl StoreId {
+    pub fn of<T: 'static>() -> Self {
+        StoreId(TypeId::of::<T>())
+    }
+}
+
 /// A type-erased store that can hold any data implementing [`StoreData`].
 #[derive(Clone)]
 pub struct AnyStore {
-    /// The [`TypeId`] of the store's data type, the implementator of [`StoreData`].
-    pub(crate) type_id: TypeId,
-    /// A unique key identifying the store.
-    pub(crate) key: StoreKey,
+    /// A unique identifier for the store. This is the [`TypeId`] of the store's data type.
+    pub(crate) id: StoreId,
+    /// The name of the store, used to identify it to clients.
+    pub(crate) name: Arc<str>,
     /// Indicates whether the store's data has been modified and needs to be synchronized with
     /// clients.
     pub(crate) dirty: Arc<AtomicBool>,
@@ -47,7 +57,7 @@ pub struct AnyStore {
 impl std::fmt::Debug for AnyStore {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AnyStore")
-            .field("key", &self.key)
+            .field("id", &self.id)
             .field("dirty", &self.dirty)
             .field("data", &self.data)
             .finish_non_exhaustive()
@@ -193,14 +203,6 @@ pub struct Store<T: StoreData> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-/// A unique identifier for a store.
-///
-/// TODO: Build more features around this, such as:
-/// - Being able to list all registered stores in an app
-/// - Have multiple stores of the same type with different keys/names
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct StoreKey(Arc<str>);
-
 /// Describes the data stored in a [`Store`].
 pub trait StoreData: Send + Sync + 'static {
     #[cfg(not(feature = "typed"))]
@@ -220,12 +222,6 @@ pub trait StoreData: Send + Sync + 'static {
     /// If not specified, the default is the Rust type name of `Self`.
     fn name() -> impl AsRef<str> + Send {
         std::any::type_name::<Self>()
-    }
-
-    /// Returns the key of the store used internally to identify it. You should rarely need to or
-    /// want to override this.
-    fn key() -> impl Into<StoreKey> {
-        StoreKey::from(Self::name().as_ref())
     }
 
     /// Selects the portion of the store data to be serialized and sent to the given user.
@@ -268,8 +264,8 @@ pub trait StoreData: Send + Sync + 'static {
 impl AnyStore {
     pub fn new<T: StoreData>() -> Self {
         Self {
-            type_id: TypeId::of::<T>(),
-            key: T::key().into(),
+            id: StoreId::of::<T>(),
+            name: Arc::from(T::name().as_ref()),
             dirty: Arc::new(AtomicBool::new(false)),
             data: Arc::new(RwLock::new(T::init())),
             serializer: Arc::new(|data, user| {
@@ -286,18 +282,6 @@ impl AnyStore {
     }
 }
 
-impl From<&str> for StoreKey {
-    fn from(key: &str) -> Self {
-        Self(Arc::from(key))
-    }
-}
-
-impl AsRef<str> for StoreKey {
-    fn as_ref(&self) -> &str {
-        self.0.as_ref()
-    }
-}
-
 impl<T: StoreData> Store<T> {
     /// Creates a new [`Store<T>`] instance for the given app.
     ///
@@ -305,14 +289,14 @@ impl<T: StoreData> Store<T> {
     /// The type of the store should have already been registered with the app using
     /// [`crate::AppBuilder::store`]. If the store is not found, this function will panic.
     pub async fn new(app: App) -> Self {
-        let key = T::key().into();
+        let id = StoreId::of::<T>();
         let inner = app
             .inner
             .state
             .stores
             .read()
             .await
-            .get(&key)
+            .get(&id)
             .cloned()
             .expect("store not found");
 
@@ -394,16 +378,13 @@ impl<T: StoreData, Ctx: CallableFetch<App> + Send + Sync, Init: Send + Sync>
 
     async fn extract(ctx: &mut Ctx, _init: &Init) -> Result<Self, Self::Error> {
         let app = ctx.fetch();
-        let key = T::key().into();
 
-        let existing_store = app.inner.state.stores.read().await.get(&key).cloned();
+        let id = StoreId::of::<T>();
+        let existing_store = app.inner.state.stores.read().await.get(&id).cloned();
 
         let store = match existing_store {
             Some(store) => store,
-            None => panic!(
-                "store not found when trying to extract parameter: {}",
-                key.as_ref()
-            ),
+            None => panic!("store not found when trying to extract parameter: {:?}", id),
         };
 
         Ok(Store {

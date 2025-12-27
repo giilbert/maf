@@ -1,8 +1,4 @@
-use std::{
-    any::TypeId,
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Context;
 use maf_schemas::packet::{
@@ -13,7 +9,7 @@ use serde::Serialize;
 use serde_json::Value;
 use tokio::sync::{
     mpsc::{self, error::TryRecvError},
-    RwLock, RwLockReadGuard,
+    RwLock,
 };
 use uuid::Uuid;
 
@@ -30,7 +26,7 @@ use crate::{
     rpc::{RpcError, RpcRequestContext, RpcRequestInit, RpcStore},
     store::{
         AnySelect, AnyStore, GetParamSelectDependencies, SelectContext, SelectDependencyType,
-        SelectKey, StoreKey,
+        SelectKey, StoreId,
     },
     tasks::{self},
     user::{UserMessage, UserNextMessageError},
@@ -58,7 +54,7 @@ pub(crate) struct AppInner {
     pub(crate) rpc_functions: RpcStore,
     pub(crate) states: LocalStateStore,
     pub(crate) hooks: HookStore,
-    pub(crate) store_dirty_rx: RwLock<mpsc::Receiver<StoreKey>>,
+    pub(crate) store_dirty_rx: RwLock<mpsc::Receiver<StoreId>>,
     pub(crate) on_connect: Option<Arc<OnConnectDisconnectFn>>,
     pub(crate) on_disconnect: Option<Arc<OnConnectDisconnectFn>>,
     pub(crate) background: Option<Arc<BackgroundFn>>,
@@ -71,8 +67,8 @@ pub(crate) struct AppInner {
 #[derive(Debug)]
 pub struct AppState {
     pub(crate) users: RwLock<HashMap<Uuid, User>>,
-    pub(crate) stores: RwLock<HashMap<StoreKey, AnyStore>>,
-    pub(crate) store_dirty: mpsc::Sender<StoreKey>,
+    pub(crate) stores: RwLock<HashMap<StoreId, AnyStore>>,
+    pub(crate) store_dirty: mpsc::Sender<StoreId>,
     pub(crate) channels: RwLock<HashMap<String, UntypedChannelBroadcast>>,
     pub(crate) user_rx_channels: RwLock<HashMap<(Uuid, String), UntypedChannelBroadcast>>,
 }
@@ -87,7 +83,7 @@ pub struct AppBuilder {
     rpc_functions: RpcStore,
     local_states: LocalStateStore,
     hooks: HookStore,
-    stores: HashMap<StoreKey, AnyStore>,
+    stores: HashMap<StoreId, AnyStore>,
     selects: HashMap<SelectKey, AnySelect>,
     observe: ObserveStore,
     platform: Option<Arc<TargetPlatform>>,
@@ -307,38 +303,33 @@ impl App {
         let mut store_dirty_rx = self.inner.store_dirty_rx.write().await;
 
         loop {
-            let store_key = match store_dirty_rx.try_recv() {
-                Ok(store_key) => store_key,
+            let store_id = match store_dirty_rx.try_recv() {
+                Ok(store_id) => store_id,
                 Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Disconnected) => {
-                    println!("store dirty channel disconnected");
-                    return Ok(());
+                    anyhow::bail!("store dirty channel disconnected");
                 }
             };
 
-            self.flush_store_change(store_key).await?;
+            self.flush_store_change(&store_id).await?;
         }
 
         Ok(())
     }
 
-    pub(crate) async fn get_any_store(&self, store_key: &StoreKey) -> anyhow::Result<AnyStore> {
+    pub(crate) async fn get_any_store(&self, id: &StoreId) -> anyhow::Result<AnyStore> {
         let stores = self.inner.state.stores.read().await;
 
         let store = stores
-            .get(store_key)
+            .get(id)
             .cloned()
-            .ok_or_else(|| anyhow::anyhow!("store not found: {}", store_key.as_ref()))?;
+            .ok_or_else(|| anyhow::anyhow!("store not found: {:?}", id))?;
 
         Ok(store)
     }
 
-    pub(crate) async fn serialize_store(
-        &self,
-        store_key: StoreKey,
-        user: &User,
-    ) -> anyhow::Result<Value> {
-        let store = self.get_any_store(&store_key).await?;
+    pub(crate) async fn serialize_store(&self, id: &StoreId, user: &User) -> anyhow::Result<Value> {
+        let store = self.get_any_store(&id).await?;
 
         let serializer = store.serializer.clone();
         let data = store.data.read_owned().await;
@@ -348,11 +339,8 @@ impl App {
     }
 
     /// TODO: See comment above
-    pub async fn flush_store_change(&self, store_key: StoreKey) -> anyhow::Result<()> {
-        let store = self.get_any_store(&store_key).await?;
-        self.trigger_update(&ObserveDepdendency::Store(store.type_id))
-            .await?;
-
+    pub(crate) async fn flush_store_change(&self, id: &StoreId) -> anyhow::Result<()> {
+        self.trigger_update(&ObserveDepdendency::Store(*id)).await?;
         Ok(())
     }
 
@@ -362,11 +350,11 @@ impl App {
 
         let mut data: Vec<(&str, serde_json::Value)> = Vec::with_capacity(stores.len());
 
-        for (store_key, store) in stores.iter() {
+        for (_store_id, store) in stores.iter() {
             let serialized = (store.serializer)(&*store.data.read().await, user)
                 .context("failed to serialize store")?;
 
-            data.push((store_key.as_ref(), serialized));
+            data.push((&store.name, serialized));
         }
 
         // Also compute every select
@@ -612,7 +600,7 @@ impl AppBuilder {
 
     /// Statically declare a store, initializing it with the default value.
     pub fn store<T: StoreData>(mut self) -> Self {
-        self.stores.insert(T::key().into(), AnyStore::new::<T>());
+        self.stores.insert(StoreId::of::<T>(), AnyStore::new::<T>());
         self
     }
 
