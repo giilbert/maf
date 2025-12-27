@@ -21,7 +21,7 @@ impl StoreData for LightsOut {
 
     fn init() -> Self {
         LightsOut {
-            tiles: vec![false; 64],
+            tiles: vec![true; 64],
             people: 0,
         }
     }
