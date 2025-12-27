@@ -48,6 +48,9 @@ fn build() -> App {
         .on_connect(on_connect)
         .store::<CounterStore>()
         .rpc("increment_counter", increment_counter)
+        .select("counter_times_two", |counter: StoreRef<CounterStore>| {
+            counter.count * 2
+        })
         .build()
 }
 

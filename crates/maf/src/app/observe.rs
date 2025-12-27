@@ -19,6 +19,7 @@ pub struct ObserveStore {
     targets: HashMap<ObserveDepdendency, HashSet<ObserveTarget>>,
 }
 
+#[non_exhaustive] // TODO: remove when adding more dependency types
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ObserveDepdendency {
     Store(StoreId),
@@ -45,37 +46,36 @@ impl ObserveStore {
 impl App {
     /// Triggers an update for the referenced `dependency` and all dependents of the given
     /// dependency.
+    ///
+    /// TODO: This assumes that the tree of dependencies is only one level deep (i.e., a store
+    /// update only triggers select updates, and select updates do not trigger other select updates
+    /// or store updates). This is sufficient for now as stores cannot trigger other stores, but in
+    /// the future we may want to support more complex dependency graphs.
     pub(crate) async fn trigger_update(
         &self,
         dependency: &ObserveDepdendency,
     ) -> anyhow::Result<()> {
-        let dependents = match self.inner.observe.get_dependents(dependency) {
-            Some(dependents) => dependents,
-            None => return Ok(()),
-        };
+        let dependents = self.inner.observe.get_dependents(dependency);
 
         let users = self.inner.state.users.read().await;
+        let store_dependency = match dependency {
+            ObserveDepdendency::Store(store_id) => Some(self.get_any_store(store_id).await?),
+            #[allow(unreachable_patterns)]
+            _ => None,
+        };
 
         for (_user_id, user) in users.iter() {
             let mut store_updates: Vec<OneStoreUpdate<Value>> = vec![];
 
-            #[allow(irrefutable_let_patterns)] // TODO: remove when more dependency types are added
-            if let ObserveDepdendency::Store(type_id) = dependency {
-                // Notify the user that the store has been updated
-                todo!();
-
-                // let serializer = store.serializer.clone();
-                // let data = store.data.read_owned().await;
-
-                // let serialized_data = serializer.serialize(&data, &user).await?;
-
-                // store_updates.push(OneStoreUpdate {
-                //     store: &store.name,
-                //     data: Bull::Owned(serialized_data),
-                // });
+            // Indicate that the store has changed (the start of the update)
+            if let Some(store) = &store_dependency {
+                store_updates.push(OneStoreUpdate {
+                    store: &store.name,
+                    data: Bull::Owned(self.serialize_store(user.clone(), store.clone()).await?),
+                });
             }
 
-            for target in dependents {
+            for target in dependents.into_iter().flatten() {
                 match target {
                     ObserveTarget::Select(select_key) => {
                         let content = self

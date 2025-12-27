@@ -328,12 +328,13 @@ impl App {
         Ok(store)
     }
 
-    pub(crate) async fn serialize_store(&self, id: &StoreId, user: &User) -> anyhow::Result<Value> {
-        let store = self.get_any_store(&id).await?;
-
-        let serializer = store.serializer.clone();
+    pub(crate) async fn serialize_store(
+        &self,
+        user: User,
+        store: AnyStore,
+    ) -> anyhow::Result<Value> {
         let data = store.data.read_owned().await;
-        let serialized_data = (serializer)(&data, user)?;
+        let serialized_data = (store.serializer)(&*data, &user)?;
 
         Ok(serialized_data)
     }
@@ -629,9 +630,9 @@ impl AppBuilder {
             Arc::from(handler.into_callable(()));
 
         for dependency in Params::get_select_dependencies() {
-            if let SelectDependencyType::Store(type_id) = dependency {
+            if let SelectDependencyType::Store(store_id) = dependency {
                 self.observe.add_dependency(
-                    ObserveDepdendency::Store(type_id),
+                    ObserveDepdendency::Store(store_id),
                     ObserveTarget::Select(name.clone()),
                 );
             }
