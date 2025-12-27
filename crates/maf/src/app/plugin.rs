@@ -1,4 +1,4 @@
-use super::app::AppBuilder;
+use super::impls::AppBuilder;
 
 /// Modifies an [`AppBuilder`] to add functionality to a [`crate::App`].
 ///
