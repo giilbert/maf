@@ -19,6 +19,7 @@ destination = "/app/bundle"
 internal_port = 1147
 auto_start_machines = true
 min_machines_running = 0
+force_https = true
 
 [http_service.concurrency]
 type = "connections"
