@@ -16,7 +16,7 @@ use crate::{
 /// Traits defining how a MAF app running should interact with the underlying platform (e.g. MAF
 /// Platform, native server, etc.). This is almost a 1-1 translation of `maf.wit`.
 #[allow(unused)]
-pub(crate) trait Platform {
+pub trait Platform {
     type Config;
 
     fn init(config: Self::Config) -> anyhow::Result<Self>
