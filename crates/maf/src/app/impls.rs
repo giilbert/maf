@@ -398,6 +398,11 @@ impl App {
 
         let app = self.clone();
 
+        // Prepare meta values to their initial state
+        if let Err(e) = self.meta().update_all_meta(app.clone()).await {
+            println!("failed to initialize meta values: {e}");
+        }
+
         tasks::spawn(async move {
             if let Err(e) = app.handle_hook_requests().await {
                 println!("failed to handle hook requests: {e}");

@@ -122,6 +122,15 @@ impl MetaStorage {
         self.platform().list_meta()
     }
 
+    /// Updates all meta entries by triggering their updaters.
+    pub(crate) async fn update_all_meta(&self, app: App) -> anyhow::Result<()> {
+        for name in self.updaters.keys() {
+            self.trigger_meta_update(app.clone(), name).await?;
+        }
+
+        Ok(())
+    }
+
     pub(crate) async fn trigger_meta_update(&self, app: App, name: &MetaKey) -> anyhow::Result<()> {
         if let Some(updater) = self.updaters.get(name) {
             let ctx = MetaContext { app };
