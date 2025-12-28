@@ -1,10 +1,12 @@
-use std::{future::Future, pin::Pin, sync::Arc};
+use std::sync::Arc;
 
 #[cfg(feature = "typed")]
 use schemars::SchemaGenerator;
 
 use crate::{
-    callable::CallableFetch, store::StoreId, App, Store, StoreData, StoreMut, StoreRef, User,
+    callable::{BoxedCallable, CallableFetch},
+    store::StoreId,
+    App, Store, StoreData, StoreMut, StoreRef, User,
 };
 
 pub type SelectKey = Arc<str>;
@@ -12,16 +14,7 @@ pub type SelectKey = Arc<str>;
 #[allow(unused)]
 pub struct AnySelect {
     pub(crate) name: SelectKey,
-    pub(crate) select: Arc<
-        dyn Fn(
-                SelectContext,
-            ) -> Pin<
-                Box<
-                    dyn Future<Output = Result<serde_json::Value, serde_json::Error>> + Send + Sync,
-                >,
-            > + Send
-            + Sync,
-    >,
+    pub(crate) select: BoxedCallable<SelectContext, serde_json::Value, serde_json::Error>,
     #[cfg(feature = "typed")]
     pub(crate) desc:
         Arc<dyn Fn(&mut SchemaGenerator) -> crate::typed::StoreDesc + Send + Sync + 'static>,

@@ -51,6 +51,7 @@ fn build() -> App {
         .select("counter_times_two", |counter: StoreRef<CounterStore>| {
             counter.count * 2
         })
+        .meta("count", |counter: StoreRef<CounterStore>| counter.count)
         .build()
 }
 

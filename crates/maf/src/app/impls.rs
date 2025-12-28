@@ -17,7 +17,7 @@ use crate::{
     app::{
         background::BackgroundFnContext,
         hooks::{HookBody, HookRequest, HookResponse},
-        meta::MetaStorage,
+        meta::{AnyMetaUpdater, MetaContext, MetaKey, MetaStorage},
         observe::{ObserveDepdendency, ObserveStore, ObserveTarget},
     },
     callable::{BoxedCallable, IntoCallable},
@@ -30,7 +30,7 @@ use crate::{
     },
     tasks::{self},
     user::{UserMessage, UserNextMessageError},
-    Channel, Local, RpcFunction, Store, StoreData, User,
+    Channel, Local, MetaVisibility, RpcFunction, Store, StoreData, User,
 };
 
 use super::{
@@ -73,6 +73,9 @@ pub struct AppState {
     pub(crate) user_rx_channels: RwLock<HashMap<(Uuid, String), UntypedChannelBroadcast>>,
 }
 
+// FIXME: #[derive(Default)] makes it so that structs stored in the builder must also implement
+// Default. This is not ideal because it allows some structs to be constructed when they should not
+// be.
 /// Builder for constructing a MAF application. Used to register stores, RPC functions, background
 /// tasks, and more.
 #[derive(Default)]
@@ -86,6 +89,7 @@ pub struct AppBuilder {
     stores: HashMap<StoreId, AnyStore>,
     selects: HashMap<SelectKey, AnySelect>,
     observe: ObserveStore,
+    meta: MetaStorage,
     platform: Option<Arc<TargetPlatform>>,
 }
 
@@ -626,8 +630,7 @@ impl AppBuilder {
         Ret: Serialize + 'static,
     {
         let name: Arc<str> = Arc::from(name.to_string());
-        let callable: Arc<BoxedCallable<SelectContext, Ret, std::convert::Infallible>> =
-            Arc::from(handler.into_callable(()));
+        let callable = Arc::new(handler.into_callable(()));
 
         for dependency in Params::get_select_dependencies() {
             if let SelectDependencyType::Store(store_id) = dependency {
@@ -642,7 +645,7 @@ impl AppBuilder {
             name.clone(),
             AnySelect {
                 name: name.clone(),
-                select: Arc::new(move |ctx| {
+                select: Box::new(move |ctx| {
                     let callable = callable.clone();
                     Box::pin(async move {
                         let result = callable(ctx).await.expect("Select should not fail");
@@ -651,6 +654,57 @@ impl AppBuilder {
                 }),
                 #[cfg(feature = "typed")]
                 desc: Arc::new(move |generator| Handler::extract(generator, name.to_string())),
+            },
+        );
+
+        self
+    }
+
+    /// Subscribes a meta entry to be automatically updated when its dependencies change.
+    pub fn meta<
+        Name: ToString,
+        Params,
+        Ret,
+        Handler: IntoCallable<MetaContext, Params, Ret, std::convert::Infallible, (), IS_ASYNC>,
+        const IS_ASYNC: bool,
+        const N_PARAMS: usize,
+    >(
+        mut self,
+        visibility: MetaVisibility,
+        name: Name,
+        handler: Handler,
+    ) -> Self
+    where
+        // TODO: This concept of a "dependency" can be generalized for other use cases. It is fine
+        // for now since meta and select have the same types of dependencies.
+        Params: GetParamSelectDependencies<N_PARAMS>,
+        // TODO: can we remove this 'static bound?
+        Ret: Serialize + 'static,
+    {
+        let key = MetaKey(name.to_string().into());
+        let handler = Arc::new(handler.into_callable(()));
+
+        for dependency in Params::get_select_dependencies() {
+            if let SelectDependencyType::Store(store_id) = dependency {
+                self.observe.add_dependency(
+                    ObserveDepdendency::Store(store_id),
+                    ObserveTarget::Meta(key.clone()),
+                );
+            }
+        }
+
+        self.meta.updaters.insert(
+            key.clone(),
+            AnyMetaUpdater {
+                _key: key,
+                visibility,
+                create: Box::new(move |ctx| {
+                    let handler = handler.clone();
+                    Box::pin(async move {
+                        let result = handler(ctx).await.expect("infallible");
+                        serde_json::to_value(result)
+                    })
+                }),
             },
         );
 
@@ -734,7 +788,7 @@ impl AppBuilder {
         self
     }
 
-    pub fn build(self) -> App {
+    pub fn build(mut self) -> App {
         const STORE_UPDATE_LIMIT: usize = 10_000;
 
         let (store_dirty, store_dirty_rx) = mpsc::channel(STORE_UPDATE_LIMIT);
@@ -750,6 +804,7 @@ impl AppBuilder {
         let platform = self.platform.unwrap_or_else(|| {
             Arc::new(TargetPlatform::init(()).expect("Failed to initialize platform"))
         });
+        self.meta.platform = Some(platform.clone());
 
         let inner = AppInner {
             state,
@@ -762,8 +817,8 @@ impl AppBuilder {
             hooks: self.hooks,
             selects: self.selects,
             observe: self.observe,
-            platform: platform.clone(),
-            meta: MetaStorage::new(platform),
+            meta: self.meta,
+            platform,
         };
 
         let app = App {

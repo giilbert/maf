@@ -9,6 +9,7 @@ use maf_schemas::packet::{Bull, OneStoreUpdate, TxPacket};
 use serde_json::Value;
 
 use crate::{
+    app::meta::MetaKey,
     store::{SelectKey, StoreId},
     App,
 };
@@ -28,6 +29,7 @@ pub enum ObserveDepdendency {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ObserveTarget {
     Select(SelectKey),
+    Meta(MetaKey),
 }
 
 impl ObserveStore {
@@ -86,6 +88,12 @@ impl App {
                             store: &select_key,
                             data: Bull::Owned(content),
                         });
+                    }
+                    ObserveTarget::Meta(name) => {
+                        self.inner
+                            .meta
+                            .trigger_meta_update(self.clone(), name)
+                            .await?;
                     }
                 }
             }
