@@ -51,7 +51,15 @@ fn build() -> App {
         .select("counter_times_two", |counter: StoreRef<CounterStore>| {
             counter.count * 2
         })
-        .meta("count", |counter: StoreRef<CounterStore>| counter.count)
+        .meta(
+            MetaVisibility::Public,
+            "count",
+            |counter: StoreRef<CounterStore>| counter.count,
+        )
+        .meta(MetaVisibility::Public, "users", |users: Users| async move {
+            println!("{} connected user(s)", users.count().await);
+            users.count().await
+        })
         .build()
 }
 

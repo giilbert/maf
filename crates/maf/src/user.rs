@@ -1,15 +1,16 @@
 //! Abstractions for connected users.
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use maf_schemas::packet::RxPacket;
 use uuid::Uuid;
 
 use crate::{
     app::AppState,
+    callable::{CallableFetch, CallableParam, SupportsAsync},
     channel::BoundChannel,
     platform::{self, Message, PlatformUser, SendError},
-    Channel,
+    App, Channel,
 };
 
 /// Represents a connected user.
@@ -109,3 +110,100 @@ pub struct UserMessage<'a> {
     pub(crate) user: &'a User,
     pub(crate) packet: RxPacket,
 }
+
+/// An extractor to access connected users.
+pub struct Users {
+    app: App,
+}
+
+impl Users {
+    pub(crate) fn new(app: App) -> Self {
+        Self { app }
+    }
+
+    /// Returns a list of all currently connected users.
+    ///
+    /// ## Example
+    /// ```rust
+    /// use maf::prelude::*;
+    ///
+    /// // This RPC function returns a list of all connected user IDs.
+    /// async fn list_users(users: Users) -> Vec<Uuid> {
+    ///     let all_users = users.all().await;
+    ///     all_users.keys().cloned().collect()
+    /// }
+    ///
+    /// fn build() -> App {
+    ///     App::builder()
+    ///         .rpc("list_users", list_users)
+    ///         .build()
+    /// }
+    ///
+    /// maf::register!(build);
+    /// ```
+    pub async fn all(&self) -> HashMap<Uuid, User> {
+        // TODO: not clone
+        let users = self.app.inner.state.users.read().await;
+        users.clone()
+    }
+
+    /// Returns the user with the given ID, if they are connected. Otherwise, returns [`None`].
+    ///
+    /// ## Example
+    /// ```rust
+    /// use maf::prelude::*;
+    ///
+    /// // This RPC function checks if a user with the given ID is connected.
+    /// async fn is_user_connected(users: Users, Params(user_id): Params<Uuid>) -> bool {
+    ///     users.get(&user_id).await.is_some()
+    /// }
+    ///
+    /// fn build() -> App {
+    ///     App::builder()
+    ///         .rpc("is_user_connected", is_user_connected)
+    ///         .build()
+    /// }
+    ///
+    /// maf::register!(build);
+    /// ```
+    pub async fn get(&self, id: &Uuid) -> Option<User> {
+        let users = self.app.inner.state.users.read().await;
+        users.get(id).cloned()
+    }
+
+    /// Returns the number of currently connected users.
+    ///
+    /// ## Example
+    /// ```rust
+    /// use maf::prelude::*;
+    ///
+    /// fn build() -> App {
+    ///     App::builder()
+    ///         // Sends the number of connected users as a select that automatically updates.
+    ///         .select("connected_user_count", |users: Users| async move {
+    ///             users.count().await
+    ///         })
+    ///        .build()
+    /// }
+    ///
+    /// maf::register!(build);
+    /// ```
+    pub async fn count(&self) -> usize {
+        let users = self.app.inner.state.users.read().await;
+        users.len()
+    }
+}
+
+impl<Ctx, Init> CallableParam<Ctx, Init> for Users
+where
+    Ctx: CallableFetch<App>,
+    Init: Send + Sync,
+{
+    type Error = std::convert::Infallible;
+    async fn extract(ctx: &mut Ctx, _init: &Init) -> Result<Self, Self::Error> {
+        let app = ctx.fetch();
+        Ok(Users::new(app))
+    }
+}
+
+impl SupportsAsync for Users {}

@@ -134,6 +134,9 @@ impl App {
                 .await
                 .insert(user.meta().id, user.clone());
 
+            let app = self.clone();
+            tasks::spawn(async move { app.trigger_update(&ObserveDepdendency::Users).await });
+
             self.refresh_all_stores(&user).await.ok();
 
             // Listen for messages from the user and handle them
@@ -202,6 +205,8 @@ impl App {
                     .write()
                     .await
                     .remove(&user_clone.meta().id);
+
+                app.trigger_update(&ObserveDepdendency::Users).await.ok();
             });
         }
     }
@@ -281,21 +286,21 @@ impl App {
 
     pub(super) async fn compute_select_contents(
         &self,
-        name: &str,
+        name: &SelectKey,
         user: User,
     ) -> anyhow::Result<Value> {
         let any_select = self
             .inner
             .selects
             .get(name)
-            .ok_or_else(|| anyhow::anyhow!("select not found: {name}"))?;
+            .ok_or_else(|| anyhow::anyhow!("select not found: {name:?}"))?;
 
         let value = (any_select.select)(SelectContext {
             app: self.clone(),
             user,
         })
         .await
-        .map_err(|e| anyhow::anyhow!("failed to compute select contents for {name}: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("failed to compute select contents for {name:?}: {e}"))?;
 
         Ok(value)
     }
@@ -368,7 +373,7 @@ impl App {
                 .compute_select_contents(select_name, user.clone())
                 .await?;
 
-            data.push((select_name, value));
+            data.push((&select_name.0, value));
         }
 
         user.send(TxPacket::ManyStoreUpdate::<serde_json::Value>(
@@ -629,16 +634,18 @@ impl AppBuilder {
         // TODO: can we remove this 'static bound?
         Ret: Serialize + 'static,
     {
-        let name: Arc<str> = Arc::from(name.to_string());
+        let name = SelectKey(Arc::from(name.to_string()));
         let callable = Arc::new(handler.into_callable(()));
 
         for dependency in Params::get_select_dependencies() {
-            if let SelectDependencyType::Store(store_id) = dependency {
-                self.observe.add_dependency(
-                    ObserveDepdendency::Store(store_id),
-                    ObserveTarget::Select(name.clone()),
-                );
-            }
+            self.observe.add_dependency(
+                match dependency {
+                    SelectDependencyType::Store(store_id) => ObserveDepdendency::Store(store_id),
+                    SelectDependencyType::Users => ObserveDepdendency::Users,
+                    SelectDependencyType::None => continue,
+                },
+                ObserveTarget::Select(name.clone()),
+            );
         }
 
         self.selects.insert(
@@ -653,7 +660,7 @@ impl AppBuilder {
                     })
                 }),
                 #[cfg(feature = "typed")]
-                desc: Arc::new(move |generator| Handler::extract(generator, name.to_string())),
+                desc: Arc::new(move |generator| Handler::extract(generator, name.0.to_string())),
             },
         );
 
@@ -685,12 +692,14 @@ impl AppBuilder {
         let handler = Arc::new(handler.into_callable(()));
 
         for dependency in Params::get_select_dependencies() {
-            if let SelectDependencyType::Store(store_id) = dependency {
-                self.observe.add_dependency(
-                    ObserveDepdendency::Store(store_id),
-                    ObserveTarget::Meta(key.clone()),
-                );
-            }
+            self.observe.add_dependency(
+                match dependency {
+                    SelectDependencyType::Store(store_id) => ObserveDepdendency::Store(store_id),
+                    SelectDependencyType::Users => ObserveDepdendency::Users,
+                    SelectDependencyType::None => continue,
+                },
+                ObserveTarget::Meta(key.clone()),
+            );
         }
 
         self.meta.updaters.insert(

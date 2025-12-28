@@ -112,7 +112,7 @@ impl bindings::HostFutureMessage for ContainerData {
 
 impl bindings::HostUser for ContainerData {
     async fn drop(&mut self, user: Resource<UserImpl>) -> anyhow::Result<()> {
-        tracing::info!("drop(user {})", user.rep());
+        tracing::trace!("drop(user {})", user.rep());
         Ok(())
     }
 

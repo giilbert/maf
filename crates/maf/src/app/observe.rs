@@ -22,12 +22,13 @@ pub struct ObserveStore {
 
 #[non_exhaustive] // TODO: remove when adding more dependency types
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum ObserveDepdendency {
+pub(crate) enum ObserveDepdendency {
     Store(StoreId),
+    Users,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum ObserveTarget {
+pub(crate) enum ObserveTarget {
     Select(SelectKey),
     Meta(MetaKey),
 }
@@ -66,6 +67,19 @@ impl App {
             _ => None,
         };
 
+        // These types of dependencies do not affect users and only run once on the app level
+        for target in dependents.into_iter().flatten() {
+            match target {
+                ObserveTarget::Meta(meta_key) => {
+                    self.inner
+                        .meta
+                        .trigger_meta_update(self.clone(), meta_key)
+                        .await?;
+                }
+                _ => (),
+            }
+        }
+
         for (_user_id, user) in users.iter() {
             let mut store_updates: Vec<OneStoreUpdate<Value>> = vec![];
 
@@ -85,16 +99,11 @@ impl App {
                             .await?;
 
                         store_updates.push(OneStoreUpdate {
-                            store: &select_key,
+                            store: &select_key.0,
                             data: Bull::Owned(content),
                         });
                     }
-                    ObserveTarget::Meta(name) => {
-                        self.inner
-                            .meta
-                            .trigger_meta_update(self.clone(), name)
-                            .await?;
-                    }
+                    _ => (),
                 }
             }
 

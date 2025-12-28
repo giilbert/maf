@@ -58,6 +58,7 @@
 //!
 //! - [`crate::App`]: The app instance that the RPC function is running in.
 //! - [`crate::User`]: The user that made the request.
+//! - [`crate::Users`]: The user that made the request.
 //! - [`crate::Store<T>`]: A store instance that can be used to access shared data.
 //! - [`crate::Channel<T>`]: A channel instance that can be used to send messages to clients.
 

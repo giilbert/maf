@@ -6,10 +6,11 @@ use schemars::SchemaGenerator;
 use crate::{
     callable::{BoxedCallable, CallableFetch},
     store::StoreId,
-    App, Store, StoreData, StoreMut, StoreRef, User,
+    App, Store, StoreData, StoreMut, StoreRef, User, Users,
 };
 
-pub type SelectKey = Arc<str>;
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SelectKey(pub(crate) Arc<str>);
 
 #[allow(unused)]
 pub struct AnySelect {
@@ -37,19 +38,18 @@ impl CallableFetch<User> for SelectContext {
     }
 }
 
+// TODO: this can probably be merged into `ObserveDepdendency`
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SelectDependencyType {
     /// The select depends on a store.
     Store(StoreId),
+    /// The select depends on users connecting/disconnecting. This is the [`Users`] extractor.
+    Users,
     /// Not a dependency, used for types that do not cause selects to update.
     None,
 }
 
 pub(crate) trait SelectDependency {
-    #[allow(unused)]
-    const IS_DEPENDENCY: bool = false;
-
-    #[inline(always)]
     /// Returns the type id of the store that this select depends on.
     fn depends_on() -> SelectDependencyType {
         SelectDependencyType::None
@@ -60,9 +60,6 @@ impl<T> SelectDependency for Store<T>
 where
     T: StoreData,
 {
-    const IS_DEPENDENCY: bool = true;
-
-    #[inline(always)]
     fn depends_on() -> SelectDependencyType {
         SelectDependencyType::Store(StoreId::of::<T>())
     }
@@ -72,9 +69,6 @@ impl<T> SelectDependency for StoreRef<T>
 where
     T: StoreData,
 {
-    const IS_DEPENDENCY: bool = true;
-
-    #[inline(always)]
     fn depends_on() -> SelectDependencyType {
         SelectDependencyType::Store(StoreId::of::<T>())
     }
@@ -84,11 +78,14 @@ impl<T> SelectDependency for StoreMut<T>
 where
     T: StoreData,
 {
-    const IS_DEPENDENCY: bool = true;
-
-    #[inline(always)]
     fn depends_on() -> SelectDependencyType {
         SelectDependencyType::Store(StoreId::of::<T>())
+    }
+}
+
+impl SelectDependency for Users {
+    fn depends_on() -> SelectDependencyType {
+        SelectDependencyType::Users
     }
 }
 
@@ -121,6 +118,13 @@ macro_rules! extract_select_dependency {
             }
         }
     };
+}
+
+impl GetParamSelectDependencies<0> for () {
+    #[inline(always)]
+    fn get_select_dependencies() -> [SelectDependencyType; 0] {
+        []
+    }
 }
 
 extract_select_dependency!(1, T1);

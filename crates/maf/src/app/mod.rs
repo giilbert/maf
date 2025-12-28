@@ -38,7 +38,7 @@ pub(crate) mod hooks;
 mod impls;
 mod local;
 pub(crate) mod meta;
-mod observe;
+pub(crate) mod observe;
 mod on_connect_disconnect;
 pub(crate) mod plugin;
 

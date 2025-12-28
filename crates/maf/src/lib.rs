@@ -90,7 +90,7 @@ pub mod prelude {
     pub use channel::{Channel, RecvError};
     pub use rpc::{Params, RawRpcRequest, RpcFunction};
     pub use store::{Store, StoreData, StoreMut, StoreRef};
-    pub use user::User;
+    pub use user::{User, Users};
     pub use uuid::Uuid;
 
     pub use serde;
