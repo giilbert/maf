@@ -103,9 +103,9 @@ struct CounterStore {
 }
 
 impl StoreData for CounterStore {
-    type Data<'this> = i32;
-    //        ^ This lifetime is used for borrowing data from the store
-    //          when selecting data to send to the client. (Read more below!)
+    type Select<'this> = i32;
+    //          ^ This lifetime is used for borrowing data from the store
+    //            when selecting data to send to the client. (Read more below!)
 
     fn init() -> Self {
         Self { count: 0 }
@@ -124,19 +124,18 @@ impl StoreData for CounterStore {
 }
 
 // RPC functions can be used to perform actions on the server
-async fn increment_counter(
+fn increment_counter(
     // Special types for extracting parameters, data, and context
-    Params(counter): Params<i32>,
-    test: Store<CounterStore>
+    Params(inc): Params<i32>,
+    mut counter: StoreMut<CounterStore>,
 ) -> i32 {
-    let mut data = test.write().await;
-    *data += counter;
-    println!("incremented counter by {counter}. new value: {}", &*data);
-    *data
+    counter.count += inc;
+    println!("incremented counter by {inc}. new value: {}", counter.count);
+    counter.count
 }
 
-async fn on_connect(user: User) {
-    println!("user connected! id: {}", user.meta.id());
+fn on_connect(user: User) {
+    println!("user connected! id: {}", user.meta().id());
 }
 
 // Declare what the MAF application should do

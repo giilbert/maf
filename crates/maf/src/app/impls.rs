@@ -513,15 +513,11 @@ impl AppBuilder {
     /// ```rust
     /// use maf::prelude::*;
     ///
-    /// struct CounterStore;
-    ///
-    /// impl StoreData for CounterStore {
-    ///     type Data = i32;
-    ///
-    ///     fn init() -> Self::Data {
-    ///         0
-    ///     }
+    /// struct CounterStore {
+    ///     count: i32,
     /// }
+    ///
+    /// impl StoreData for CounterStore { /* ... */ }
     ///
     /// async fn add(Params(count): Params<i32>, store: Store<CounterStore>) -> i32 {
     ///     let mut data = store.write().await;
@@ -536,6 +532,8 @@ impl AppBuilder {
     ///         .store::<CounterStore>()
     ///         .build()
     /// }
+    ///
+    /// maf::register!(build);
     /// ```
     pub fn rpc<
         Params,
@@ -673,6 +671,18 @@ impl AppBuilder {
     }
 
     /// Subscribes a meta entry to be automatically updated when its dependencies change.
+    ///
+    /// The `handler` function is called to compute the meta value whenever any of its dependencies
+    /// change.
+    ///
+    /// ## Example
+    /// ```rust
+    /// use maf::prelude::*;
+    ///
+    /// struct CounterStore {
+    ///     count: i32,
+    /// }
+    ///
     pub fn meta<
         Name: ToString,
         Params,

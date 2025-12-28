@@ -27,25 +27,23 @@ impl StoreData for CounterStore {
     }
 }
 
-async fn increment_counter(Params(counter): Params<i32>, store: Store<CounterStore>) -> i32 {
-    let mut store = store.write().await;
-
-    store.count += counter;
+fn increment_counter(Params(counter): Params<i32>, store: StoreMut<CounterStore>) -> i32 {
+    counter.count += counter;
 
     tracing::info!(
         target: "maf_app",
         "incremented counter by {counter}. new value: {}",
-        store.count
+        counter.count
     );
 
-    store.count
+    counter.count
 }
 
 fn on_connect(user: User) {
     tracing::info!(
         target: "maf_app",
         "user connected! id: {}",
-        user.meta.id()
+        user.meta().id()
     );
 }
 
