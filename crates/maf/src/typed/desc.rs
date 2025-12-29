@@ -9,7 +9,10 @@ use std::sync::Arc;
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::de::DeserializeOwned;
 
-use crate::{callable::IntoCallable, store::SelectContext, App, Params, Store, StoreData, User};
+use crate::{
+    callable::IntoCallable, store::SelectContext, App, Params, Store, StoreData, StoreMut,
+    StoreRef, User,
+};
 
 /// A description of a store, including its name and the schema of its select type.
 #[derive(Debug, Clone, PartialEq)]
@@ -83,6 +86,8 @@ macro_rules! impl_not_param {
 impl_not_param!(App);
 impl_not_param!(User);
 impl_not_param!(Store<T>, T: StoreData);
+impl_not_param!(StoreRef<T>, T: StoreData);
+impl_not_param!(StoreMut<T>, T: StoreData);
 
 trait RpcResult {
     fn schema(generator: &mut SchemaGenerator) -> Arc<Schema>;

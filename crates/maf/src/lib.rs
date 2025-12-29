@@ -19,14 +19,14 @@
 //!
 //! // Behavior of the Counter store is implemented by implementing the StoreData trait.
 //! impl StoreData for Counter {
-//!     type Select<'this> = &'this i32;
+//!     type Select<'this> = i32;
 //!
 //!     fn init() -> Self {
 //!         Counter { count: 0 }
 //!     }
 //!
 //!     fn select(&self, _user: &User) -> Self::Select<'_> {
-//!         &self.count
+//!         self.count
 //!     }
 //!
 //!     fn name() -> impl AsRef<str> {

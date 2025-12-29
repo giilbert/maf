@@ -254,6 +254,10 @@ pub trait StoreData: Send + Sync + 'static {
     ///         // Send only the public text, not the secret to the client
     ///         &self.text
     ///     }
+    ///
+    ///     fn name() -> impl AsRef<str> {
+    ///         "message"
+    ///     }
     /// }
     ///
     /// ```

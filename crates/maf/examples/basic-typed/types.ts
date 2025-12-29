@@ -18,6 +18,7 @@ export type MafRpcsList = {
 };
 
 export type MafApp = {
+  __isTyped: true;
   stores: MafStoresList;
   rpcs: MafRpcsList;
 };

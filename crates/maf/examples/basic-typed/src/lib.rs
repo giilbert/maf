@@ -5,14 +5,14 @@ struct CounterStore {
 }
 
 impl StoreData for CounterStore {
-    type Select<'a> = Option<&'a i32>;
+    type Select<'this> = Option<i32>;
 
     fn init() -> Self {
         CounterStore { count: 0 }
     }
 
-    fn select(&self, user: &User) -> Self::Select<'_> {
-        Some(&self.count)
+    fn select(&self, _user: &User) -> Self::Select<'_> {
+        Some(self.count)
     }
 
     fn name() -> impl AsRef<str> {
@@ -20,23 +20,17 @@ impl StoreData for CounterStore {
     }
 }
 
-async fn increment_counter(Params(counter): Params<i32>, test: Store<CounterStore>, _: u32) -> i32 {
-    let mut store = test.write().await;
+fn increment_counter(Params(inc): Params<i32>, mut counter: StoreMut<CounterStore>) -> i32 {
+    counter.count += inc;
 
-    store.count += counter;
+    println!("incremented counter by {inc}. new value: {}", counter.count);
 
-    println!(
-        "incremented counter by {counter}. new value: {}",
-        store.count
-    );
-
-    store.count
+    counter.count
 }
 
-async fn counter_read_hook(test: Store<CounterStore>) -> i32 {
-    let store = test.read().await;
-    println!("counter read hook: {}", store.count);
-    store.count
+fn counter_read_hook(counter: StoreRef<CounterStore>) -> i32 {
+    println!("counter read hook: {}", counter.count);
+    counter.count
 }
 
 fn on_connect(user: User) {
