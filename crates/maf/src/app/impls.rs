@@ -612,12 +612,99 @@ impl AppBuilder {
     }
 
     /// Statically declare a store, initializing it with the default value.
+    ///
+    /// This method should be called with a type argument that implements [`StoreData`].
+    ///
+    /// ## Example
+    /// ```rust
+    /// use maf::prelude::*;
+    ///
+    /// struct CounterStore {
+    ///     count: i32,
+    /// }
+    ///
+    /// impl StoreData for CounterStore {
+    ///     type Select<'this> = i32; // Serializable type representing the store's data
+    ///
+    ///     // The default value for the store should be provided here
+    ///     fn init() -> Self {
+    ///         CounterStore { count: 0 }
+    ///     }
+    ///
+    ///     fn select(&self, _user: &User) -> Self::Select<'_> {
+    ///         self.count
+    ///     }
+    ///
+    ///     fn name() -> impl AsRef<str> {
+    ///         "counter"
+    ///     }
+    /// }
+    ///
+    /// fn build() -> App {
+    ///     App::builder()
+    ///         // Register the store so it can be used in RPCs and elsewhere. The type argument
+    ///         // specifies the store's data type.
+    ///         .store::<CounterStore>()
+    ///         .build()
+    /// }
+    ///
+    /// maf::register!(build);
+    /// ```
     pub fn store<T: StoreData>(mut self) -> Self {
         self.stores.insert(StoreId::of::<T>(), AnyStore::new::<T>());
         self
     }
 
     /// Register a store where its contents are derived with the provided function.
+    ///
+    /// This is useful for creating "views" of existing stores that automatically update when their
+    /// dependencies change.
+    ///
+    /// ## Example
+    /// ```rust
+    /// use maf::prelude::*;
+    ///
+    /// #[derive(Debug, Serialize)]
+    /// pub struct Player {
+    ///     id: Uuid,
+    ///     name: String,
+    ///     is_alive: bool,
+    /// }
+    ///
+    /// struct GameStore {
+    ///     players: HashMap<Uuid, Player>,
+    /// }
+    ///
+    /// impl StoreData for GameStore {
+    ///     // On this store, we are not exposing any data to the client.
+    ///     type Select<'this> = ();
+    ///
+    ///     // ... implement init, name, and select ...
+    /// }
+    ///
+    /// fn build() -> App {
+    ///     App::builder()
+    ///         // Register the main game store
+    ///         .store::<GameStore>()
+    ///         // The "alive_players" select will automatically update whenever the `GameStore`
+    ///         // changes. Clients will see an "alive_players" store that contains only the alive
+    ///         // players.
+    ///         .select("alive_players", |store: StoreRef<GameStore>| {
+    ///             store.players.values()
+    ///                 .filter(|player| player.is_alive)
+    ///                 .cloned()
+    ///                 .collect::<Vec<Player>>()
+    ///         })
+    ///         // Multiple selects can be added. Here is another example that counts the number of
+    ///         // players in the game.
+    ///         .select("player_count", |store: StoreRef<GameStore>| {
+    ///             store.players.len()
+    ///         })
+    ///         .build()
+    /// }
+    ///
+    /// maf::register!(build);
+    /// ```
     pub fn select<
         Name: ToString,
         Params,
@@ -683,6 +770,20 @@ impl AppBuilder {
     ///     count: i32,
     /// }
     ///
+    /// impl StoreData for CounterStore { /* ... */ }
+    ///
+    /// fn build() -> App {
+    ///     App::builder()
+    ///         .store::<CounterStore>()
+    ///         // Whenever the `CounterStore` is updated, the "count" meta value will also be
+    ///         // updated.
+    ///         .meta(MetaVisibility::Public, "count", |store: StoreRef<CounterStore>| {
+    ///             store.count
+    ///         })
+    /// }
+    ///
+    /// maf::register!(build);
+    /// ```
     pub fn meta<
         Name: ToString,
         Params,

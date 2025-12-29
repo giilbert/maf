@@ -60,6 +60,11 @@ fn build() -> App {
             println!("{} connected user(s)", users.count().await);
             users.count().await
         })
+        .meta(
+            MetaVisibility::Public,
+            "count",
+            |store: StoreRef<CounterStore>| store.count,
+        )
         .build()
 }
 
