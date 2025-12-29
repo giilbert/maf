@@ -65,6 +65,7 @@ fn build() -> App {
             "count",
             |store: StoreRef<CounterStore>| store.count,
         )
+        .meta(MetaVisibility::Public, "greeting", || "hello world!")
         .build()
 }
 

@@ -27,3 +27,68 @@ includes all public meta. This allows you to store sensitive information in
 private meta that should not be exposed to clients.
 
 ## Server Usage
+
+From an app, you can set and get meta values by accessing `app.meta()`:
+
+```rust
+use maf::prelude::*;
+
+//                     Use the `App` extractor to get an interface to additional
+//                 vvv APIs, including meta.
+fn host_start_game(app: App, users: Users) -> {
+    // Set a public meta value, one that clients can read.
+    // The value can be any type that implements `serde::Serialize` and will be
+    // serialized to JSON for clients.
+    app.meta().set(MetaVisibility::Public, "game_state", "in_progress");
+
+    // Set a private meta value, one that only the app and service accounts can
+    // read.
+    let spy_id = pick_spy(&users);
+    app.meta().set(MetaVisibility::Private, "spy_id", spy_id);
+}
+
+fn build() -> App {
+    App::builder()
+        // Initialize the "game_state" meta value to "waiting_for_players".
+        .meta(MetaVisibility::Public, "game_state", || "waiting_for_players")
+        .meta(MetaVisibility::Private, "spy_id", || None::<UserId>)
+        .build()
+}
+
+maf::register!(build);
+```
+
+### Reacting to Changes
+
+The `meta` method on `AppBuilder` can also be used to subscribe to changes from
+stores, users, or other sources to update meta values dynamically:
+
+```rust
+use maf::prelude::*;
+
+/// A simple store that holds a counter.
+struct CounterStore {
+    count: i32,
+}
+
+impl StoreData for CounterStore { /* ... */ }
+
+fn build() -> App {
+    App::builder()
+        .store::<CounterStore>()
+        // Update the "count" meta value whenever the CounterStore changes.
+        .meta(MetaVisibility::Public, "count", |store: StoreRef<CounterStore>| {
+            store.count
+        })
+        // Update the "users" meta value to the number of users whenever the
+        // user list changes.
+        .meta(MetaVisibility::Public, "users", |users: Users| {
+            users.count() as i32
+        })
+        .build()
+}
+```
+
+Both the `count` and `users` meta values in this example will be kept up to date
+automatically when the underlying data changes. The latter is especially useful
+for keeping track of how many users are currently in a room.
