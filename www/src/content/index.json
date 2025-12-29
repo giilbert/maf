@@ -4,8 +4,6 @@
     "docs": [
       "getting-started/introduction",
       "getting-started/quickstart",
-      "getting-started/installation",
-      "getting-started/why-maf",
       "getting-started/examples"
     ]
   },
