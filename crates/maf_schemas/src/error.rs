@@ -43,6 +43,7 @@ impl_error_status!(
     "Internal Server Error"
 );
 impl_error_status!(conflict, CONFLICT, "Conflict");
+impl_error_status!(bad_gateway, BAD_GATEWAY, "Bad Gateway");
 
 impl IntoResponse for ErrorResponse {
     fn into_response(self) -> Response {

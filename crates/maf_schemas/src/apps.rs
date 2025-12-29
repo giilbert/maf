@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use colored::Colorize;
 use rand::Rng as _;
 use serde::{Deserialize, Serialize};
@@ -96,6 +98,7 @@ pub struct RoomInfo {
     pub key: String,
     /// A secret used for signing and verifying JWT payloads.
     pub secret: String,
+    pub meta: BTreeMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -113,4 +116,11 @@ pub struct App {
     pub config: Option<String>,
     pub api_client_id: String,
     pub api_secret: String,
+}
+
+#[derive(Serialize)]
+pub struct InfoResponse {
+    /// A map of meta keys to their corresponding values. A [`BTreeMap`] is used here to ensure
+    /// consistent ordering of keys in the serialized output.
+    pub meta: BTreeMap<String, serde_json::Value>,
 }

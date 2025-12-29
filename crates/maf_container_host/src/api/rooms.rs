@@ -82,7 +82,8 @@ impl RoomsStorage {
         RwLockReadGuard::try_map(self.inner.read().await, |rooms| rooms.get(&key)).ok()
     }
 
-    /// Insert a room into the storage with a given strategy and metadata.
+    /// Insert a room into the storage with a given strategy and metadata, returning the room
+    /// metadata.
     pub async fn insert(&self, param: InsertRoom) -> RoomMeta {
         let meta = RoomMeta {
             id: param.room.id(),

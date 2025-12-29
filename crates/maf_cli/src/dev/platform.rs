@@ -1,4 +1,7 @@
+use std::collections::BTreeMap;
+
 use axum::{extract::State, routing::get, Json, Router};
+use maf_container::MetaVisibility;
 use maf_schemas::{
     apps::{CreateRoomOptions, RoomCreationStrategy, RoomInfo},
     error::ErrorResponse,
@@ -16,27 +19,30 @@ pub fn create_platform_api_router() -> Router<DevServerState> {
 async fn dev_service_get_rooms(
     State(state): State<DevServerState>,
 ) -> Result<Json<Vec<RoomInfo>>, ErrorResponse> {
-    Ok(Json(
-        state
-            .rooms
-            .inner
-            .read()
-            .await
-            .values()
-            .map(|room| RoomInfo {
-                id: room.id.clone(),
-                key: room.meta.key.clone(),
-                secret: room.meta.secret.clone(),
-            })
-            .collect(),
-    ))
+    let mut rooms = vec![];
+
+    for room in state.rooms.inner.read().await.values() {
+        rooms.push(RoomInfo {
+            id: room.id.clone(),
+            key: room.meta.key.clone(),
+            secret: room.meta.secret.clone(),
+            meta: room
+                .inner
+                .container
+                .meta
+                .list_values::<BTreeMap<String, serde_json::Value>>(MetaVisibility::Private)
+                .await,
+        });
+    }
+
+    Ok(Json(rooms))
 }
 
 async fn dev_server_create_room(
     State(state): State<DevServerState>,
     Json(options): Json<CreateRoomOptions>,
 ) -> Result<Json<RoomInfo>, ErrorResponse> {
-    let meta = state
+    let room = state
         .rooms
         .insert(
             &state,
@@ -48,8 +54,14 @@ async fn dev_server_create_room(
         .await?;
 
     Ok(Json(RoomInfo {
-        id: meta.id.clone(),
-        key: meta.key.clone(),
-        secret: meta.secret.clone(),
+        id: room.id.clone(),
+        key: room.meta.key.clone(),
+        secret: room.meta.secret.clone(),
+        meta: room
+            .inner
+            .container
+            .meta
+            .list_values::<BTreeMap<String, serde_json::Value>>(MetaVisibility::Private)
+            .await,
     }))
 }

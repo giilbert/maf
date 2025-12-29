@@ -12,7 +12,7 @@ docker-build:
 
 # start the platform server in development mode
 dev-platform:
-    RUST_LOG=info cargo run --bin maf_container_host
+    RUST_LOG=info,maf_container=trace cargo run --bin maf_container_host
 
 # apply the schema migrations
 migrate:

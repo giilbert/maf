@@ -59,6 +59,7 @@ pub struct ContainerHandle {
     pub runtime: ContainerRuntime,
     pub cancel_token: CancellationToken,
     pub resources: Arc<ContainerResourceStats>,
+    pub meta: MetaStorage,
     connection_tx: mpsc::Sender<BoxedConnection>,
     hook_request_tx: mpsc::Sender<HookRequest>,
 }
@@ -130,6 +131,7 @@ impl Container {
         let (hook_request_tx, hook_request_rx) = mpsc::channel(1000);
         let (app_schema_tx, app_schema_rx) = oneshot::channel();
 
+        let meta = MetaStorage::new();
         let resource_stats = Arc::<ContainerResourceStats>::default();
         let cancel_token = CancellationToken::new();
         let shared = ContainerHandle {
@@ -139,6 +141,7 @@ impl Container {
             resources: resource_stats.clone(),
             connection_tx: connection_tx.clone(),
             hook_request_tx: hook_request_tx.clone(),
+            meta: meta.clone(),
         };
 
         let resources = wasmtime_wasi::ResourceTable::default();
@@ -160,7 +163,7 @@ impl Container {
                 hook_request_rx: Some(hook_request_rx),
                 app_schema_rx: Some(app_schema_rx),
                 app_schema_tx: Some(app_schema_tx),
-                meta: MetaStorage::new(),
+                meta,
                 last_activity: Arc::new(AtomicU64::new(utils::now_as_secs())),
                 app_activity: runtime.app_activity,
                 limiter: ContainerResourceLimiter {

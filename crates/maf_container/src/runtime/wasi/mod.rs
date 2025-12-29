@@ -12,6 +12,7 @@ use maf_schemas::typed::AppSchema;
 pub use user::{FutureMessageImpl, FutureUserImpl, UserImpl};
 use wasmtime::component::Resource;
 
+use crate::MetaEntry;
 use crate::container::ContainerData;
 use crate::container::meta::MetaVisibility;
 use errors::ListenError;
@@ -66,6 +67,7 @@ impl bindings::Host for ContainerData {
     async fn get_meta(&mut self, key: String) -> anyhow::Result<Option<bindings::MetaEntry>> {
         self.meta
             .get(MetaVisibility::Private, &key)
+            .await
             .map_err(|e| anyhow::anyhow!(e))
             .map(|v_opt| v_opt.map(|v| v.into()))
     }
@@ -85,6 +87,7 @@ impl bindings::Host for ContainerData {
                 key,
                 value,
             )
+            .await
             .map_err(|e| anyhow::anyhow!(e))
             .map(|v_opt| v_opt.map(|v| v.into()))
     }
@@ -92,15 +95,28 @@ impl bindings::Host for ContainerData {
     async fn delete_meta(&mut self, key: String) -> anyhow::Result<Option<bindings::MetaEntry>> {
         self.meta
             .delete(&key)
+            .await
             .map_err(|e| anyhow::anyhow!(e))
             .map(|v_opt| v_opt.map(|v| v.into()))
     }
 
     async fn list_meta(&mut self) -> anyhow::Result<Vec<(String, bindings::MetaEntry)>> {
         self.meta
-            .list(MetaVisibility::Private)
+            .list::<Vec<(String, MetaEntry<serde_json::Value>)>>(MetaVisibility::Private)
+            .await
+            .into_iter()
+            .map(|(key, entry)| {
+                Ok((
+                    key,
+                    MetaEntry {
+                        visibility: entry.visibility.into(),
+                        value: serde_json::to_string(&entry.value)?,
+                    }
+                    .into(),
+                ))
+            })
+            .collect::<Result<Vec<(String, bindings::MetaEntry)>, serde_json::Error>>()
             .map_err(|e| anyhow::anyhow!(e))
-            .map(|entries| entries.into_iter().map(|(k, v)| (k, v.into())).collect())
     }
 
     fn convert_listen_error(&mut self, err: ListenError) -> anyhow::Result<bindings::ListenError> {

@@ -1,3 +1,9 @@
+//! An implementation of a development server for running and testing MAF applications locally.
+//!
+//! This is simplified version of the MAF Platform server, intended for use during development. It
+//! supports creating rooms, connecting via WebSocket, and handling hook requests. See
+//! `maf_container_host::api::gateway` for the full implementation of the API routes.
+
 use std::sync::{atomic::AtomicU64, Arc};
 
 use axum::{
@@ -10,9 +16,12 @@ use colored::Colorize;
 use maf_container::{
     server::handle_ws_upgrade,
     wasi::bindings::{self, HookRequestCaller},
-    Container, ContainerResourceLimit, ContainerRuntime,
+    Container, ContainerResourceLimit, ContainerRuntime, MetaVisibility,
 };
-use maf_schemas::{apps::RoomCreationStrategy, error::ErrorResponse};
+use maf_schemas::{
+    apps::{InfoResponse, RoomCreationStrategy},
+    error::ErrorResponse,
+};
 use uuid::Uuid;
 
 use crate::{
@@ -90,16 +99,14 @@ pub async fn start_local_server(
         });
     }
 
+    let gateway_router = axum::Router::new()
+        .route("/", get(info_route))
+        .route("/connect", get(connect_route))
+        .route("/hooks/{method}", post(hook_request_handler));
+
     // Implement a subset of Platform APIs for the developer server
     let app = axum::Router::new()
-        .route(
-            "/@/{org_slug}/{app_slug}/{room_id}/connect",
-            get(connect_route),
-        )
-        .route(
-            "/@/{org_slug}/{app_slug}/{room_id}/hooks/{method}",
-            post(hook_request_handler),
-        )
+        .nest("/@/{org_slug}/{app_name}/{room_key}", gateway_router)
         .merge(create_platform_api_router())
         .with_state(state.clone());
 
@@ -129,6 +136,26 @@ async fn generate_types(state: DevServerState, project: ProjectConfig) -> anyhow
     typed::create_types_file_for_project(&project, schema).await?;
 
     Ok(())
+}
+
+async fn info_route(
+    State(state): State<DevServerState>,
+    Path((_org_slug, _app_name, room_key)): Path<(String, String, String)>,
+) -> Result<axum::Json<InfoResponse>, ErrorResponse> {
+    let meta = state
+        .rooms
+        .get_by_key_or_id(&room_key)
+        .await
+        .ok_or_else(|| ErrorResponse::not_found(Some("room not found")))?
+        .inner
+        .container
+        .meta
+        .list_values::<std::collections::BTreeMap<String, serde_json::Value>>(
+            MetaVisibility::Public,
+        )
+        .await;
+
+    Ok(axum::Json(InfoResponse { meta }))
 }
 
 async fn connect_route(

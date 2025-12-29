@@ -86,6 +86,14 @@ export class Room {
     if (!this._data) throw new Error("Room not initialized");
     return this._data.secret;
   }
+
+  toJSON() {
+    if (!this._data) throw new Error("Room not initialized");
+    return {
+      id: this._data.id,
+      key: this._data.key,
+    };
+  }
 }
 
 /**
@@ -112,7 +120,9 @@ export class Rooms {
       );
     }
 
-    return (await response.json()) as Room[];
+    return ((await response.json()) as RoomInit[]).map(
+      (data) => new Room(this.client, data)
+    );
   }
 
   /**
@@ -137,8 +147,7 @@ export class Rooms {
       );
     }
 
-    const data = (await response.json()) as Room;
-
-    return data;
+    const data = (await response.json()) as RoomInit;
+    return new Room(this.client, data);
   }
 }

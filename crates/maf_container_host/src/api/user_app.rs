@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use axum::{
     body::Body,
     extract::{Path, Query, State},
@@ -6,7 +8,7 @@ use axum::{
     Json, Router,
 };
 use chrono::Utc;
-use maf_container::{server::RoomInner, ContainerResourceLimit};
+use maf_container::{server::RoomInner, ContainerResourceLimit, MetaVisibility};
 use maf_schemas::{
     apps::{
         AppNameAndOrgSlug, CreateRoomOptions, CreateUserAppRequest, RoomCreationStrategy, RoomInfo,
@@ -288,6 +290,12 @@ async fn service_get_rooms(
                     id: room.id,
                     key: room.meta.key.clone(),
                     secret: room.meta.secret.clone(),
+                    meta: room
+                        .inner
+                        .container
+                        .meta
+                        .list_values::<BTreeMap<_, _>>(MetaVisibility::Private)
+                        .await,
                 })));
             }
             _ => {
@@ -314,6 +322,12 @@ async fn service_get_rooms(
                         id: room.id,
                         key: room.meta.key.clone(),
                         secret: room.meta.secret.clone(),
+                        meta: room
+                            .inner
+                            .container
+                            .meta
+                            .list_values::<BTreeMap<_, _>>(MetaVisibility::Private)
+                            .await,
                     })));
                 }
                 None => {
@@ -348,6 +362,12 @@ async fn service_get_rooms(
                         id: room.id,
                         key: room.meta.key.clone(),
                         secret: room.meta.secret.clone(),
+                        meta: room
+                            .inner
+                            .container
+                            .meta
+                            .list_values::<BTreeMap<_, _>>(MetaVisibility::Private)
+                            .await,
                     });
                 }
             }
@@ -427,7 +447,7 @@ async fn service_create_room(
     let room_meta = state
         .rooms
         .insert(InsertRoom {
-            room,
+            room: room.clone(),
             strategy: RoomCreationStrategy::AuthenticatedApiRequest,
             app: AppNameAndOrgSlug {
                 app: app.name.clone(),
@@ -456,5 +476,10 @@ async fn service_create_room(
         id: room_id,
         key: room_meta.key.clone(),
         secret: room_meta.secret,
+        meta: room
+            .container
+            .meta
+            .list_values::<BTreeMap<_, _>>(MetaVisibility::Private)
+            .await,
     }))
 }

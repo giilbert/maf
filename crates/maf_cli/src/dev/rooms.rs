@@ -7,7 +7,7 @@ use anyhow::Context;
 use colored::Colorize as _;
 use maf_container::{
     server::{Bundle, RoomInner},
-    ContainerResourceLimit,
+    Container, ContainerResourceLimit, ContainerRuntime,
 };
 use maf_schemas::apps::{generate_room_secret, RoomCreationStrategy, RoomId};
 use tokio::sync::{RwLock, RwLockReadGuard};
@@ -43,6 +43,42 @@ pub struct DevRoom {
     pub id: RoomId,
     pub meta: DevRoomMeta,
     pub inner: RoomInner,
+}
+
+impl DevRoom {
+    pub async fn new(
+        runtime: &ContainerRuntime,
+        bundle: &Bundle,
+    ) -> anyhow::Result<(Self, Container)> {
+        let (inner, container) = RoomInner::new(
+            runtime,
+            bundle.clone(),
+            ContainerResourceLimit {
+                memory: 256 * 1024 * 1024, // 256 MB
+                table: usize::MAX,
+            },
+        )
+        .await
+        .context("failed to create room container")?;
+
+        Ok((
+            Self {
+                id: inner.id(),
+                meta: DevRoomMeta {
+                    id: inner.id(),
+                    secret: generate_room_secret(),
+                    _strategy: RoomCreationStrategy::AutoCreate,
+                    key: inner.id().to_string(),
+                },
+                inner,
+            },
+            container,
+        ))
+    }
+
+    pub fn id(&self) -> RoomId {
+        self.id.clone()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -90,17 +126,8 @@ impl DevRoomsStorage {
         &self,
         state: &DevServerState,
         param: InsertRoom,
-    ) -> anyhow::Result<DevRoomMeta> {
-        let (room, mut container) = RoomInner::new(
-            &state.runtime,
-            self.bundle.clone(),
-            ContainerResourceLimit {
-                memory: 256 * 1024 * 1024, // 256 MB
-                table: usize::MAX,
-            },
-        )
-        .await?;
-
+    ) -> anyhow::Result<DevRoom> {
+        let (room, mut container) = DevRoom::new(&state.runtime, &self.bundle).await?;
         let room_key = param.key.unwrap_or(room.id().to_string());
 
         let room_key_clone = room_key.clone();
@@ -146,14 +173,7 @@ impl DevRoomsStorage {
             }
         }
 
-        self.inner.write().await.insert(
-            room.id(),
-            DevRoom {
-                id: room.id(),
-                meta: meta.clone(),
-                inner: room,
-            },
-        );
+        self.inner.write().await.insert(room.id(), room.clone());
 
         self.keys
             .write()
@@ -162,7 +182,7 @@ impl DevRoomsStorage {
 
         println!("[dev] Created room with key `{}`", meta.key);
 
-        Ok(meta)
+        Ok(room)
     }
 
     #[allow(dead_code)]
