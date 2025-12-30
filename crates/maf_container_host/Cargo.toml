@@ -32,6 +32,8 @@ thiserror = "2"
 tokio = { version = "1.44.2", features = ["full"] }
 tokio-tungstenite = "0.26.2"
 tokio-util = { version = "0.7.15", features = ["io"] }
+tower = "0.5.2"
+tower-http = { version = "0.6.8", features = ["normalize-path"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 uuid = { version = "1.16.0", features = ["serde", "v4"] }

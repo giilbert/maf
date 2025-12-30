@@ -10,6 +10,7 @@ use axum::{
     extract::{Path, State, WebSocketUpgrade},
     response::Response,
     routing::get,
+    ServiceExt,
 };
 use colored::Colorize;
 use maf_container::{
@@ -20,6 +21,8 @@ use maf_schemas::{
     apps::{InfoResponse, MetaVisibility, RoomCreationStrategy},
     error::ErrorResponse,
 };
+use tower::ServiceBuilder;
+use tower_http::normalize_path::NormalizePathLayer;
 use uuid::Uuid;
 
 use crate::{
@@ -112,7 +115,15 @@ pub async fn start_local_server(
     let listener = tokio::net::TcpListener::bind(&address).await?;
 
     println!("[dev] Development server listening on {}", address);
-    axum::serve(listener, app).await?;
+    axum::serve(
+        listener,
+        ServiceBuilder::new()
+            // Removes trailing slashes from all request paths. e.g. "/path/" -> "/path"
+            .layer(NormalizePathLayer::trim_trailing_slash())
+            .service(app.into_service())
+            .into_make_service(),
+    )
+    .await?;
 
     Ok(())
 }

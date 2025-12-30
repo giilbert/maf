@@ -1,3 +1,6 @@
+use axum::ServiceExt;
+use tower::ServiceBuilder;
+use tower_http::normalize_path::NormalizePathLayer;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 use crate::api::Environment;
@@ -49,9 +52,16 @@ async fn try_main() -> anyhow::Result<()> {
         });
     }
 
-    axum::serve(listener, app)
-        .with_graceful_shutdown(async move { state_clone.cancel_server.cancelled().await })
-        .await?;
+    axum::serve(
+        listener,
+        ServiceBuilder::new()
+            // Removes trailing slashes from all request paths. e.g. "/path/" -> "/path"
+            .layer(NormalizePathLayer::trim_trailing_slash())
+            .service(app.into_service())
+            .into_make_service(),
+    )
+    .with_graceful_shutdown(async move { state_clone.cancel_server.cancelled().await })
+    .await?;
 
     tracing::info!("Good night!");
 
