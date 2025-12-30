@@ -2,6 +2,7 @@
 
 use std::{collections::HashMap, ops::Deref, sync::Arc};
 
+use maf_schemas::apps::{MetaEntry, MetaVisibility};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
@@ -9,33 +10,6 @@ use crate::{
     platform::{Platform, TargetPlatform},
     App,
 };
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MetaVisibility {
-    Public,
-    Private,
-}
-
-/// An entry in the MAF Meta API.
-///
-/// The value stored in the entry should be unmarshalled from JSON using [`MetaEntry::deserialize`].
-#[derive(Debug, Clone)]
-pub struct MetaEntry {
-    pub(crate) visibility: MetaVisibility,
-    pub(crate) value: String,
-}
-
-impl MetaEntry {
-    /// Deserialize the value of the meta entry into the specified type.
-    pub fn deserialize<T: DeserializeOwned>(&self) -> Result<T, serde_json::Error> {
-        serde_json::from_str(&self.value)
-    }
-
-    /// Get the visibility of the meta entry.
-    pub fn visibility(&self) -> &MetaVisibility {
-        &self.visibility
-    }
-}
 
 #[repr(transparent)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

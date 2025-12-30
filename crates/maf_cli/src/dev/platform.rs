@@ -1,9 +1,8 @@
 use std::collections::BTreeMap;
 
 use axum::{extract::State, routing::get, Json, Router};
-use maf_container::MetaVisibility;
 use maf_schemas::{
-    apps::{CreateRoomOptions, RoomCreationStrategy, RoomInfo},
+    apps::{CreateRoomOptions, MetaVisibility, RoomCreationStrategy, RoomInfo},
     error::ErrorResponse,
 };
 
@@ -49,6 +48,7 @@ async fn dev_server_create_room(
             InsertRoom {
                 strategy: RoomCreationStrategy::AuthenticatedApiRequest,
                 key: options.key,
+                meta: options.meta,
             },
         )
         .await?;

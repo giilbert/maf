@@ -5,6 +5,7 @@
 
 use std::{collections::HashMap, sync::Arc};
 
+use maf_schemas::apps::{JsonMetaEntry, MetaEntry, MetaEntryMap, MetaVisibility};
 use tokio::sync::RwLock;
 
 use crate::wasi::bindings;
@@ -16,36 +17,10 @@ pub struct MetaStorage {
 
 #[derive(Debug)]
 struct MetaStorageInner {
-    data: RwLock<HashMap<String, MetaEntry<serde_json::Value>>>,
+    data: RwLock<MetaEntryMap>,
     max_num_keys: usize,
     max_key_size: usize,
     max_value_size: usize,
-}
-
-#[derive(Debug, Clone)]
-pub struct MetaEntry<T> {
-    pub visibility: MetaVisibility,
-    pub value: T,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MetaVisibility {
-    /// Public metadata can be accessed by anyone, including clients.
-    Public,
-    /// Private metadata can only be accessed by the app (running on MAF Platform and service
-    /// accounts) itself. Private metadata also includes all public metadata.
-    Private,
-}
-
-impl MetaVisibility {
-    /// Check if `self` can access metadata with the given `visibility`.
-    pub fn can_access(self, visibility: MetaVisibility) -> bool {
-        match (self, visibility) {
-            (MetaVisibility::Private, _) => true,
-            (MetaVisibility::Public, MetaVisibility::Public) => true,
-            (MetaVisibility::Public, MetaVisibility::Private) => false,
-        }
-    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -57,14 +32,14 @@ pub enum MetaStorageError {
 }
 
 impl MetaStorage {
-    pub fn new() -> Self {
+    pub fn new(initial: Option<MetaEntryMap>) -> Self {
         const MAX_KEY_SIZE: usize = 1024; // 1 KB
         const MAX_META_VALUE_SIZE: usize = 8 * 1024; // 8 KB
         const MAX_NUM_KEYS: usize = 64; // 64 keys
 
         Self {
             inner: Arc::new(MetaStorageInner {
-                data: RwLock::new(HashMap::new()),
+                data: RwLock::new(initial.unwrap_or_else(HashMap::new)),
                 max_key_size: MAX_KEY_SIZE,
                 max_num_keys: MAX_NUM_KEYS,
                 max_value_size: MAX_META_VALUE_SIZE,
@@ -78,7 +53,7 @@ impl MetaStorage {
         visibility: MetaVisibility,
         key: String,
         value: impl AsRef<str>,
-    ) -> Result<Option<MetaEntry<String>>, MetaStorageError> {
+    ) -> Result<Option<JsonMetaEntry>, MetaStorageError> {
         tracing::trace!(
             visibility = ?visibility,
             value_size = %value.as_ref().as_bytes().len(),
@@ -100,21 +75,13 @@ impl MetaStorage {
         let json_value = serde_json::from_str(value.as_ref())?;
         let removed = data.insert(
             key,
-            MetaEntry {
+            JsonMetaEntry {
                 visibility,
                 value: json_value,
             },
         );
 
-        if let Some(removed) = removed {
-            let removed_str = serde_json::to_string(&removed.value)?;
-            Ok(Some(MetaEntry {
-                visibility: removed.visibility,
-                value: removed_str,
-            }))
-        } else {
-            Ok(None)
-        }
+        Ok(removed)
     }
 
     /// Get a metadata value by key.
@@ -125,7 +92,7 @@ impl MetaStorage {
         &self,
         visibility: MetaVisibility,
         key: &str,
-    ) -> Result<Option<MetaEntry<String>>, MetaStorageError> {
+    ) -> Result<Option<JsonMetaEntry>, MetaStorageError> {
         tracing::trace!(
             visibility = ?visibility,
             "getting metadata key: {key}"
@@ -135,38 +102,23 @@ impl MetaStorage {
         if let Some(value) = data.get(key)
             && visibility.can_access(value.visibility)
         {
-            let value_str = serde_json::to_string(&value.value)?;
-            Ok(Some(MetaEntry {
-                visibility: value.visibility,
-                value: serde_json::from_str(&value_str)?,
-            }))
+            Ok(Some(value.clone()))
         } else {
             Ok(None)
         }
     }
 
     /// Delete a metadata key.
-    pub async fn delete(
-        &mut self,
-        key: &str,
-    ) -> Result<Option<MetaEntry<String>>, MetaStorageError> {
+    pub async fn delete(&mut self, key: &str) -> Result<Option<JsonMetaEntry>, MetaStorageError> {
         let data = &mut self.inner.data.write().await;
-        if let Some(removed) = data.remove(key) {
-            let removed_str = serde_json::to_string(&removed.value)?;
-            Ok(Some(MetaEntry {
-                visibility: removed.visibility,
-                value: removed_str,
-            }))
-        } else {
-            Ok(None)
-        }
+        Ok(data.remove(key))
     }
 
     /// List all metadata key-value pairs.
     ///
     /// If visibility is [`MetaVisibility::Public`], only public metadata will be listed. Other
     /// metadata will be omitted.
-    pub async fn list<T: FromIterator<(String, MetaEntry<serde_json::Value>)>>(
+    pub async fn list<T: FromIterator<(String, JsonMetaEntry)>>(
         &self,
         visibility: MetaVisibility,
     ) -> T {
@@ -228,7 +180,7 @@ mod conversion_impls {
         }
     }
 
-    impl Into<bindings::MetaEntry> for MetaEntry<String> {
+    impl Into<bindings::MetaEntry> for MetaEntry {
         fn into(self) -> bindings::MetaEntry {
             bindings::MetaEntry {
                 visibility: self.visibility.into(),
@@ -237,7 +189,7 @@ mod conversion_impls {
         }
     }
 
-    impl From<bindings::MetaEntry> for MetaEntry<String> {
+    impl From<bindings::MetaEntry> for MetaEntry {
         fn from(value: bindings::MetaEntry) -> Self {
             MetaEntry {
                 visibility: value.visibility.into(),

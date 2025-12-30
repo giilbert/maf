@@ -7,8 +7,10 @@
 
 use std::future::Future;
 
+use maf_schemas::apps;
+
 use crate::{
-    app::{hooks, meta},
+    app::hooks,
     platform::{self, ListenError, SendError},
     user::{UserMeta, UserNextMessageError},
 };
@@ -36,13 +38,13 @@ pub trait Platform {
 
     fn set_meta(
         &self,
-        visibility: meta::MetaVisibility,
+        visibility: apps::MetaVisibility,
         key: &str,
         value: &str,
-    ) -> Option<meta::MetaEntry>;
-    fn get_meta(&self, key: &str) -> Option<meta::MetaEntry>;
-    fn delete_meta(&self, key: &str) -> Option<meta::MetaEntry>;
-    fn list_meta(&self) -> Vec<(String, meta::MetaEntry)>;
+    ) -> Option<apps::MetaEntry>;
+    fn get_meta(&self, key: &str) -> Option<apps::MetaEntry>;
+    fn delete_meta(&self, key: &str) -> Option<apps::MetaEntry>;
+    fn list_meta(&self) -> Vec<(String, apps::MetaEntry)>;
 }
 
 pub trait PlatformUser {

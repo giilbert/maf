@@ -4,13 +4,16 @@ use anyhow::Context;
 
 #[derive(Debug, Clone)]
 pub struct Bundle {
-    pub wasm_module: Arc<[u8]>,
+    pub wasm_module_bytes: Arc<[u8]>,
 }
 
 impl Bundle {
     pub fn load_wasm_module_from_file(path: impl AsRef<Path>) -> anyhow::Result<Self> {
-        let wasm_module = std::fs::read(path).context("failed to read WASM module file")?;
-        let wasm_module = Arc::from(wasm_module);
-        Ok(Bundle { wasm_module })
+        let path = path.as_ref();
+        let bytes = std::fs::read(path)
+            .with_context(|| format!("failed to read wasm module from file {}", path.display()))?;
+        Ok(Bundle {
+            wasm_module_bytes: Arc::from(bytes),
+        })
     }
 }

@@ -1,10 +1,10 @@
-use maf_schemas::apps::RoomId;
+use maf_schemas::apps::{MetaEntryMap, RoomId};
 use tokio::sync::oneshot;
 use uuid::Uuid;
 
 use crate::{
     Connection, Container, ContainerRuntime,
-    container::{ContainerHandle, ContainerResourceLimit},
+    container::{ContainerHandle, ContainerResourceLimit, CreateContainerOptions},
     wasi::{
         HookRequest,
         bindings::{self, HookRequestCaller, HookRequestInit},
@@ -15,22 +15,31 @@ use super::Bundle;
 
 #[derive(Debug, Clone)]
 pub struct RoomInner {
-    pub container: ContainerHandle,
     id: Uuid,
+    pub container: ContainerHandle,
+    pub bundle: Bundle,
+}
+
+pub struct CreateRoomInnerOptions {
+    pub bundle: Bundle,
+    pub resource_limit: ContainerResourceLimit,
+    pub meta: Option<MetaEntryMap>,
 }
 
 impl RoomInner {
     pub async fn new(
         container_runtime: &ContainerRuntime,
-        bundle: Bundle,
-        resource_limit: ContainerResourceLimit,
+        options: CreateRoomInnerOptions,
     ) -> anyhow::Result<(Self, Container)> {
         let room_id = Uuid::new_v4();
         let container = Container::load_from_binary(
             &container_runtime,
-            bundle.wasm_module,
             room_id,
-            resource_limit,
+            CreateContainerOptions {
+                bytes: &options.bundle.wasm_module_bytes,
+                resource_limit: options.resource_limit,
+                meta: None,
+            },
         )
         .await?;
 
@@ -38,6 +47,7 @@ impl RoomInner {
             Self {
                 id: room_id,
                 container: container.handle(),
+                bundle: options.bundle,
             },
             container,
         ))

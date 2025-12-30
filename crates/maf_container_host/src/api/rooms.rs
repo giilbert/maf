@@ -3,8 +3,12 @@ use std::{
     sync::Arc,
 };
 
+use anyhow::Context;
 use dashmap::{DashMap, DashSet};
-use maf_container::{server::RoomInner, ContainerResourceLimit};
+use maf_container::{
+    server::{CreateRoomInnerOptions, RoomInner},
+    ContainerResourceLimit,
+};
 use maf_schemas::{
     apps::{generate_room_secret, AppNameAndOrgSlug, RoomCreationStrategy, RoomId, RoomKeyHash},
     error::ErrorResponse,
@@ -250,14 +254,17 @@ impl RoomsStorage {
                         Some(app) => {
                             RoomInner::new(
                                 &state.container_runtime,
-                                state
-                                    .bundle_storage
-                                    .load_app_bundle(app.id)
-                                    .await?
-                                    .ok_or_else(|| {
-                                        ErrorResponse::not_found(Some("app bundle not found"))
-                                    })?,
-                                ContainerResourceLimit::sensible_default(),
+                                CreateRoomInnerOptions {
+                                    bundle: state
+                                        .bundle_storage
+                                        .load_app_bundle(app.id)
+                                        .await?
+                                        .ok_or_else(|| {
+                                            ErrorResponse::not_found(Some("app bundle not found"))
+                                        })?,
+                                    resource_limit: ContainerResourceLimit::small_defaults(),
+                                    meta: None,
+                                },
                             )
                             .await?
                         }
@@ -267,8 +274,15 @@ impl RoomsStorage {
                             );
                             RoomInner::new(
                                 &state.container_runtime,
-                                state.bundle_storage.load_test_app().await?,
-                                ContainerResourceLimit::sensible_default(),
+                                CreateRoomInnerOptions {
+                                    bundle: state
+                                        .bundle_storage
+                                        .load_test_app()
+                                        .await
+                                        .context("failed to load test app")?,
+                                    resource_limit: ContainerResourceLimit::small_defaults(),
+                                    meta: None,
+                                },
                             )
                             .await?
                         }

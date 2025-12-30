@@ -1,8 +1,8 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use colored::Colorize;
 use rand::Rng as _;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use uuid::Uuid;
 
 pub fn generate_room_secret() -> String {
@@ -106,6 +106,9 @@ pub struct CreateRoomOptions {
     /// A key used to identify the room, defaults to the room ID or "default" for autocreated rooms.
     /// The key cannot be a UUID or "default" as they are reserved.
     pub key: Option<String>,
+    /// Initial meta entries for the room.
+    /// See https://maf.gilbertz.me/docs/build/meta for more information.
+    pub meta: Option<MetaEntryMap>,
 }
 
 /// An instance of an application returned from the Platform API.
@@ -124,3 +127,62 @@ pub struct InfoResponse {
     /// consistent ordering of keys in the serialized output.
     pub meta: BTreeMap<String, serde_json::Value>,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MetaVisibility {
+    /// Public metadata can be accessed by anyone, including clients.
+    Public,
+    /// Private metadata can only be accessed by the app (running on MAF Platform and service
+    /// accounts) itself. Private metadata also includes all public metadata.
+    Private,
+}
+
+impl MetaVisibility {
+    /// Check if `self` can access metadata with the given `visibility`.
+    pub fn can_access(self, visibility: MetaVisibility) -> bool {
+        match (self, visibility) {
+            (MetaVisibility::Private, _) => true,
+            (MetaVisibility::Public, MetaVisibility::Public) => true,
+            (MetaVisibility::Public, MetaVisibility::Private) => false,
+        }
+    }
+}
+
+/// An entry in the MAF Meta API.
+///
+/// The value stored in the entry should be unmarshalled from JSON using [`MetaEntry::deserialize`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetaEntry {
+    pub visibility: MetaVisibility,
+    pub value: String,
+}
+
+impl MetaEntry {
+    /// Deserialize the value of the meta entry into the specified type.
+    pub fn deserialize<T: DeserializeOwned>(&self) -> Result<T, serde_json::Error> {
+        serde_json::from_str(&self.value)
+    }
+
+    /// Get the visibility of the meta entry.
+    pub fn visibility(&self) -> &MetaVisibility {
+        &self.visibility
+    }
+}
+
+/// A meta entry stored as JSON value.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JsonMetaEntry {
+    pub visibility: MetaVisibility,
+    pub value: serde_json::Value,
+}
+
+impl JsonMetaEntry {
+    pub fn serialize(&self) -> Result<MetaEntry, serde_json::Error> {
+        Ok(MetaEntry {
+            visibility: self.visibility,
+            value: serde_json::to_string(&self.value)?,
+        })
+    }
+}
+
+pub type MetaEntryMap = HashMap<String, JsonMetaEntry>;

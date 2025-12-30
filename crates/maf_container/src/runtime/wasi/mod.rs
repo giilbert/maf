@@ -7,14 +7,14 @@ mod errors;
 mod hooks;
 mod user;
 
+use anyhow::Context;
 pub use hooks::{FutureHookRequest, HookRequest};
+use maf_schemas::apps::{JsonMetaEntry, MetaVisibility};
 use maf_schemas::typed::AppSchema;
 pub use user::{FutureMessageImpl, FutureUserImpl, UserImpl};
 use wasmtime::component::Resource;
 
-use crate::MetaEntry;
 use crate::container::ContainerData;
-use crate::container::meta::MetaVisibility;
 use errors::ListenError;
 
 mod generated {
@@ -37,7 +37,21 @@ mod generated {
 }
 
 pub use generated::Imports as Bindings;
-pub use generated::maf::bindings::bindings;
+pub(crate) use generated::maf::bindings::bindings;
+
+fn serialize_meta_entry(
+    entry: Option<JsonMetaEntry>,
+) -> anyhow::Result<Option<bindings::MetaEntry>> {
+    match entry {
+        Some(json_entry) => {
+            let meta_entry = json_entry
+                .serialize()
+                .context("failed to serialize meta entry")?;
+            Ok(Some(meta_entry.into()))
+        }
+        None => Ok(None),
+    }
+}
 
 impl bindings::Host for ContainerData {
     async fn listen_user(&mut self) -> Result<Resource<FutureUserImpl>, ListenError> {
@@ -69,7 +83,7 @@ impl bindings::Host for ContainerData {
             .get(MetaVisibility::Private, &key)
             .await
             .map_err(|e| anyhow::anyhow!(e))
-            .map(|v_opt| v_opt.map(|v| v.into()))
+            .and_then(serialize_meta_entry)
     }
 
     async fn set_meta(
@@ -89,7 +103,7 @@ impl bindings::Host for ContainerData {
             )
             .await
             .map_err(|e| anyhow::anyhow!(e))
-            .map(|v_opt| v_opt.map(|v| v.into()))
+            .and_then(serialize_meta_entry)
     }
 
     async fn delete_meta(&mut self, key: String) -> anyhow::Result<Option<bindings::MetaEntry>> {
@@ -97,23 +111,17 @@ impl bindings::Host for ContainerData {
             .delete(&key)
             .await
             .map_err(|e| anyhow::anyhow!(e))
-            .map(|v_opt| v_opt.map(|v| v.into()))
+            .and_then(serialize_meta_entry)
     }
 
     async fn list_meta(&mut self) -> anyhow::Result<Vec<(String, bindings::MetaEntry)>> {
         self.meta
-            .list::<Vec<(String, MetaEntry<serde_json::Value>)>>(MetaVisibility::Private)
+            .list::<Vec<(String, JsonMetaEntry)>>(MetaVisibility::Private)
             .await
             .into_iter()
             .map(|(key, entry)| {
-                Ok((
-                    key,
-                    MetaEntry {
-                        visibility: entry.visibility.into(),
-                        value: serde_json::to_string(&entry.value)?,
-                    }
-                    .into(),
-                ))
+                let meta_entry = entry.serialize()?;
+                Ok((key, meta_entry.into()))
             })
             .collect::<Result<Vec<(String, bindings::MetaEntry)>, serde_json::Error>>()
             .map_err(|e| anyhow::anyhow!(e))

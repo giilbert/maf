@@ -149,7 +149,7 @@ impl BundleStorage {
                     .map_err(|e| BundleError::Io(e))?;
 
                 return Ok(Some(Bundle {
-                    wasm_module: Arc::from(data),
+                    wasm_module_bytes: Arc::from(data),
                 }));
             }
         }
@@ -190,7 +190,7 @@ impl BundleStorage {
     pub async fn load_test_app(&self) -> anyhow::Result<Bundle> {
         const PATH: &'static str = "target/wasm32-wasip2/debug/example_basic.wasm";
         Ok(Bundle {
-            wasm_module: Arc::from(tokio::fs::read(PATH).await?),
+            wasm_module_bytes: Arc::from(tokio::fs::read(PATH).await?),
         })
     }
 

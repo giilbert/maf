@@ -1,10 +1,10 @@
+use maf_schemas::apps;
 use tokio::sync::{
     mpsc::{self, error::TrySendError},
     Mutex,
 };
 
 use crate::{
-    app::meta,
     platform::{ListenError, Message, Platform, PlatformHookRequest, PlatformUser},
     user::UserMeta,
 };
@@ -74,22 +74,22 @@ impl Platform for ActorPlatform {
 
     fn set_meta(
         &self,
-        _visibility: meta::MetaVisibility,
+        _visibility: apps::MetaVisibility,
         _key: &str,
         _value: &str,
-    ) -> Option<meta::MetaEntry> {
+    ) -> Option<apps::MetaEntry> {
         todo!("ActorPlatform::set_meta is not implemented yet")
     }
 
-    fn get_meta(&self, _key: &str) -> Option<meta::MetaEntry> {
+    fn get_meta(&self, _key: &str) -> Option<apps::MetaEntry> {
         todo!("ActorPlatform::get_meta is not implemented yet")
     }
 
-    fn delete_meta(&self, _key: &str) -> Option<meta::MetaEntry> {
+    fn delete_meta(&self, _key: &str) -> Option<apps::MetaEntry> {
         todo!("ActorPlatform::delete_meta is not implemented yet")
     }
 
-    fn list_meta(&self) -> Vec<(String, meta::MetaEntry)> {
+    fn list_meta(&self) -> Vec<(String, apps::MetaEntry)> {
         todo!("ActorPlatform::list_meta is not implemented yet")
     }
 }

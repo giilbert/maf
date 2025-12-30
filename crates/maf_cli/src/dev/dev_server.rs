@@ -7,19 +7,17 @@
 use std::sync::{atomic::AtomicU64, Arc};
 
 use axum::{
-    body::Body,
     extract::{Path, State, WebSocketUpgrade},
     response::Response,
-    routing::{get, post},
+    routing::get,
 };
 use colored::Colorize;
 use maf_container::{
-    server::handle_ws_upgrade,
-    wasi::bindings::{self, HookRequestCaller},
-    Container, ContainerResourceLimit, ContainerRuntime, MetaVisibility,
+    server::handle_ws_upgrade, Container, ContainerResourceLimit, ContainerRuntime,
+    CreateContainerOptions,
 };
 use maf_schemas::{
-    apps::{InfoResponse, RoomCreationStrategy},
+    apps::{InfoResponse, MetaVisibility, RoomCreationStrategy},
     error::ErrorResponse,
 };
 use uuid::Uuid;
@@ -101,8 +99,8 @@ pub async fn start_local_server(
 
     let gateway_router = axum::Router::new()
         .route("/", get(info_route))
-        .route("/connect", get(connect_route))
-        .route("/hooks/{method}", post(hook_request_handler));
+        .route("/connect", get(connect_route));
+    // .route("/hooks/{method}", post(hook_request_handler));
 
     // Implement a subset of Platform APIs for the developer server
     let app = axum::Router::new()
@@ -122,9 +120,12 @@ pub async fn start_local_server(
 async fn generate_types(state: DevServerState, project: ProjectConfig) -> anyhow::Result<()> {
     let mut container = Container::load_from_binary(
         &state.runtime,
-        &state.rooms.bundle.wasm_module,
         Uuid::nil(),
-        ContainerResourceLimit::sensible_default(),
+        CreateContainerOptions {
+            bytes: &state.rooms.bundle.wasm_module_bytes,
+            resource_limit: ContainerResourceLimit::small_defaults(),
+            meta: None,
+        },
     )
     .await?;
 
@@ -176,6 +177,8 @@ async fn connect_route(
                         InsertRoom {
                             strategy: RoomCreationStrategy::AutoCreate,
                             key: Some("default".to_string()),
+                            // AutoCreate rooms do not have meta initially
+                            meta: None,
                         },
                     )
                     .await?;
@@ -197,38 +200,38 @@ async fn connect_route(
     Ok(handle_ws_upgrade(ws, room.inner.clone()).await)
 }
 
-async fn hook_request_handler(
-    State(state): State<DevServerState>,
-    Path((_org_slug, _app_name, room_id, method)): Path<(String, String, String, String)>,
-) -> Result<Response, ErrorResponse> {
-    let room = state
-        .rooms
-        .get_by_key_or_id(&room_id)
-        .await
-        .ok_or_else(|| {
-            ErrorResponse::not_found(Some(&format!(
-                "Room with key or ID '{}' not found",
-                room_id
-            )))
-        })?;
+// async fn hook_request_handler(
+//     State(state): State<DevServerState>,
+//     Path((_org_slug, _app_name, room_id, method)): Path<(String, String, String, String)>,
+// ) -> Result<Response, ErrorResponse> {
+//     let room = state
+//         .rooms
+//         .get_by_key_or_id(&room_id)
+//         .await
+//         .ok_or_else(|| {
+//             ErrorResponse::not_found(Some(&format!(
+//                 "Room with key or ID '{}' not found",
+//                 room_id
+//             )))
+//         })?;
 
-    // TODO: handle hook bodies
-    let response = room
-        .inner
-        .call_hook(
-            HookRequestCaller::Service,
-            method.clone(),
-            bindings::HookBody::None,
-        )
-        .await
-        .map_err(|e| anyhow::anyhow!(e))?;
+//     // TODO: handle hook bodies
+//     let response = room
+//         .inner
+//         .call_hook(
+//             HookRequestCaller::Service,
+//             method.clone(),
+//             bindings::HookBody::None,
+//         )
+//         .await
+//         .map_err(|e| anyhow::anyhow!(e))?;
 
-    let response = match response {
-        bindings::HookBody::None => Response::builder().body(Body::empty())?,
-        bindings::HookBody::Json(json) => Response::builder()
-            .header("Content-Type", "application/json")
-            .body(Body::from(json))?,
-    };
+//     let response = match response {
+//         bindings::HookBody::None => Response::builder().body(Body::empty())?,
+//         bindings::HookBody::Json(json) => Response::builder()
+//             .header("Content-Type", "application/json")
+//             .body(Body::from(json))?,
+//     };
 
-    Ok(response)
-}
+//     Ok(response)
+// }

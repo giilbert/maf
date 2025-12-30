@@ -8,11 +8,14 @@ use axum::{
     Json, Router,
 };
 use chrono::Utc;
-use maf_container::{server::RoomInner, ContainerResourceLimit, MetaVisibility};
+use maf_container::{
+    server::{CreateRoomInnerOptions, RoomInner},
+    ContainerResourceLimit,
+};
 use maf_schemas::{
     apps::{
-        AppNameAndOrgSlug, CreateRoomOptions, CreateUserAppRequest, RoomCreationStrategy, RoomInfo,
-        RoomKeyHash, UpdateUserAppRequest,
+        AppNameAndOrgSlug, CreateRoomOptions, CreateUserAppRequest, MetaVisibility,
+        RoomCreationStrategy, RoomInfo, RoomKeyHash, UpdateUserAppRequest,
     },
     error::ErrorResponse,
     project_config::ProjectConfigFile,
@@ -430,16 +433,21 @@ async fn service_create_room(
 
     let (room, mut container) = RoomInner::new(
         &state.container_runtime,
-        state
-            .bundle_storage
-            .load_app_bundle(app.id)
-            .await
-            .map_err(|e| match e {
-                BundleError::InvalidZip => ErrorResponse::bad_request(Some("Invalid app bundle")),
-                _ => ErrorResponse::internal_server_error(Some("Failed to load app bundle")),
-            })?
-            .ok_or_else(|| ErrorResponse::not_found(Some("App bundle not found")))?,
-        ContainerResourceLimit::sensible_default(),
+        CreateRoomInnerOptions {
+            bundle: state
+                .bundle_storage
+                .load_app_bundle(app.id)
+                .await
+                .map_err(|e| match e {
+                    BundleError::InvalidZip => {
+                        ErrorResponse::bad_request(Some("Invalid app bundle"))
+                    }
+                    _ => ErrorResponse::internal_server_error(Some("Failed to load app bundle")),
+                })?
+                .ok_or_else(|| ErrorResponse::not_found(Some("App bundle not found")))?,
+            resource_limit: ContainerResourceLimit::small_defaults(),
+            meta: None,
+        },
     )
     .await?;
 

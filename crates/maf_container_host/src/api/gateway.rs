@@ -15,15 +15,14 @@
 use std::collections::BTreeMap;
 
 use axum::{
-    body::Body,
     extract::{Path, Query, State, WebSocketUpgrade},
     response::Response,
-    routing::{get, post},
+    routing::get,
     Json, Router,
 };
-use maf_container::{server::handle_ws_upgrade, wasi::bindings, MetaVisibility};
+use maf_container::server::handle_ws_upgrade;
 use maf_schemas::{
-    apps::{AppNameAndOrgSlug, InfoResponse, RoomCreationStrategy},
+    apps::{AppNameAndOrgSlug, InfoResponse, MetaVisibility, RoomCreationStrategy},
     error::ErrorResponse,
     project_config::ProjectConfigFile,
 };
@@ -36,8 +35,8 @@ use super::state::{AppState, Environment};
 pub fn create_gateway_router(_state: AppState) -> Router<AppState> {
     let inner = Router::new()
         .route("/", get(info_route))
-        .route("/connect", get(connect_route))
-        .route("/hooks/{method}", post(hook_request_handler));
+        .route("/connect", get(connect_route));
+    // .route("/hooks/{method}", post(hook_request_handler));
 
     Router::new().nest("/@/{org_slug}/{app_name}/{room_key}", inner)
 }
@@ -141,47 +140,47 @@ async fn connect_route(
     Ok(handle_ws_upgrade(ws, room.inner).await)
 }
 
-/// **POST** `/@/{org_slug}/{app_name}/{room_key}/hooks/{method}`
-async fn hook_request_handler(
-    State(state): State<AppState>,
-    Path((org_slug, app_name, room_key, method)): Path<(String, String, String, String)>,
-) -> Result<Response, ErrorResponse> {
-    if room_key != "default" {
-        return Err(ErrorResponse::forbidden(Some(
-            "only autocreated rooms are supported right now",
-        )));
-    }
+// **POST** `/@/{org_slug}/{app_name}/{room_key}/hooks/{method}`
+// async fn hook_request_handler(
+//     State(state): State<AppState>,
+//     Path((org_slug, app_name, room_key, method)): Path<(String, String, String, String)>,
+// ) -> Result<Response, ErrorResponse> {
+//     if room_key != "default" {
+//         return Err(ErrorResponse::forbidden(Some(
+//             "only autocreated rooms are supported right now",
+//         )));
+//     }
 
-    // TODO: handle other room types other than autocreated
-    let room = &state
-        .rooms
-        .get_by_key_or_id(
-            &AppNameAndOrgSlug {
-                app: app_name,
-                org: org_slug,
-            },
-            &room_key,
-        )
-        .await
-        .ok_or_else(|| ErrorResponse::not_found(Some("app not found")))?;
+//     // TODO: handle other room types other than autocreated
+//     let room = &state
+//         .rooms
+//         .get_by_key_or_id(
+//             &AppNameAndOrgSlug {
+//                 app: app_name,
+//                 org: org_slug,
+//             },
+//             &room_key,
+//         )
+//         .await
+//         .ok_or_else(|| ErrorResponse::not_found(Some("app not found")))?;
 
-    // TODO: handle hook bodies
-    let response = room
-        .inner
-        .call_hook(
-            bindings::HookRequestCaller::Service,
-            method.clone(),
-            bindings::HookBody::None,
-        )
-        .await
-        .map_err(|e| anyhow::anyhow!(e))?;
+//     // TODO: handle hook bodies
+//     let response = room
+//         .inner
+//         .call_hook(
+//             bindings::HookRequestCaller::Service,
+//             method.clone(),
+//             bindings::HookBody::None,
+//         )
+//         .await
+//         .map_err(|e| anyhow::anyhow!(e))?;
 
-    let response = match response {
-        bindings::HookBody::None => Response::builder().body(Body::empty())?,
-        bindings::HookBody::Json(json) => Response::builder()
-            .header("Content-Type", "application/json")
-            .body(Body::from(json))?,
-    };
+//     let response = match response {
+//         bindings::HookBody::None => Response::builder().body(Body::empty())?,
+//         bindings::HookBody::Json(json) => Response::builder()
+//             .header("Content-Type", "application/json")
+//             .body(Body::from(json))?,
+//     };
 
-    Ok(response)
-}
+//     Ok(response)
+// }

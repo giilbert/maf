@@ -7,7 +7,7 @@ pub mod utils;
 
 pub use container::{
     Container, ContainerData, ContainerResourceLimit, ContainerResourceStats,
-    meta::{MetaEntry, MetaVisibility},
+    CreateContainerOptions,
 };
 pub use interface::{BoxedConnection, Connection};
 pub use runtime::{ContainerRuntime, wasi};

@@ -46,7 +46,7 @@ pub(crate) mod plugin;
 
 pub use impls::{App, AppBuilder};
 pub use local::Local;
-pub use meta::{MetaEntry, MetaVisibility};
+pub use maf_schemas::apps::{MetaEntry, MetaVisibility};
 pub use plugin::Plugin;
 
 pub(crate) use impls::AppState;

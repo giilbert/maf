@@ -3,6 +3,7 @@ mod limits;
 pub mod meta;
 
 use std::{
+    collections::HashMap,
     sync::{
         Arc,
         atomic::{AtomicU64, AtomicUsize, Ordering},
@@ -11,7 +12,7 @@ use std::{
 };
 
 use io::ContainerStdoutFactory;
-use maf_schemas::typed::AppSchema;
+use maf_schemas::{apps::JsonMetaEntry, typed::AppSchema};
 use tokio::{
     sync::{mpsc, oneshot},
     time,
@@ -72,7 +73,7 @@ pub struct ContainerResourceLimit {
 
 impl ContainerResourceLimit {
     // TODO: parse resource limit from app config file
-    pub fn sensible_default() -> Self {
+    pub fn small_defaults() -> Self {
         Self {
             memory: 16 * 1024 * 1024, // 16 MiB
             table: 10_000,            // 10_000 entries
@@ -117,21 +118,26 @@ impl std::fmt::Debug for ContainerData {
     }
 }
 
+pub struct CreateContainerOptions<'a> {
+    pub bytes: &'a [u8],
+    pub resource_limit: ContainerResourceLimit,
+    pub meta: Option<HashMap<String, JsonMetaEntry>>,
+}
+
 impl Container {
     pub async fn load_from_binary(
         runtime: &super::ContainerRuntime,
-        bytes: impl AsRef<[u8]>,
         room_id: Uuid,
-        resource_limit: ContainerResourceLimit,
+        options: CreateContainerOptions<'_>,
     ) -> anyhow::Result<Self> {
-        let component = wt::component::Component::new(&runtime.engine, &bytes)?;
+        let component = wt::component::Component::new(&runtime.engine, &options.bytes)?;
 
         let (connection_tx, connection_rx) = mpsc::channel(10);
         let (output_tx, output_rx) = mpsc::channel(100);
         let (hook_request_tx, hook_request_rx) = mpsc::channel(1000);
         let (app_schema_tx, app_schema_rx) = oneshot::channel();
 
-        let meta = MetaStorage::new();
+        let meta = MetaStorage::new(options.meta);
         let resource_stats = Arc::<ContainerResourceStats>::default();
         let cancel_token = CancellationToken::new();
         let shared = ContainerHandle {
@@ -169,7 +175,7 @@ impl Container {
                 limiter: ContainerResourceLimiter {
                     room_id,
                     stats: resource_stats.clone(),
-                    limits: resource_limit,
+                    limits: options.resource_limit,
                 },
             },
         );

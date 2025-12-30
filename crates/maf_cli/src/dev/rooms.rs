@@ -6,10 +6,10 @@ use std::{
 use anyhow::Context;
 use colored::Colorize as _;
 use maf_container::{
-    server::{Bundle, RoomInner},
+    server::{Bundle, CreateRoomInnerOptions, RoomInner},
     Container, ContainerResourceLimit, ContainerRuntime,
 };
-use maf_schemas::apps::{generate_room_secret, RoomCreationStrategy, RoomId};
+use maf_schemas::apps::{generate_room_secret, MetaEntryMap, RoomCreationStrategy, RoomId};
 use tokio::sync::{RwLock, RwLockReadGuard};
 
 use crate::{config::ProjectConfig, dev::dev_server::DevServerState};
@@ -22,6 +22,7 @@ pub type RoomKey = String;
 pub struct InsertRoom {
     pub strategy: RoomCreationStrategy,
     pub key: Option<String>,
+    pub meta: Option<MetaEntryMap>,
 }
 
 /// Rooms storage for development server.
@@ -52,10 +53,13 @@ impl DevRoom {
     ) -> anyhow::Result<(Self, Container)> {
         let (inner, container) = RoomInner::new(
             runtime,
-            bundle.clone(),
-            ContainerResourceLimit {
-                memory: 256 * 1024 * 1024, // 256 MB
-                table: usize::MAX,
+            CreateRoomInnerOptions {
+                bundle: bundle.clone(),
+                resource_limit: ContainerResourceLimit {
+                    memory: 256 * 1024 * 1024, // 256 MB
+                    table: usize::MAX,
+                },
+                meta: None,
             },
         )
         .await
