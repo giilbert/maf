@@ -6,14 +6,25 @@ category: Build Your App
 # Type Generation
 
 MAF can optionally generate TypeScript types for your app's data models. This is
-useful for ensuring type safety in your application code.
+useful for ensuring type safety in your application code. When enabled,
+generated types can be imported into your client code, giving you type-safe
+access (and editor auto-completion) to your app's stores, RPCs, and other data
+structures.
 
 Currently, type generation is only supported for Rust and TypeScript projects.
 Support for more languages will be added in the future.
 
 ## Enabling Type Generation
 
-1\. Add the following to your `maf-project.toml`:
+1\. Enable the `typed` feature in your Rust project by adding it to your
+`Cargo.toml`:
+
+```toml
+# As an example,
+maf = { version = "YOUR VERSION HERE", features = ["typed"] }
+```
+
+2\. Add the following to your `maf-project.toml`:
 
 ```toml
 [typed]
@@ -21,11 +32,11 @@ language = "TypeScript"
 out = "types.ts" # Output file for generated types
 ```
 
-2\. Enable Rust introspection by implementing `schemars::JsonSchema` in
+3\. Enable Rust introspection by implementing `schemars::JsonSchema` in
 serialized types.
 
 ```toml
-# Cargo.toml: Add `schemars` as a dependency
+# Cargo.toml: Add `schemars = "1.0.4"` as a dependency
 [dependencies]
 # ...
 schemars = "1.0.4"
@@ -74,7 +85,7 @@ fn build() -> App {
 
 _For more details on `schemars`, refer to the [schemars documentation](https://graham.cool/schemars/)._
 
-3\. Start a development server and create a room to generate the types:
+4\. Start a development server and create a room to generate the types:
 
 ```bash
 $ maf run
@@ -82,9 +93,10 @@ $ maf run
 [dev] `default` Types generated to .../types.ts
 ```
 
-4\. Import the generated types in your client code and register them:
+5\. Import the generated types in your client code and register them:
 
 ```typescript
+// NOTE: Adjust the import path as necessary
 import type { MafApp } from "./types";
 
 declare module "@usemaf/client" {
@@ -94,7 +106,7 @@ declare module "@usemaf/client" {
 }
 ```
 
-5\. Change `MafClient` to `TypedMafClient` in your client code:
+6\. Change `MafClient` to `TypedMafClient` in your client code:
 
 ```typescript
 const client = new TypedMafClient({
