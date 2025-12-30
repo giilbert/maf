@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  forwardRef,
-  useContext,
-  useEffect,
-  useLayoutEffect,
-} from "react";
+import { createContext, forwardRef, useContext } from "react";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import { cn } from "@/lib/cn";
 

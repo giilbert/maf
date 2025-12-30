@@ -19,6 +19,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@radix-ui/react-dialog";
+import { ArrowUpRightFromSquareIcon } from "lucide-react";
 
 export const mdxComponents: MDXComponents = {
   p: (props) => <p className="leading-relaxed" {...props}></p>,
@@ -101,7 +102,7 @@ export const mdxComponents: MDXComponents = {
   TabsTrigger: UiTabs.TabsTrigger,
   TabsContent: (props) => {
     return (
-      <UiTabs.TabsContent value={props.value} className="space-y-5">
+      <UiTabs.TabsContent value={props.value} className="space-y-3">
         {props.children}
       </UiTabs.TabsContent>
     );
@@ -113,7 +114,7 @@ export const mdxComponents: MDXComponents = {
           <AccordionTrigger className="bg-muted py-2 px-4">
             {props.title}
           </AccordionTrigger>
-          <AccordionContent className="py-2 mt-2">
+          <AccordionContent className="py-2 mt-2 text-base space-y-3">
             {props.children}
           </AccordionContent>
         </AccordionItem>
@@ -153,6 +154,62 @@ export const mdxComponents: MDXComponents = {
       </Dialog>
     );
   },
+  RefGroup: (props: { children: React.ReactNode }) => {
+    return (
+      <div className="px-3 border-l-3 border-purple-500 flex gap-3 flex-wrap">
+        {props.children}
+      </div>
+    );
+  },
+  Ref: (props: { to: string; children: React.ReactNode }) => {
+    const isRust = props.to.includes("docs.rs");
+
+    const content = isRust ? parseRustSignature(props.to) : props.to;
+
+    return (
+      <span className="group cursor-pointer inline-flex items-center gap-2 text-sm w-fit bg-muted/50 px-1.5 py-1 text-muted-foreground">
+        <Link
+          className="font-mono group-hover:underline underline-offset-2 group-hover:text-primary"
+          href={props.to}
+          target="_blank"
+          rel="noreferrer"
+        >
+          {props.children ?? (
+            <>
+              {isRust ? "docs.rs:" : "See:"} {content}
+            </>
+          )}
+        </Link>
+
+        <ArrowUpRightFromSquareIcon size={14} className="-mt-0.5" />
+      </span>
+    );
+  },
+};
+
+const parseRustSignature = (raw: string): string => {
+  const url = new URL(raw);
+  const path = url.pathname;
+  const hash = url.hash;
+
+  // example path: /maf/latest/maf/store/trait.StoreData.html
+  // get the last part after the last slash
+  const parts = path.split("/");
+  const lastPart = parts[parts.length - 1];
+  // remove .html
+  const cleanPart = lastPart.replace(".html", "");
+  const first = cleanPart.replace(".", " ");
+
+  const second = hash
+    ? hash
+        .replace("#", "")
+        .replace("tymethod.", "fn ")
+        .replace("method.", "fn ")
+        .replace("associatedconstant.", "const ")
+        .replace("associatedtype.", "type ")
+    : "";
+
+  return `${first}${second ? " > " : ""}${second}`.trim();
 };
 
 export const CodeBlock: React.FC<{

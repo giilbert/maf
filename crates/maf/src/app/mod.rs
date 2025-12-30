@@ -32,6 +32,8 @@
 //! - Registering [`crate::rpc`] functions with [`AppBuilder::rpc`]
 //! - Adding background tasks with [`AppBuilder::background`]
 //! - Registering plugins with [`AppBuilder::plugin`]
+//! - Defining local state with [`AppBuilder::local`]
+//! - Subscribing meta entries with [`AppBuilder::meta`]
 
 mod background;
 pub(crate) mod hooks;

@@ -68,6 +68,7 @@ In Rust, a store is created by:
 1. Defining a struct that implements the `StoreData` trait.
 2. Accessing the store in RPC functions using the `Store<T>` type (or others).
 3. Statically declaring the store in the `App` builder.
+   <Ref to="https://docs.rs/maf/latest/maf/app/struct.AppBuilder.html#method.store" />
 
 We will be using a simple counter store as an example throughout this section.
 
@@ -99,6 +100,10 @@ maf::register!(build);
 ```
 
 ### Implementing `StoreData`
+
+<RefGroup>
+  <Ref to="https://docs.rs/maf/latest/maf/store/trait.StoreData.html" />
+</RefGroup>
 
 The `StoreData` trait defines the necessary methods for a store, including
 initialization, selection, and key generation. Only the `init` method and `Data`
@@ -208,6 +213,10 @@ impl StoreData for Counter {
 
 ### Accessing Stores In RPC Functions
 
+<RefGroup>
+  <Ref to="https://docs.rs/maf/latest/maf/store/struct.Store.html" />
+</RefGroup>
+
 Stores can be accessed in RPC functions by declaring them as parameters to the
 handler. Reading and writing to the store is done using `Store.read()` and
 `Store.write()`, with a locking API similar to `RwLock<T>`.
@@ -223,6 +232,116 @@ async fn increment_counter(store: Store<Counter>) {
     // Access the store's data with `Store.read()`
     let count = store.read().await.count;
     println!("counter incremented to {}", count);
+}
+```
+
+#### Convenience Types
+
+<RefGroup>
+  <Ref to="https://docs.rs/maf/latest/maf/store/struct.StoreRef.html" />
+  <Ref to="https://docs.rs/maf/latest/maf/store/struct.StoreMut.html" />
+</RefGroup>
+
+With `Store<T>`, you need to explicitly call `read()` and `write()` to acquire
+locks to the store's data. However, MAF also provides `StoreRef<T>` and
+`StoreMut<T>` types for convenience. These types automatically acquire read and
+write locks, respectively, when passed into an RPC function.
+
+**Example Using `StoreMut<T>`:**
+
+```rust
+fn increment_counter(store: StoreMut<Counter>) {
+    // Directly modify the store's data without calling `write()`
+    store.count += 1;
+    println!("counter incremented to {}", store.count);
+}
+```
+
+These convenience types are useful for simple RPC functions where you only need
+to read or write the store once. **However, in an effort to avoid deadlocks when
+reading and writing multiple times, `StoreRef<T>` and `StoreMut<T>` cannot be
+used in async functions.** If you need to read and write multiple times in an
+async context, use `Store<T>` with manual locking instead.
+
+### Locking Behavior 👻
+
+When using stores in async functions, it's important to understand the locking
+behavior to avoid deadlocks. `Store.read()` and `Store.write()` acquire locks on
+the store's data, and these locks are held until the returned guard is dropped.
+**Multiple read locks XOR one write lock can be held at a time.**
+
+The locks are asynchronous, meaning that if a lock cannot be acquired
+immediately, the task will yield and allow other tasks to run until the lock is
+available.
+
+As an example of what to avoid:
+
+```rust
+async fn example_one_bad(store: Store<Counter>) {
+    let read_guard = store.read().await;
+    // Attempting to acquire a write lock while holding a read lock will cause
+    // a deadlock.
+    let write_guard = store.write().await; // DEADLOCK! This will hang.
+}
+
+async fn example_one_fix(store: Store<Counter>) {
+    {
+        let read_guard = store.read().await;
+        println!("Current count: {}", read_guard.count);
+    } // read_guard is dropped here, releasing the read lock.
+
+    {
+        let mut write_guard = store.write().await;
+        write_guard.count += 1;
+        println!("Incremented count to: {}", write_guard.count);
+    } // write_guard is dropped here, releasing the write lock.
+}
+
+async fn example_two_bad(store: Store<Counter>) {
+    // Acquiring multiple write locks in the same async context will also
+    // cause a deadlock.
+    let mut write_guard1 = store.write().await;
+    let mut write_guard2 = store.write().await; // DEADLOCK! This will hang.
+}
+
+async fn example_two_fix(store: Store<Counter>) {
+    {
+        let mut write_guard = store.write().await;
+        write_guard.count += 1;
+        println!("Incremented count to: {}", write_guard.count);
+    } // write_guard is dropped here, releasing the write lock.
+
+    {
+        let mut write_guard = store.write().await;
+        write_guard.count += 1;
+        println!("Incremented count to: {}", write_guard.count);
+    } // write_guard is dropped here, releasing the write lock.
+
+    // (or just use a single write lock for both operations)
+}
+
+async fn example_three_bad(store: Store<Counter>) {
+    // This function increments the counter every second.
+    let mut write_guard = store.write().await; // This guard is held forever!
+    loop {
+        write_guard.count += 1;
+        println!("Incremented count to: {}", write_guard.count);
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    }
+}
+
+async fn example_three_fix(store: Store<Counter>) {
+    // This function increments the counter every second.
+    loop {
+        {
+            // Lock is only held briefly
+            let mut write_guard = store.write().await;
+            write_guard.count += 1;
+            println!("Incremented count to: {}", write_guard.count);
+        } // write_guard is dropped here, releasing the write lock.
+
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    }
 }
 ```
 

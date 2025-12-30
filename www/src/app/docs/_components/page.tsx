@@ -63,8 +63,8 @@ export const RenderPage: React.FC<{
           </Accordion>
         )}
 
-        <Suspense fallback={<></>}>
-          <div className="flex flex-col gap-5 w-full" suppressHydrationWarning>
+        <Suspense fallback={<p>oops</p>}>
+          <div className="flex flex-col gap-3 w-full" suppressHydrationWarning>
             {content}
           </div>
         </Suspense>

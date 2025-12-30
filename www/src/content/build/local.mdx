@@ -12,6 +12,10 @@ state.
 
 ## Server Usage
 
+<RefGroup>
+  <Ref to="https://docs.rs/maf/latest/maf/app/struct.AppBuilder.html#method.local" />
+</RefGroup>
+
 To use local variables in your server, declare them using the `local` method
 when the app is being built, then access them using the `Local` extractor in
 RPCs or the `local` method on `App`.
@@ -47,7 +51,12 @@ fn build() -> App {
 
 ## Accessing Local State
 
-`Local<T>` can be used as an extractor in positions where `CallableFetch<App>`
+<RefGroup>
+  <Ref to="https://docs.rs/maf/latest/maf/app/struct.Local.html" />
+  <Ref to="https://docs.rs/maf/latest/maf/app/struct.App.html#method.local" />
+</RefGroup>
+
+`Local<T>` can be used as an extractor in positions where <Ref to="https://docs.rs/maf/latest/maf/callable/trait.CallableFetch.html">CallableFetch&lt;T&gt; </Ref>
 is accepted, such as in RPC handlers or background tasks. It can also be
 accessed directly from an `App` instance using the `local<T>()` method.
 

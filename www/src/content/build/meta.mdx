@@ -26,7 +26,25 @@ app itself (running on MAF Platform) and service accounts. Private meta also
 includes all public meta. This allows you to store sensitive information in
 private meta that should not be exposed to clients.
 
+**Summary**
+
+| Meta Set As | App       | Service Accounts | Clients   |
+| ----------- | --------- | ---------------- | --------- |
+| Public      | <Check /> | <Check />        | <Check /> |
+| Private     | <Check /> | <Check />        | <X />     |
+
+- _Clients_ refers to any code running on the machines of end users (e.g. web
+  browsers).
+- _Service Accounts_ refers to MAF Platform service accounts that run developer
+  (your)-provided code to manage rooms.
+- _App_ refers to the MAF app code running on MAF Platform.
+
 ## Server Usage
+
+<RefGroup>
+  <Ref to="https://docs.rs/maf/latest/maf/app/struct.App.html#method.meta" />
+  <Ref to="https://docs.rs/maf/latest/maf/app/enum.MetaVisibility.html" />
+</RefGroup>
 
 From an app, you can set and get meta values by accessing `app.meta()`:
 
@@ -76,6 +94,10 @@ maf::register!(build);
 ```
 
 ### Reacting to Changes
+
+<RefGroup>
+  <Ref to="https://docs.rs/maf/latest/maf/app/struct.AppBuilder.html#method.meta" />
+</RefGroup>
 
 The `meta` method on `AppBuilder` can also be used to subscribe to changes from
 stores, users, or other sources to update meta values dynamically:
@@ -152,19 +174,6 @@ for (const room of rooms) {
   console.log(`Room ${room.id} is in state ${room.meta.game_state}`);
 }
 ```
-
-### Visibility Summary
-
-| Meta Set As | App       | Service Accounts | Clients   |
-| ----------- | --------- | ---------------- | --------- |
-| Public      | <Check /> | <Check />        | <Check /> |
-| Private     | <Check /> | <Check />        | <X />     |
-
-- _Clients_ refers to any code running on the machines of end users (e.g. web
-  browsers).
-- _Service Accounts_ refers to MAF Platform service accounts that run developer
-  (your)-provided code to manage rooms.
-- _App_ refers to the MAF app code running on MAF Platform.
 
 ## ⚠️ Warning: Not for Frequent Updates!
 

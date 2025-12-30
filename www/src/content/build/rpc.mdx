@@ -19,12 +19,16 @@ server and receive responses.
 
 ### Defining RPC Functions
 
+<RefGroup>
+  <Ref to="https://docs.rs/maf/latest/maf/app/struct.AppBuilder.html#method.rpc" />
+</RefGroup>
+
 RPC functions are defined as regular Rust functions (async or sync) that take in
 parameters that are _extractors_ and return a value. Extractors are types that
 retrieve data from the RPC request context, such as parameters, the app
 instance, the user making the request, or stores (see below for more details).
-The return value can be any type that implements [`serde::Serialize`]. The
-function must be registered with the MAF app using [`crate::AppBuilder::rpc`]
+The return value can be any type that implements <Ref to="https://docs.serde.rs/serde/trait.Serialize.html">serde::Serialize</Ref>. The
+function must be registered with the MAF app using <Ref to="https://docs.rs/maf/latest/maf/app/struct.AppBuilder.html#method.rpc">AppBuilder::rpc</Ref>
 and given a unique method name.
 
 ```rust
@@ -61,7 +65,7 @@ maf::register!(build); // Register the app with MAF
 
 ### Inputs to RPC Functions
 
-An RPC function can accept parameters from callers in the form of [`Params<T>`],
+An RPC function can accept parameters from callers in the form of <Ref to="https://docs.rs/maf/latest/maf/rpc/struct.Params.html">Params&lt;T&gt;</Ref> extractor,
 where `T` is the type of the parameter. If multiple inputs are needed, they can
 be passed as a tuple, e.g. `Params<(i32, String)>`. The parameters will be
 deserialized from the JSON request body, leaving it up to the client to ensure
@@ -69,21 +73,61 @@ the correct types are sent and are in the correct order.
 
 ### Return Values
 
-The return value of an RPC function can be any type that implements
-[`serde::Serialize`]. The response will be serialized to JSON and sent back to
-the client.
+The return value of an RPC function can be any type that implements <Ref to="https://docs.serde.rs/serde/trait.Serialize.html">serde::Serialize</Ref>.
+The response will be serialized to JSON and sent back to the client.
 
 ### Extractors
 
 An RPC function declaration can take in additional parameters which can be used
 to access additional MAF APIs:
 
-- [`crate::App`]: The app instance that the RPC function is running in.
-- [`crate::User`]: The user that made the request.
-- [`crate::Users]: A collection of all connected users.
-- [`crate::Store<T>`]: A store instance that can be used to access shared data.
-- [`crate::Channel<T>`]: A channel instance that can be used to send messages to
-  clients.
+- <Ref to="https://docs.rs/maf/latest/maf/rpc/struct.Params.html">
+    Params&lt;T&gt;
+  </Ref>
+  : The parameters sent by the client.
+- <Ref to="https://docs.rs/maf/latest/maf/app/struct.App.html">App</Ref>: The
+  app instance that the RPC function is running in.
+- <Ref to="https://docs.rs/maf/latest/maf/user/struct.User.html">User</Ref>: The
+  user that made the request.
+- <Ref to="https://docs.rs/maf/latest/maf/user/struct.Users.html">Users</Ref>: A
+  collection of all connected users.
+- <Ref to="https://docs.rs/maf/latest/maf/store/struct.Store.html">
+    Store&lt;T&gt;
+  </Ref>
+  : A store instance that can be used to access shared data.
+- <Ref to="https://docs.rs/maf/latest/maf/channel/struct.Channel.html">
+    Channel&lt;T&gt;
+  </Ref>
+  : A channel instance that can be used to send messages to clients.
+
+<Collapsible title="Scary Implementation Detail">
+
+MAF does tricks with Rust's type system to get variadic functions nicely
+working and not have a lot of repeated code. This is not limited to RPC
+functions—anytime a function is registered with MAF, it is likely through this
+mechanism. Everything is built on top of the <Ref to="https://docs.rs/maf/latest/maf/callable/index.html">callable</Ref>
+system.
+
+This system uses traits and generics to decompose the function signature at
+compile, and extract information that MAF needs to call the function at
+runtime. This includes figuring out which parameters are extractors, what
+types they extract, and the return type of the function.
+
+The main trait is <Ref to="https://docs.rs/maf/latest/maf/callable/trait.IntoCallable.html">IntoCallable</Ref>
+which is implemented for functions with different signatures. When any function
+is registered, it is converted into a <Ref to="https://docs.rs/maf/latest/maf/callable/type.BoxedCallable.html">BoxedCallable</Ref>
+which is a type-erased callable that can be stored and invoked later.
+
+Parameters to these callable functions are represented by the <Ref to="https://docs.rs/maf/latest/maf/callable/trait.CallableParam.html">CallableParam</Ref>
+and <Ref to="https://docs.rs/maf/latest/maf/callable/trait.CallableFetch.html">CallableFetch</Ref>
+traits which is implemented for all extractor types. This trait defines how to
+extract the value from any callable's context.
+
+When the documentation is referring to "callables", this is what it is talking
+about. "Extractors" are just a user-friendly name for the types that implement
+the <Ref to="https://docs.rs/maf/latest/maf/callable/trait.CallableParam.html">CallableParam</Ref> trait.
+
+</Collapsible>
 
 </TabsContent>
 
