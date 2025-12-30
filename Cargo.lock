@@ -2174,7 +2174,7 @@ dependencies = [
 
 [[package]]
 name = "maf"
-version = "0.1.0-alpha.3"
+version = "0.1.0-alpha.4"
 dependencies = [
  "anyhow",
  "futures-util",
@@ -2194,7 +2194,7 @@ dependencies = [
 
 [[package]]
 name = "maf_cli"
-version = "0.1.0"
+version = "0.1.0-alpha.4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2299,7 +2299,7 @@ dependencies = [
 
 [[package]]
 name = "maf_schemas"
-version = "0.1.0-alpha.3"
+version = "0.1.0-alpha.4"
 dependencies = [
  "anyhow",
  "axum",
@@ -2314,7 +2314,7 @@ dependencies = [
 
 [[package]]
 name = "maf_typed"
-version = "0.1.0"
+version = "0.1.0-alpha.4"
 dependencies = [
  "anyhow",
  "maf",
