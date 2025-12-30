@@ -26,6 +26,9 @@ struct Points {
 
 // [`Points`] does not need to be `serde::Serialize` and is not visible to clients
 async fn score_point(points: Local<Points>) {
+    // Local<T> has an interface similar to `RwLock<T>`, using:
+    // - `read().await` to get a read lock
+    // - `write().await` to get a write lock
     let points = points.write().await;
     points += 1;
     if points > 100 {
@@ -49,7 +52,7 @@ is accepted, such as in RPC handlers or background tasks. It can also be
 accessed directly from an `App` instance using the `local<T>()` method.
 
 ```rust
-fn an_rpc_function(local_points: Local<Points>) {
+async fn an_rpc_function(local_points: Local<Points>) {
     // Local<T> is usable in RPCs!
 }
 

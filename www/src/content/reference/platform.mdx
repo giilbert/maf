@@ -14,6 +14,10 @@ rooms, and monitoring apps.
 All endpoints are RESTful and return JSON responses. Parameters are passed via
 the URL path, query string, and/or request body as appropriate.
 
+For TypeScript servers, you can use the `@usemaf/platform` package to interact
+with the Platform API more easily. The package provides type definitions, helper
+functions, and classes to simplify making requests and handling responses.
+
 ## Authentication
 
 Platform API endpoints are authenticated using the `Authorization` header. When
@@ -43,12 +47,22 @@ Lists all the rooms.
     // A 64-character secret key used for your server to verify certain requests.
     "secret": "iMcbVmiaEJ9YEETIZeDafaG3oAQslb4G4yIiJsXe9mWw5IbKgVGVhz7TKJgkbXtw",
     // Another key that can be used for room identification. Developer-defined.
-    "key": "ABCDEF"
+    "key": "ABCDEF",
+    // Metadata associated with the room. This is defined by the developer.
+    // See the "Meta" page for more details.
+    "meta": {
+      "owner_id": "f2c6539f-c2ff-4f84-a40b-157ce2e20552",
+      "status": "WAITING"
+    }
   },
   {
     "id": "9f2a1508-0b68-48b7-b3d7-617ee5fdd1f9",
     "secret": "9b1c2f3e4d5a6b7c8d9e0f1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0t1u",
-    "key": "GHIJKL"
+    "key": "GHIJKL",
+    "meta": {
+      "owner_id": "1510d3cc-44a0-4a62-bcca-1a8e55f45cbd",
+      "status": "IN_PROGRESS"
+    }
   }
   // ...
 ]
@@ -65,7 +79,13 @@ Creates a new room.
   // <Optional> A key used to identify the room. If not provided, the room ID
   // will be used. Must be unique within the app. The key must be less than
   // or equal to 128 characters long and cannot be "default" or a UUID.
-  "key": "ABCD1234"
+  "key": "ABCD1234",
+  // <Optional> Metadata associated with the room. This can be any key-value
+  // pairs defined by the developer.
+  "meta": {
+    "owner_id": "f2c6539f-c2ff-4f84-a40b-157ce2e20552",
+    "status": "WAITING"
+  }
 }
 ```
 

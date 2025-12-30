@@ -73,6 +73,29 @@ export const mdxComponents: MDXComponents = {
       </Link>
     );
   },
+  table: (props) => {
+    return (
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse border">
+          {props.children}
+        </table>
+      </div>
+    );
+  },
+  th: (props) => {
+    return (
+      <th className="border px-3 py-2 bg-neutral-900 text-left text-sm whitespace-nowrap">
+        {props.children}
+      </th>
+    );
+  },
+  td: (props) => {
+    return (
+      <td className="w-full border px-3 py-2 text-sm">{props.children}</td>
+    );
+  },
+  Check: () => <p className="text-center w-full">✅</p>,
+  X: () => <p className="text-center w-full">❌</p>,
   Tabs: UiTabs.Tabs,
   TabsList: UiTabs.TabsList,
   TabsTrigger: UiTabs.TabsTrigger,

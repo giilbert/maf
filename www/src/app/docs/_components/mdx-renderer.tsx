@@ -1,4 +1,5 @@
 import { evaluate } from "next-mdx-remote-client/rsc";
+import remarkGfm from "remark-gfm";
 import { mdxComponents } from "./mdx-components";
 import { customHeadingId, extractToc, Heading } from "../_lib/toc";
 
@@ -12,7 +13,7 @@ export const renderMdx = async (options: RenderMdxOptions) => {
     components: mdxComponents,
     options: {
       mdxOptions: {
-        remarkPlugins: [extractToc],
+        remarkPlugins: [remarkGfm, extractToc],
         rehypePlugins: [customHeadingId],
       },
     },

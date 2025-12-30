@@ -47,6 +47,22 @@ fn host_start_game(app: App, users: Users) -> {
     app.meta().set(MetaVisibility::Private, "spy_id", spy_id);
 }
 
+fn host_end_game(app: App) -> {
+    // Get a meta value. In this example, this value is "given" by a service
+    // account that created the room, representing whether the game should be
+    // recorded.
+    let should_record_game = app
+        .meta()
+        // NOTE: Your MAF app can access both public and private meta values.
+        // See the chart below for more details on visibility.
+        .get::<bool>("record_game")
+        .unwrap_or(false);
+
+    if should_record_game {
+        record_game();
+    }
+}
+
 fn build() -> App {
     App::builder()
         // Initialize the "game_state" meta value to "waiting_for_players".
@@ -56,6 +72,7 @@ fn build() -> App {
 }
 
 maf::register!(build);
+
 ```
 
 ### Reacting to Changes
@@ -92,3 +109,70 @@ fn build() -> App {
 Both the `count` and `users` meta values in this example will be kept up to date
 automatically when the underlying data changes. The latter is especially useful
 for keeping track of how many users are currently in a room.
+
+### Service Account Usage
+
+From a service account, Meta values can be accessed via the MAF Platform HTTP
+API. Meta values are included when creating or retrieving room information:
+
+As an example, `GET /api/v1/apps/:org/:app/rooms` yields a response:
+
+```json
+[
+  {
+    "id": "f5934702-8a6b-4fbc-9244-db45b3369a83",
+    // These meta fields were set by the app running in the room.
+    "meta": {
+      "game_state": "in_progress",
+      "record_game": true
+    }
+    // ...other room fields...
+  }
+  // ... other rooms ...
+]
+```
+
+In TypeScript, the `@usemaf/platform` package provides type definitions and
+helper methods for interacting with the MAF Platform API, including meta fields.
+
+On your server, you can retrieve room meta like so:
+
+```typescript
+import { MafServiceClient } from "@usemaf/platform";
+
+const server = new MafServiceClient(/* initialize */);
+
+// Create a new room and access its meta
+const newRoom = await server.rooms.create();
+console.log(newRoom.meta.game_state); // e.g. "in_progress"
+
+// List all rooms and their meta
+const rooms = await server.rooms.list();
+for (const room of rooms) {
+  console.log(`Room ${room.id} is in state ${room.meta.game_state}`);
+}
+```
+
+### Visibility Summary
+
+| Meta Set As | App       | Service Accounts | Clients   |
+| ----------- | --------- | ---------------- | --------- |
+| Public      | <Check /> | <Check />        | <Check /> |
+| Private     | <Check /> | <Check />        | <X />     |
+
+- _Clients_ refers to any code running on the machines of end users (e.g. web
+  browsers).
+- _Service Accounts_ refers to MAF Platform service accounts that run developer
+  (your)-provided code to manage rooms.
+- _App_ refers to the MAF app code running on MAF Platform.
+
+## ⚠️ Warning: Not for Frequent Updates!
+
+Meta is not designed for data that changes frequently or cannot be serialized.
+Using meta for frequently changing data can lead to performance issues as meta
+changes need to be serialized to JSON and back when updated.
+
+- For frequently changing data that automatically update to clients, consider
+  using [Stores](/docs/build/stores).
+- For data that cannot be serialized and is only needed on the server side,
+  consider using [Local](/docs/build/local).

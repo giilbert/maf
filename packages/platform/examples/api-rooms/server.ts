@@ -28,7 +28,7 @@ app
     try {
       // Call to MAF Platform to create a new room
       const room = await server.rooms.create();
-      console.log("Created room", JSON.stringify(room));
+      console.log("Created room", room);
       return c.json({ type: "success", data: room });
     } catch (e) {
       console.error("Failed to create room:", e);
@@ -39,6 +39,7 @@ app
     try {
       // Call to MAF Platform to list rooms
       const rooms = await server.rooms.list();
+      console.log("Listed rooms", rooms);
       return c.json(rooms.map((room) => ({ id: room.id })));
     } catch (e) {
       console.error("Failed to list rooms:", e);

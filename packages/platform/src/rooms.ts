@@ -17,6 +17,7 @@ interface RoomInit {
   id: string;
   key: string;
   secret: string;
+  meta: Record<string, unknown>;
 }
 
 /**
@@ -85,6 +86,14 @@ export class Room {
   get secret() {
     if (!this._data) throw new Error("Room not initialized");
     return this._data.secret;
+  }
+
+  /**
+   * A developer-defined metadata object associated with the room.
+   */
+  get meta() {
+    if (!this._data) throw new Error("Room not initialized");
+    return this._data.meta;
   }
 
   toJSON() {
