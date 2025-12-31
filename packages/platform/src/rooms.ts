@@ -105,6 +105,32 @@ export class Room {
   }
 }
 
+export interface CreateRoomOptions {
+  /**
+   * An optional developer-defined key for the room. If not provided, the
+   * platform will generate a random key.
+   */
+  key?: string;
+
+  /**
+   * Initial meta entries for the room.
+   *
+   * Each entry can either be a simple string value or an object with a `value`
+   * and optional `visibility` property. If a simple string is provided, it is
+   * treated as a private meta entry.
+   *
+   * See https://maf.gilbertz.me/docs/build/meta for more information.
+   */
+  meta?: Record<
+    string,
+    | {
+        visibility?: "PUBLIC" | "PRIVATE";
+        value: unknown;
+      }
+    | unknown
+  >;
+}
+
 /**
  * API client for managing rooms within the MAF Platform.
  */
@@ -140,7 +166,34 @@ export class Rooms {
    * Creates a new room for the current app. The app should be configured to use
    * API-managed rooms.
    */
-  async create(options: { key?: string } = {}) {
+  async create(options: CreateRoomOptions = {}) {
+    // Fix options.meta to match expected format
+    if (options.meta) {
+      const fixedMeta: Record<
+        string,
+        { visibility: "PUBLIC" | "PRIVATE"; value: unknown }
+      > = {};
+
+      for (const [key, entry] of Object.entries(options.meta)) {
+        if (typeof entry === "string") {
+          fixedMeta[key] = { visibility: "PRIVATE", value: entry };
+        } else if (
+          typeof entry === "object" &&
+          entry &&
+          "value" in entry &&
+          "visibility" in entry &&
+          (entry.visibility === "PUBLIC" || entry.visibility === "PRIVATE")
+        ) {
+          fixedMeta[key] = {
+            visibility: entry.visibility ?? "PRIVATE",
+            value: entry.value,
+          };
+        }
+      }
+
+      options.meta = fixedMeta;
+    }
+
     const response = await this.client.fetch(
       `/api/v1/apps/${this.client.app}/rooms`,
       {
@@ -150,6 +203,7 @@ export class Rooms {
     );
 
     if (!response.ok) {
+      console.log(response);
       throw new PlatformApiError(
         `Failed to create room: ${response.statusText}`,
         await response.json()

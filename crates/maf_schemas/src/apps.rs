@@ -129,6 +129,7 @@ pub struct InfoResponse {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum MetaVisibility {
     /// Public metadata can be accessed by anyone, including clients.
     Public,

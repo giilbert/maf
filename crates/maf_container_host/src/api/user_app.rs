@@ -446,7 +446,7 @@ async fn service_create_room(
                 })?
                 .ok_or_else(|| ErrorResponse::not_found(Some("App bundle not found")))?,
             resource_limit: ContainerResourceLimit::small_defaults(),
-            meta: None,
+            meta: options.meta,
         },
     )
     .await?;

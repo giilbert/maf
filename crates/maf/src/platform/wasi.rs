@@ -3,10 +3,7 @@ use uuid::Uuid;
 use maf_schemas::apps;
 
 use crate::{
-    app::{
-        hooks::{self, HookBody, HookRequestError, HookRequestInit},
-        meta,
-    },
+    app::hooks::{self, HookBody, HookRequestError, HookRequestInit},
     bindings::bindgen,
     platform::{ListenError, Platform, PlatformHookRequest, PlatformUser, SendError},
     tasks,

@@ -38,7 +38,7 @@ impl RoomInner {
             CreateContainerOptions {
                 bytes: &options.bundle.wasm_module_bytes,
                 resource_limit: options.resource_limit,
-                meta: None,
+                meta: options.meta,
             },
         )
         .await?;

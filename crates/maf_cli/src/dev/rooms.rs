@@ -50,6 +50,7 @@ impl DevRoom {
     pub async fn new(
         runtime: &ContainerRuntime,
         bundle: &Bundle,
+        meta: Option<MetaEntryMap>,
     ) -> anyhow::Result<(Self, Container)> {
         let (inner, container) = RoomInner::new(
             runtime,
@@ -59,7 +60,7 @@ impl DevRoom {
                     memory: 256 * 1024 * 1024, // 256 MB
                     table: usize::MAX,
                 },
-                meta: None,
+                meta,
             },
         )
         .await
@@ -131,7 +132,7 @@ impl DevRoomsStorage {
         state: &DevServerState,
         param: InsertRoom,
     ) -> anyhow::Result<DevRoom> {
-        let (room, mut container) = DevRoom::new(&state.runtime, &self.bundle).await?;
+        let (room, mut container) = DevRoom::new(&state.runtime, &self.bundle, param.meta).await?;
         let room_key = param.key.unwrap_or(room.id().to_string());
 
         let room_key_clone = room_key.clone();

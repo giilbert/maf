@@ -175,6 +175,27 @@ for (const room of rooms) {
 }
 ```
 
+When creating a room via the API, you can also set initial meta values:
+
+```typescript
+import { MafServiceClient } from "@usemaf/platform";
+
+const server = new MafServiceClient(/* initialize */);
+
+const newRoom = await server.rooms.create({
+  meta: {
+    // Set a meta value called "message".
+    message: "welcome to the room!",
+    // By default, meta values set via the API are private.
+    // To set public meta, use the object form with visibility.
+    owner_id: {
+      visibility: "PRIVATE", // or "PUBLIC"
+      value: "user_12345",
+    },
+  },
+});
+```
+
 ## ⚠️ Warning: Not for Frequent Updates!
 
 Meta is not designed for data that changes frequently or cannot be serialized.

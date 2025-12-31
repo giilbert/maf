@@ -1,5 +1,8 @@
+use std::collections::BTreeMap;
+
 use colored::Colorize;
 use fmtsize::{Conventional, FmtSize as _};
+use maf_schemas::apps::{JsonMetaEntry, MetaVisibility};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 
 use crate::api::AppState;
@@ -118,6 +121,19 @@ impl DevConsole {
                         .table_usage
                         .load(std::sync::atomic::Ordering::Relaxed) as u64)
                 )
+            );
+            dev_print!(
+                "  - Meta: {}",
+                room.inner
+                    .container
+                    .meta
+                    .list::<BTreeMap<String, JsonMetaEntry>>(MetaVisibility::Private)
+                    .await
+                    .iter()
+                    .map(|(k, v)| format!("{} {:?} ({:?})", k, v.value, v.visibility))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+                    .dimmed()
             );
         }
 

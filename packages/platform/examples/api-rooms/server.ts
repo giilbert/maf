@@ -27,7 +27,15 @@ app
   .post("/api/rooms", async (c) => {
     try {
       // Call to MAF Platform to create a new room
-      const room = await server.rooms.create();
+      const room = await server.rooms.create({
+        meta: {
+          privateMeta: "this is a private meta value from the server!",
+          publicMeta: {
+            visibility: "PUBLIC",
+            value: "hello from the server!",
+          },
+        },
+      });
       console.log("Created room", room);
       return c.json({ type: "success", data: room });
     } catch (e) {
