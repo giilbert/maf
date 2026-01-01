@@ -25,3 +25,4 @@ wasmtime = { version = "35.0.0", features = ["async"] }
 wasmtime-wasi = "35.0.0"
 wasmtime-wasi-http = "35.0.0"
 wasmtime-wasi-io = "35.0.0"
+hyper = "1.8.1"

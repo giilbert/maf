@@ -147,6 +147,7 @@ async fn generate_types(state: DevServerState, project: ProjectConfig) -> anyhow
             bytes: &state.rooms.bundle.wasm_module_bytes,
             resource_limit: ContainerResourceLimit::small_defaults(),
             meta: None,
+            secret: "".to_string(),
         },
     )
     .await?;

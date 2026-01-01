@@ -20,7 +20,12 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 use wasmtime as wt;
-use wasmtime_wasi::p2::IoView;
+use wasmtime_wasi::{ResourceTable, p2::IoView};
+use wasmtime_wasi_http::{
+    HttpResult, WasiHttpCtx,
+    body::HyperOutgoingBody,
+    types::{HostFutureIncomingResponse, OutgoingRequestConfig, default_send_request},
+};
 
 use crate::{
     ContainerRuntime,
@@ -104,6 +109,8 @@ pub struct ContainerData {
     pub app_schema_tx: Option<oneshot::Sender<AppSchema>>,
     pub app_schema_rx: Option<oneshot::Receiver<AppSchema>>,
 
+    pub(crate) id: Uuid,
+    pub(crate) secret: String,
     pub(crate) meta: MetaStorage,
     pub(crate) last_activity: Arc<AtomicU64>,
     pub(crate) app_activity: &'static AtomicU64,
@@ -122,12 +129,13 @@ pub struct CreateContainerOptions<'a> {
     pub bytes: &'a [u8],
     pub resource_limit: ContainerResourceLimit,
     pub meta: Option<HashMap<String, JsonMetaEntry>>,
+    pub secret: String,
 }
 
 impl Container {
     pub async fn load_from_binary(
         runtime: &super::ContainerRuntime,
-        room_id: Uuid,
+        id: Uuid,
         options: CreateContainerOptions<'_>,
     ) -> anyhow::Result<Self> {
         let component = wt::component::Component::new(&runtime.engine, &options.bytes)?;
@@ -141,7 +149,7 @@ impl Container {
         let resource_stats = Arc::<ContainerResourceStats>::default();
         let cancel_token = CancellationToken::new();
         let shared = ContainerHandle {
-            room_id,
+            room_id: id,
             runtime: runtime.clone(),
             cancel_token: cancel_token.clone(),
             resources: resource_stats.clone(),
@@ -169,11 +177,13 @@ impl Container {
                 hook_request_rx: Some(hook_request_rx),
                 app_schema_rx: Some(app_schema_rx),
                 app_schema_tx: Some(app_schema_tx),
+                id,
+                secret: options.secret,
                 meta,
                 last_activity: Arc::new(AtomicU64::new(utils::now_as_secs())),
                 app_activity: runtime.app_activity,
                 limiter: ContainerResourceLimiter {
-                    room_id,
+                    room_id: id,
                     stats: resource_stats.clone(),
                     limits: options.resource_limit,
                 },
@@ -186,7 +196,7 @@ impl Container {
         let instance = Bindings::instantiate_async(&mut store, &component, &runtime.linker).await?;
 
         Ok(Self {
-            room_id,
+            room_id: id,
             instance,
             store,
             output: Some(output_rx),
@@ -313,13 +323,27 @@ impl wasmtime_wasi::p2::WasiView for ContainerData {
 }
 
 impl IoView for ContainerData {
-    fn table(&mut self) -> &mut wasmtime_wasi::ResourceTable {
+    fn table(&mut self) -> &mut ResourceTable {
         &mut self.resources
     }
 }
 
 impl wasmtime_wasi_http::WasiHttpView for ContainerData {
-    fn ctx(&mut self) -> &mut wasmtime_wasi_http::WasiHttpCtx {
+    fn ctx(&mut self) -> &mut WasiHttpCtx {
         &mut self.wasi_http_ctx
+    }
+
+    fn send_request(
+        &mut self,
+        mut request: hyper::Request<HyperOutgoingBody>,
+        config: OutgoingRequestConfig,
+    ) -> HttpResult<HostFutureIncomingResponse> {
+        // Insert a header allowing the server to identify the room making the request and verify
+        // its authenticity. The header is in the format `X-Maf-Id: room:<id>:<secret>`.
+        request.headers_mut().insert(
+            "X-Maf-Id",
+            format!("room:{}:{}", self.id, self.secret).parse().unwrap(),
+        );
+        Ok(default_send_request(request, config))
     }
 }

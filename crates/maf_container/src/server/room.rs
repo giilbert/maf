@@ -35,6 +35,7 @@ impl RoomInner {
         options: CreateRoomInnerOptions,
     ) -> anyhow::Result<(Self, Container)> {
         let room_id = Uuid::new_v4();
+        let secret = generate_room_secret();
         let container = Container::load_from_binary(
             &container_runtime,
             room_id,
@@ -42,6 +43,7 @@ impl RoomInner {
                 bytes: &options.bundle.wasm_module_bytes,
                 resource_limit: options.resource_limit,
                 meta: options.meta,
+                secret: secret.clone(),
             },
         )
         .await?;
@@ -49,7 +51,7 @@ impl RoomInner {
         Ok((
             Self {
                 id: room_id,
-                secret: generate_room_secret(),
+                secret,
                 container: container.handle(),
                 bundle: options.bundle,
             },
