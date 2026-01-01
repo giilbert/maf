@@ -120,6 +120,13 @@ impl bindings::HostUser for ContainerData {
         let user = self.resources.get_mut(&user)?;
         Ok(bindings::UserMeta {
             id: user.connection.id().as_u64_pair(),
+            auth: match user.connection.auth() {
+                Some(auth) => Some(
+                    serde_json::to_string(auth)
+                        .map_err(|e| anyhow::anyhow!("failed to serialize auth data: {}", e))?,
+                ),
+                None => None,
+            },
         })
     }
 

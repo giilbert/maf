@@ -30,6 +30,7 @@ interface bindings {
 
     record user-meta {
         id: tuple<u64, u64>,
+        auth: option<string>,
     }
 
     record request {

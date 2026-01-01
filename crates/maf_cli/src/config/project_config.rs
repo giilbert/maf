@@ -20,9 +20,15 @@ impl ProjectConfig {
             if fs::exists(&config_path).is_ok_and(|exists| exists) {
                 let content = fs::read_to_string(&config_path)?;
 
+                let data: ProjectConfigFile =
+                    toml::from_str(&content).context("Failed to parse maf-project.toml")?;
+
+                data.validate()
+                    .map_err(|e| anyhow::anyhow!("Error validating: maf-project.toml: {}", e))?;
+
                 return Ok(Some(ProjectConfig {
                     base: current_directory.clone(),
-                    data: toml::from_str(&content).context("Failed to parse maf-project.toml")?,
+                    data,
                 }));
             }
 

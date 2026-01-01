@@ -1,4 +1,6 @@
-use maf_schemas::apps::{MetaEntryMap, RoomId};
+use anyhow::Context;
+use biscuit::{ClaimsSet, JWT, jwa::SignatureAlgorithm, jws::Secret};
+use maf_schemas::apps::{MetaEntryMap, RoomId, generate_room_secret};
 use tokio::sync::oneshot;
 use uuid::Uuid;
 
@@ -16,6 +18,7 @@ use super::Bundle;
 #[derive(Debug, Clone)]
 pub struct RoomInner {
     id: Uuid,
+    pub secret: String,
     pub container: ContainerHandle,
     pub bundle: Bundle,
 }
@@ -46,6 +49,7 @@ impl RoomInner {
         Ok((
             Self {
                 id: room_id,
+                secret: generate_room_secret(),
                 container: container.handle(),
                 bundle: options.bundle,
             },
@@ -100,5 +104,29 @@ impl RoomInner {
                 anyhow::bail!("failed to receive hook response");
             }
         }
+    }
+
+    /// Decodes and verifies a JWT signed with the room's secret.
+    ///
+    /// If the token is valid, returns the decoded claims as a [`serde_json::Value`]. If the token
+    /// is invalid or verification fails, returns `Err`.
+    pub fn decode_token(&self, token: &str) -> Result<serde_json::Value, anyhow::Error> {
+        let mut verified_jwt: JWT<ClaimsSet<serde_json::Value>, serde_json::Value> =
+            JWT::new_encoded(&token)
+                .decode(
+                    &Secret::bytes_from_str(&self.secret),
+                    SignatureAlgorithm::HS256,
+                )
+                .context("failed to decode JWT")?;
+
+        let payload = verified_jwt.payload_mut().expect("JWT should be decoded");
+
+        // Check that the audience matches the room ID
+        let audience = payload.registered.audience.clone();
+        if !audience.is_some_and(|aud| aud.contains(&self.id.to_string())) {
+            anyhow::bail!("invalid audience in JWT");
+        }
+
+        Ok(serde_json::to_value(payload).context("failed to reencode JWT")?)
     }
 }

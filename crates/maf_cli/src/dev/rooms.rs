@@ -9,10 +9,10 @@ use maf_container::{
     server::{Bundle, CreateRoomInnerOptions, RoomInner},
     Container, ContainerResourceLimit, ContainerRuntime,
 };
-use maf_schemas::apps::{generate_room_secret, MetaEntryMap, RoomCreationStrategy, RoomId};
+use maf_schemas::apps::{MetaEntryMap, RoomCreationStrategy, RoomId};
 use tokio::sync::{RwLock, RwLockReadGuard};
 
-use crate::{config::ProjectConfig, dev::dev_server::DevServerState};
+use crate::{config::ProjectConfig, dev::dev_server::DevServerState, print_dimmed};
 
 // Simplified version of RoomKeyHash and InsertRoom for development purposes
 
@@ -71,7 +71,6 @@ impl DevRoom {
                 id: inner.id(),
                 meta: DevRoomMeta {
                     id: inner.id(),
-                    secret: generate_room_secret(),
                     _strategy: RoomCreationStrategy::AutoCreate,
                     key: inner.id().to_string(),
                 },
@@ -89,7 +88,6 @@ impl DevRoom {
 #[derive(Debug, Clone)]
 pub struct DevRoomMeta {
     pub id: RoomId,
-    pub secret: String,
     pub _strategy: RoomCreationStrategy,
     pub key: String,
 }
@@ -171,7 +169,6 @@ impl DevRoomsStorage {
 
         let meta = DevRoomMeta {
             id: room.id(),
-            secret: generate_room_secret(),
             _strategy: param.strategy.clone(),
             key: room_key.clone(),
         };

@@ -44,12 +44,24 @@ export interface SessionInfo {
   id: string;
 }
 
-export type ConnectOptions =
+export type ConnectRoomOptions =
   | { type: "default" }
   | {
       type: "room";
       id: string;
     };
+
+export type ConnectOptions = ConnectRoomOptions & {
+  auth?:
+    | {
+        type: "token";
+        token: string;
+      }
+    | {
+        type: "anonymous";
+        data?: Record<string, unknown>;
+      };
+};
 
 export class MafUntypedBaseClient extends Emittery<MafClientEvents> {
   public readonly url: URL;
@@ -111,6 +123,19 @@ export class MafUntypedBaseClient extends Emittery<MafClientEvents> {
       connectionUrl.pathname += "/default/connect";
     } else {
       throw new Error("Invalid connection options");
+    }
+
+    if (options.auth) {
+      if (options.auth.type === "token") {
+        connectionUrl.searchParams.set("token", options.auth.token);
+      } else if (options.auth.type === "anonymous") {
+        connectionUrl.searchParams.set(
+          "auth",
+          btoa(JSON.stringify(options.auth.data || {}))
+        );
+      } else {
+        throw new Error("Invalid auth options");
+      }
     }
 
     const ws = new WebSocket(connectionUrl);

@@ -1,5 +1,6 @@
 import { MafServiceClient } from ".";
 import { PlatformApiError } from "./error";
+import { SignJWT } from "jose";
 
 // Various ways to identify a room.
 export type AnyRoomId = { tag: "id"; id: string } | { tag: "key"; key: string };
@@ -94,6 +95,33 @@ export class Room {
   get meta() {
     if (!this._data) throw new Error("Room not initialized");
     return this._data.meta;
+  }
+
+  /**
+   * Signs a JWT payload using the room's secret. This is used for
+   * authenticating clients connecting to the room. The token returned by this
+   * method should be included in the connection request to the MAF servers and
+   * will expire in 1 minute.
+   *
+   * If the `sub` property is provided in the `data` parameter, MAF servers will
+   * prevent multiple connections using the same `sub` value. If not provided,
+   * connections will be treated as anonymous.
+   *
+   * @param data The payload data to sign.
+   */
+  sign(data: { sub?: string; [key: string]: unknown }) {
+    if (!this._data) throw new Error("Room not initialized");
+    const jwt = new SignJWT(
+      Object.fromEntries(Object.entries(data).filter(([k]) => k !== "sub"))
+    )
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt()
+      .setAudience(this.id)
+      .setExpirationTime("1m");
+
+    if (data.sub) jwt.setSubject(data.sub);
+
+    return jwt.sign(new TextEncoder().encode(this.secret));
   }
 
   toJSON() {

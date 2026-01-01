@@ -1,7 +1,7 @@
 export {
   MafClient,
   DEFAULT_DEV_SERVER_URL,
-  type ConnectOptions,
+  type ConnectRoomOptions as ConnectOptions,
   type MafClientOptions,
   type MafServerOptions,
   type SessionInfo,

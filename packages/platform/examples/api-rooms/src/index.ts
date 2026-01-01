@@ -70,7 +70,8 @@ async function connect(id: string) {
   // If you do not turn on authentication, you can connect to rooms with just
   // the room ID.
   console.log("Connecting to room ID:", id);
-  await client.connect({ type: "room", id });
+  const token = await getToken(id);
+  await client.connect({ type: "room", id, auth: { type: "token", token } });
   console.log("Connected to room:", id);
   ui.innerText = `Connected to room: ${id}\n\nCounter: <loading>`;
 
@@ -109,6 +110,28 @@ async function loadRoomList() {
     text += `- ID: ${room.id}\n`;
   }
   roomList.innerText = text;
+}
+
+async function getToken(roomId: string) {
+  // Example of getting a token for a specific room from our server.
+  //
+  // In a real application, you would likely want to authenticate the user
+  // before issuing a token, and you would want to ensure that the user is
+  // authorized to join the room they are requesting a token for.
+  console.log("Requesting token for room ID:", roomId);
+  const res = await fetch(`http://localhost:8080/api/rooms/${roomId}/token`, {
+    method: "POST",
+  });
+
+  type GetTokenResponseBody =
+    | { type: "success"; data: { token: string } }
+    | { type: "error"; message: string };
+  const body: GetTokenResponseBody = await res.json();
+  if (body.type === "error") {
+    throw new Error(`Failed to get token: ${body.message}`);
+  }
+
+  return body.data.token;
 }
 
 ui.innerText = "Select an option on the left!";

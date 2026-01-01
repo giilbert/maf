@@ -87,6 +87,13 @@ impl PlatformUser for RawUser {
 
         UserMeta {
             id: Uuid::from_u64_pair(bindings_meta.id.0, bindings_meta.id.1),
+            auth: match bindings_meta.auth {
+                Some(auth_str) => Some(
+                    serde_json::from_str(&auth_str)
+                        .expect("Failed to deserialize user auth metadata"),
+                ),
+                None => None,
+            },
         }
     }
 

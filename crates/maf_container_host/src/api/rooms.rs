@@ -6,11 +6,11 @@ use std::{
 use anyhow::Context;
 use dashmap::{DashMap, DashSet};
 use maf_container::{
-    server::{CreateRoomInnerOptions, RoomInner},
     ContainerResourceLimit,
+    server::{CreateRoomInnerOptions, RoomInner},
 };
 use maf_schemas::{
-    apps::{generate_room_secret, AppNameAndOrgSlug, RoomCreationStrategy, RoomId, RoomKeyHash},
+    apps::{AppNameAndOrgSlug, RoomCreationStrategy, RoomId, RoomKeyHash},
     error::ErrorResponse,
 };
 use tokio::sync::{Notify, RwLock, RwLockReadGuard};
@@ -32,8 +32,6 @@ pub struct Room {
 pub struct RoomMeta {
     pub id: RoomId,
     pub app_info: AppNameAndOrgSlug,
-    /// This is used to create and verify JWT payloads.
-    pub secret: String,
     /// The room creation strategy used to create this room. Needed to determine how to handle room
     /// removal and access.
     pub strategy: RoomCreationStrategy,
@@ -92,7 +90,6 @@ impl RoomsStorage {
         let meta = RoomMeta {
             id: param.room.id(),
             app_info: param.app.clone(),
-            secret: generate_room_secret(),
             strategy: param.strategy.clone(),
             key: param.key.clone(),
         };

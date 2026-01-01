@@ -15,7 +15,7 @@ pub struct Connection {
 }
 
 impl Connection {
-    pub async fn new(ws: WebSocket) -> anyhow::Result<Self> {
+    pub async fn new(ws: WebSocket, auth_data: Option<serde_json::Value>) -> anyhow::Result<Self> {
         let id = Uuid::new_v4();
         let (mut ws_tx, mut ws_rx) = ws.split();
 
@@ -91,7 +91,10 @@ impl Connection {
             platform: maf::platform::RawUser {
                 messages_tx: server_send_tx,
                 messages_rx: Mutex::new(client_send_rx),
-                meta: maf::user::UserMeta { id },
+                meta: maf::user::UserMeta {
+                    id,
+                    auth: auth_data,
+                },
             },
         })
     }

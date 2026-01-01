@@ -1,6 +1,8 @@
 import { AnyRoomId, Room, Rooms } from "./rooms";
 import { DEFAULT_DEV_SERVER_URL, type MafServerOptions } from "@usemaf/client";
 
+export { Room };
+
 export interface MafServiceClientOptions {
   server: MafServerOptions;
 

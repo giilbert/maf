@@ -30,8 +30,12 @@ impl Room {
         })
     }
 
-    pub async fn handle_upgrade(&self, ws: WebSocket) -> anyhow::Result<()> {
-        let connection = Connection::new(ws).await?;
+    pub async fn handle_upgrade(
+        &self,
+        ws: WebSocket,
+        auth_data: Option<serde_json::Value>,
+    ) -> anyhow::Result<()> {
+        let connection = Connection::new(ws, auth_data).await?;
         self.platform.add_user(connection.platform)?;
         // TODO: allow connection to be used in the future instead of being dropped here
         Ok(())

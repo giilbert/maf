@@ -8,6 +8,8 @@ publish = false
 async-trait = "0.1.88"
 anyhow = "^1.0.96"
 axum = { version = "0.8.3", features = ["macros", "ws"] }
+base64 = "0.22.1"
+biscuit = "0.7.0"
 bytes = "1.10.1"
 futures-util = "0.3.31"
 rand = "0.9.1"

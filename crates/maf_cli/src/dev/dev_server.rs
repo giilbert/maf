@@ -7,18 +7,18 @@
 use std::sync::{atomic::AtomicU64, Arc};
 
 use axum::{
-    extract::{Path, State, WebSocketUpgrade},
+    extract::{Path, Query, State, WebSocketUpgrade},
     response::Response,
     routing::get,
     ServiceExt,
 };
 use colored::Colorize;
 use maf_container::{
-    server::handle_ws_upgrade, Container, ContainerResourceLimit, ContainerRuntime,
-    CreateContainerOptions,
+    server::{get_auth_data, handle_ws_upgrade, pre_create_room_auth_check},
+    Container, ContainerResourceLimit, ContainerRuntime, CreateContainerOptions,
 };
 use maf_schemas::{
-    apps::{InfoResponse, MetaVisibility, RoomCreationStrategy},
+    apps::{ConnectQueryParams, InfoResponse, MetaVisibility, RoomCreationStrategy},
     error::ErrorResponse,
 };
 use tower::ServiceBuilder;
@@ -63,9 +63,20 @@ pub async fn start_local_server(
     let room_creation_strategy = context.project_config.room_creation_strategy_or_default();
 
     print_dimmed!(
-        "[dev] Using room creation strategy: {}",
+        "[dev] - Using room creation strategy: {}",
         room_creation_strategy.format_with_description()
     );
+    if let Some(auth_mode) = context
+        .project_config
+        .as_ref()
+        .and_then(|p| p.data.auth.clone())
+        .map(|a| a.mode)
+    {
+        print_dimmed!(
+            "[dev] - Authentication mode: {}",
+            auth_mode.format_with_description()
+        );
+    }
 
     match room_creation_strategy {
         RoomCreationStrategy::AuthenticatedApiRequest => {
@@ -173,8 +184,17 @@ async fn info_route(
 async fn connect_route(
     State(state): State<DevServerState>,
     Path((_org_slug, _app_name, room_key)): Path<(String, String, String)>,
+    Query(query_params): Query<ConnectQueryParams>,
     ws: WebSocketUpgrade,
 ) -> Result<Response, ErrorResponse> {
+    let auth_mode = state
+        .project
+        .as_ref()
+        .cloned()
+        .and_then(|p| p.data.auth)
+        .map(|a| a.mode);
+
+    let _ = pre_create_room_auth_check(&query_params, auth_mode.as_ref())?;
     let room = match state.rooms.get_by_key_or_id(&room_key).await {
         Some(room) => room,
         None => {
@@ -207,8 +227,9 @@ async fn connect_route(
             }
         }
     };
+    let auth_data = get_auth_data(&query_params, auth_mode.as_ref(), &room.inner)?;
 
-    Ok(handle_ws_upgrade(ws, room.inner.clone()).await)
+    Ok(handle_ws_upgrade(ws, room.inner.clone(), auth_data).await)
 }
 
 // async fn hook_request_handler(

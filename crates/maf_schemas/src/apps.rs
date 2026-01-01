@@ -8,7 +8,7 @@ use uuid::Uuid;
 pub fn generate_room_secret() -> String {
     let mut rng = rand::rng();
 
-    (0..64)
+    (0..256)
         .map(|_| rng.sample(rand::distr::Alphanumeric) as char)
         .collect()
 }
@@ -187,3 +187,25 @@ impl JsonMetaEntry {
 }
 
 pub type MetaEntryMap = HashMap<String, JsonMetaEntry>;
+
+#[derive(Deserialize)]
+pub struct ConnectQueryParams {
+    /// A JWT token for authenticating the user connecting to the room. This token is only needed
+    /// if the auth.mode in config for the room requires it.
+    pub token: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct RoomListQueryParams {
+    pub by_key: Option<String>,
+    pub by_id: Option<Uuid>,
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(untagged)]
+pub enum RoomQueryResponse {
+    /// A single room. This is returned when filtering by a specific key or ID.
+    Single(RoomInfo),
+    /// Multiple rooms. This is returned when no specific filter is applied.
+    Multiple(Vec<RoomInfo>),
+}

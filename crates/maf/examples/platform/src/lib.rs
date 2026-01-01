@@ -41,6 +41,7 @@ fn increment_counter(
 
 fn on_connect(user: User) {
     println!("user connected! id: {}", user.meta().id());
+    println!("- auth data: {:?}", user.auth::<serde_json::Value>());
 }
 
 fn build() -> App {

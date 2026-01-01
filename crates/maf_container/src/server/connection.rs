@@ -8,12 +8,18 @@ use axum::{
     },
     response::Response,
 };
+use base64::Engine;
 use bytes::Bytes;
 use futures_util::{
     SinkExt, StreamExt,
     stream::{SplitSink, SplitStream},
 };
-use maf_schemas::packet::{ServerHandshake, TxPacket};
+use maf_schemas::{
+    apps::ConnectQueryParams,
+    error::ErrorResponse,
+    packet::{ServerHandshake, TxPacket},
+    project_config::AuthMode,
+};
 use tokio::{
     sync::{Mutex, mpsc},
     time::timeout,
@@ -30,6 +36,7 @@ pub struct Connection {
 #[derive(Clone)]
 pub struct ConnectionHandle {
     pub(crate) id: Uuid,
+    pub(crate) auth_data: Option<serde_json::Value>,
     message_rx: Arc<Mutex<Option<mpsc::Receiver<bindings::Message>>>>,
     command_tx: mpsc::Sender<ConnectionCommand>,
 }
@@ -50,7 +57,7 @@ pub enum ConnectionCommand {
 }
 
 impl Connection {
-    pub async fn init(ws: WebSocket) -> anyhow::Result<Self> {
+    pub async fn init(ws: WebSocket, auth_data: Option<serde_json::Value>) -> anyhow::Result<Self> {
         let (mut ws_tx, mut ws_rx) = ws.split();
         let (message_tx, message_rx) = mpsc::channel::<bindings::Message>(100);
         let (command_tx, command_rx) = mpsc::channel::<ConnectionCommand>(100);
@@ -86,6 +93,7 @@ impl Connection {
         Ok(Self {
             shared: ConnectionHandle {
                 id: connection_id,
+                auth_data,
                 command_tx: command_tx.clone(),
                 message_rx: Arc::new(Mutex::new(Some(message_rx))),
             },
@@ -193,6 +201,10 @@ impl crate::Connection for ConnectionHandle {
             })
     }
 
+    fn auth(&self) -> Option<&serde_json::Value> {
+        self.auth_data.as_ref()
+    }
+
     async fn get_message_channel(&self) -> anyhow::Result<mpsc::Receiver<bindings::Message>> {
         self.message_rx
             .lock()
@@ -209,14 +221,81 @@ fn convert_to_axum_message(message: bindings::Message) -> Message {
     }
 }
 
-pub async fn handle_ws_upgrade(ws: WebSocketUpgrade, room: RoomInner) -> Response {
+pub fn pre_create_room_auth_check(
+    query_params: &ConnectQueryParams,
+    auth_mode: Option<&AuthMode>,
+) -> Result<(), ErrorResponse> {
+    if let Some(AuthMode::Jwt) = auth_mode
+        && query_params.token.is_none()
+    {
+        return Err(ErrorResponse::unauthorized(Some(
+            "This room requires a JWT token for authentication.",
+        )));
+    }
+
+    const MAX_TOKEN_LENGTH: usize = 8192; // 8 KB
+    if query_params
+        .token
+        .as_ref()
+        .is_some_and(|t| t.len() > MAX_TOKEN_LENGTH)
+    {
+        return Err(ErrorResponse::bad_request(Some(
+            "Token length exceeds maximum allowed size.",
+        )));
+    }
+
+    Ok(())
+}
+
+pub fn get_auth_data(
+    query_params: &ConnectQueryParams,
+    auth_mode: Option<&AuthMode>,
+    room: &RoomInner,
+) -> Result<Option<serde_json::Value>, ErrorResponse> {
+    match &query_params.token {
+        Some(token) => {
+            // If the mode is JWT, we need to decode and verify the token
+            if let Some(AuthMode::Jwt) = auth_mode {
+                let decoded = room.decode_token(&token).map_err(|e| {
+                    ErrorResponse::unauthorized(Some(&format!("invalid token: {}", e)))
+                })?;
+
+                Ok(Some(decoded))
+            } else {
+                // If the auth mode is not JWT, first base64 decode the token and then parse as JSON
+                let decoded = base64::engine::general_purpose::STANDARD
+                    .decode(&token)
+                    .map_err(|e| {
+                        ErrorResponse::bad_request(Some(&format!("failed to decode token: {}", e)))
+                    })?;
+                let decoded: serde_json::Value = serde_json::from_slice(&decoded).map_err(|e| {
+                    ErrorResponse::bad_request(Some(&format!("failed to parse token: {}", e)))
+                })?;
+
+                Ok(Some(decoded))
+            }
+        }
+        None => Ok(None),
+    }
+}
+
+pub async fn handle_ws_upgrade(
+    ws: WebSocketUpgrade,
+    room: RoomInner,
+    auth_data: Option<serde_json::Value>,
+) -> Response {
     ws.on_upgrade(|ws| async move {
-        async fn try_init(ws: WebSocket, room: RoomInner) -> anyhow::Result<Connection> {
-            let connection = Connection::init(ws).await?;
+        tracing::debug!(
+            auth_data = ?auth_data,
+            "connecting websocket to room {}", room.id()
+        );
+
+        let try_init = |ws: WebSocket, room: RoomInner| async move {
+            let connection = Connection::init(ws, auth_data).await?;
             let handle = connection.handle();
             room.add_connection(handle).await?;
-            Ok(connection)
-        }
+            Ok::<_, anyhow::Error>(connection)
+        };
 
         let connection = match try_init(ws, room).await {
             Ok(connection) => connection,
@@ -227,7 +306,7 @@ pub async fn handle_ws_upgrade(ws: WebSocketUpgrade, room: RoomInner) -> Respons
         };
 
         match connection.run().await {
-            Ok(_) => tracing::info!("websocket connection closed"),
+            Ok(_) => tracing::debug!("websocket connection closed"),
             Err(error) => tracing::warn!("websocket connection error: {error:?}"),
         }
     })

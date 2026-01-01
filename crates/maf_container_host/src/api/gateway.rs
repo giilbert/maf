@@ -15,18 +15,19 @@
 use std::collections::BTreeMap;
 
 use axum::{
+    Json, Router,
     extract::{Path, Query, State, WebSocketUpgrade},
     response::Response,
     routing::get,
-    Json, Router,
 };
-use maf_container::server::handle_ws_upgrade;
+use maf_container::server::{get_auth_data, handle_ws_upgrade, pre_create_room_auth_check};
 use maf_schemas::{
-    apps::{AppNameAndOrgSlug, InfoResponse, MetaVisibility, RoomCreationStrategy},
+    apps::{
+        AppNameAndOrgSlug, ConnectQueryParams, InfoResponse, MetaVisibility, RoomCreationStrategy,
+    },
     error::ErrorResponse,
     project_config::ProjectConfigFile,
 };
-use serde::Deserialize;
 
 use crate::storage::repos::app_repo;
 
@@ -68,9 +69,6 @@ async fn info_route(
     Ok(Json(InfoResponse { meta }))
 }
 
-#[derive(Deserialize)]
-pub struct ConnectQueryParams {}
-
 /// **GET** `/@/{org_slug}/{app_name}/{room_key}/connect`
 ///
 /// FIXME: There is no way for clients to get an error message if something goes wrong here since
@@ -79,28 +77,32 @@ pub struct ConnectQueryParams {}
 async fn connect_route(
     State(state): State<AppState>,
     Path((org_slug, app_name, room_key)): Path<(String, String, String)>,
-    Query(_query_params): Query<ConnectQueryParams>,
+    Query(query_params): Query<ConnectQueryParams>,
     ws: WebSocketUpgrade,
 ) -> Result<Response, ErrorResponse> {
     // Fetch the app and determine its room creation strategy, defaulting based on environment and
     // whether it is set
     let app = app_repo::get_app_by_name_and_org_slug(&state.db, &app_name, &org_slug).await?;
-    let room_creation_strategy = match app.as_ref().map(|app| app.config.clone()).flatten() {
-        Some(config) => {
-            let parsed_config = toml::from_str::<ProjectConfigFile>(&config).map_err(|_| {
-                ErrorResponse::bad_request(Some(&format!("failed to parse app config")))
-            })?;
+    let (room_creation_strategy, auth_mode) =
+        match app.as_ref().map(|app| app.config.clone()).flatten() {
+            Some(config) => {
+                let parsed_config = toml::from_str::<ProjectConfigFile>(&config).map_err(|_| {
+                    ErrorResponse::bad_request(Some(&format!("failed to parse app config")))
+                })?;
 
-            parsed_config.rooms
-        }
-        None => {
-            if state.environment == Environment::Development {
-                RoomCreationStrategy::AutoCreate
-            } else {
-                RoomCreationStrategy::AuthenticatedApiRequest
+                (parsed_config.rooms, parsed_config.auth.map(|a| a.mode))
             }
-        }
-    };
+            None => (
+                if state.environment == Environment::Development {
+                    RoomCreationStrategy::AutoCreate
+                } else {
+                    RoomCreationStrategy::AuthenticatedApiRequest
+                },
+                None,
+            ),
+        };
+
+    let _ = pre_create_room_auth_check(&query_params, auth_mode.as_ref())?;
 
     let room = match room_creation_strategy {
         RoomCreationStrategy::AuthenticatedApiRequest => {
@@ -137,7 +139,9 @@ async fn connect_route(
         }
     };
 
-    Ok(handle_ws_upgrade(ws, room.inner).await)
+    let auth_data = get_auth_data(&query_params, auth_mode.as_ref(), &room.inner)?;
+
+    Ok(handle_ws_upgrade(ws, room.inner, auth_data).await)
 }
 
 // **POST** `/@/{org_slug}/{app_name}/{room_key}/hooks/{method}`

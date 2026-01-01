@@ -1,21 +1,22 @@
 use std::collections::BTreeMap;
 
 use axum::{
+    Json, Router,
     body::Body,
     extract::{Path, Query, State},
     middleware,
     routing::{get, post},
-    Json, Router,
 };
 use chrono::Utc;
 use maf_container::{
-    server::{CreateRoomInnerOptions, RoomInner},
     ContainerResourceLimit,
+    server::{CreateRoomInnerOptions, RoomInner},
 };
 use maf_schemas::{
     apps::{
         AppNameAndOrgSlug, CreateRoomOptions, CreateUserAppRequest, MetaVisibility,
-        RoomCreationStrategy, RoomInfo, RoomKeyHash, UpdateUserAppRequest,
+        RoomCreationStrategy, RoomInfo, RoomKeyHash, RoomListQueryParams, RoomQueryResponse,
+        UpdateUserAppRequest,
     },
     error::ErrorResponse,
     project_config::ProjectConfigFile,
@@ -25,7 +26,7 @@ use uuid::Uuid;
 
 use crate::{
     api::{
-        auth::{authenticate_service_request, authenticate_user_request, AuthedServiceAccount},
+        auth::{AuthedServiceAccount, authenticate_service_request, authenticate_user_request},
         rooms::InsertRoom,
     },
     storage::{
@@ -194,6 +195,16 @@ async fn update_app(
                 "Config cannot be longer than 2000 characters.",
             )));
         }
+
+        toml::from_str::<ProjectConfigFile>(config)
+            .map_err(|_| ErrorResponse::bad_request(Some("Invalid project config")))?
+            .validate()
+            .map_err(|e| {
+                ErrorResponse::bad_request(Some(&format!(
+                    "Failed to validate project config: {}",
+                    e.to_string()
+                )))
+            })?;
     }
 
     let mut app_model: app::ActiveModel = app.into();
@@ -246,21 +257,6 @@ async fn delete_app(
     Ok(Json(app))
 }
 
-#[derive(Debug, serde::Deserialize)]
-struct RoomListQueryParams {
-    by_key: Option<String>,
-    by_id: Option<Uuid>,
-}
-
-#[derive(Debug, serde::Serialize)]
-#[serde(untagged)]
-pub enum RoomQueryResponse {
-    /// A single room. This is returned when filtering by a specific key or ID.
-    Single(RoomInfo),
-    /// Multiple rooms. This is returned when no specific filter is applied.
-    Multiple(Vec<RoomInfo>),
-}
-
 /// **GET** `/api/v1/apps/{org}/{app}/rooms`
 ///
 /// Query parameters can be used to filter rooms:
@@ -292,7 +288,7 @@ async fn service_get_rooms(
                 return Ok(Json(RoomQueryResponse::Single(RoomInfo {
                     id: room.id,
                     key: room.meta.key.clone(),
-                    secret: room.meta.secret.clone(),
+                    secret: room.inner.secret.clone(),
                     meta: room
                         .inner
                         .container
@@ -324,7 +320,7 @@ async fn service_get_rooms(
                     return Ok(Json(RoomQueryResponse::Single(RoomInfo {
                         id: room.id,
                         key: room.meta.key.clone(),
-                        secret: room.meta.secret.clone(),
+                        secret: room.inner.secret.clone(),
                         meta: room
                             .inner
                             .container
@@ -364,7 +360,7 @@ async fn service_get_rooms(
                     rooms.push(RoomInfo {
                         id: room.id,
                         key: room.meta.key.clone(),
-                        secret: room.meta.secret.clone(),
+                        secret: room.inner.secret.clone(),
                         meta: room
                             .inner
                             .container
@@ -483,7 +479,7 @@ async fn service_create_room(
     Ok(Json(RoomInfo {
         id: room_id,
         key: room_meta.key.clone(),
-        secret: room_meta.secret,
+        secret: room.secret,
         meta: room
             .container
             .meta

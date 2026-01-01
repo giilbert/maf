@@ -41,7 +41,8 @@ impl<S: RouteConfig> MafRoutes<S> {
 
                     match room {
                         Some(room) => Ok(ws.on_upgrade(|socket| async move {
-                            if let Err(e) = room.handle_upgrade(socket).await {
+                            // TODO: Support auth data for maf_native
+                            if let Err(e) = room.handle_upgrade(socket, None).await {
                                 tracing::error!("error during WebSocket connection: {e:?}");
                             }
                         })),

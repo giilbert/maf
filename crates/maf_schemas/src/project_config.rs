@@ -12,6 +12,35 @@ pub struct ProjectConfigFile {
     pub typed: Option<TypedConfig>,
     pub debug: TargetConfig,
     pub release: TargetConfig,
+    pub auth: Option<AuthConfig>,
+}
+
+impl ProjectConfigFile {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.rooms == RoomCreationStrategy::AutoCreate && self.auth.is_some() {
+            return Err("'auth' cannot be set when 'rooms' is 'AutoCreate'".into());
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthConfig {
+    pub mode: AuthMode,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum AuthMode {
+    Jwt,
+}
+
+impl AuthMode {
+    pub fn format_with_description(&self) -> String {
+        match self {
+            AuthMode::Jwt => "Jwt (Your server needs to create and sign a JWT)".into(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

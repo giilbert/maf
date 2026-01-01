@@ -1,8 +1,12 @@
 //! Abstractions for connected users.
 
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::{Arc, RwLock},
+};
 
 use maf_schemas::packet::RxPacket;
+use serde::de::DeserializeOwned;
 use uuid::Uuid;
 
 use crate::{
@@ -38,12 +42,14 @@ pub struct User {
     meta: UserMeta,
     state: Arc<AppState>,
     inner: Arc<platform::RawUser>,
+    auth_deserialized_cached: Arc<RwLock<Option<Arc<dyn std::any::Any + Send + Sync>>>>,
 }
 
 /// MAF user metadata
 #[derive(Debug, Clone)]
 pub struct UserMeta {
     pub id: Uuid,
+    pub auth: Option<serde_json::Value>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -60,12 +66,41 @@ impl User {
             meta: raw.meta(),
             state,
             inner: Arc::new(raw),
+            auth_deserialized_cached: Arc::new(RwLock::new(None)),
         }
     }
 
     /// Returns a reference to the user's metadata.
     pub fn meta(&self) -> &UserMeta {
         &self.meta
+    }
+
+    /// Tries to decode the user's authentication information, panicking if it does not exist or
+    /// match the expected type.
+    pub fn auth<T: DeserializeOwned + Send + Sync + 'static>(&self) -> Arc<T> {
+        // If we have a cached version, return it
+        if let Some(Ok(cached)) = self
+            .auth_deserialized_cached
+            .read()
+            .expect("poisoned lock")
+            .as_ref()
+            .map(|arc_any| arc_any.clone().downcast::<T>())
+        {
+            return cached;
+        }
+
+        let auth = self.meta.auth.as_ref().expect("user is not authenticated");
+        let auth_arc: Arc<T> = Arc::new(
+            serde_json::from_value::<T>(auth.clone())
+                .expect("failed to deserialize user auth data"),
+        );
+
+        self.auth_deserialized_cached
+            .write()
+            .expect("poisoned lock")
+            .replace(auth_arc.clone());
+
+        auth_arc
     }
 
     /// Awaits the next message the user has sent from a message buffer.
