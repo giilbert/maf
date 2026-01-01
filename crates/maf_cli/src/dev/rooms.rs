@@ -134,8 +134,10 @@ impl DevRoomsStorage {
     ) -> anyhow::Result<DevRoom> {
         let (room, mut container) = DevRoom::new(&state.runtime, &self.bundle, param.meta).await?;
         let room_key = param.key.unwrap_or(room.id().to_string());
+        let output_finished_token = tokio_util::sync::CancellationToken::new();
 
         let room_key_clone = room_key.clone();
+        let output_finished_token_clone = output_finished_token.clone();
         let mut output = container.output().expect("Output should be available");
         tokio::spawn(async move {
             while let Some(line) = output.recv().await {
@@ -146,11 +148,16 @@ impl DevRoomsStorage {
                     "out".blue()
                 )
             }
+
+            print_dimmed!("[dev] `{}` output finished", room_key_clone);
+            output_finished_token_clone.cancel();
         });
 
         let room_key_clone = room_key.clone();
         tokio::spawn(async move {
             if let Err(e) = container.run().await {
+                drop(container);
+                output_finished_token.cancelled().await;
                 println!(
                     "{}",
                     format!(
