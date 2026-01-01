@@ -103,10 +103,6 @@ export class Room {
    * method should be included in the connection request to the MAF servers and
    * will expire in 1 minute.
    *
-   * If the `sub` property is provided in the `data` parameter, MAF servers will
-   * prevent multiple connections using the same `sub` value. If not provided,
-   * connections will be treated as anonymous.
-   *
    * @param data The payload data to sign.
    */
   sign(data: { sub?: string; [key: string]: unknown }) {
