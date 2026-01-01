@@ -93,8 +93,6 @@ impl Request {
     }
 
     pub async fn send(self) -> Result<Response, RequestError> {
-        println!("{:?}", self);
-
         let req = OutgoingRequest::new(
             header_map_to_fields(&self.headers).map_err(RequestError::InvalidHeader)?,
         );
