@@ -31,22 +31,22 @@ install-cli:
 # starts a development server that watches for changes in packages/react and packages/client and rebuilds them on change
 [group('npm')]
 watch:
-    pnpm --parallel --filter=@usemaf/react --filter=@usemaf/client dev
+    pnpm --parallel --filter=@usemaf/react --filter=@usemaf/client --filter=@usemaf/platform dev
 
 # checks types in @usemaf/react and @usemaf/client
 [group('npm')]
 type-check:
-    pnpm --parallel --filter=@usemaf/react --filter=@usemaf/client type-check
+    pnpm --parallel --filter=@usemaf/react --filter=@usemaf/client --filter=@usemaf/platform type-check
 
 # builds @usemaf/react and @usemaf/client
 [group('npm')]
 npm-build:
-    pnpm run --filter=@usemaf/react --filter=@usemaf/client build
+    pnpm run --filter=@usemaf/react --filter=@usemaf/client --filter=@usemaf/platform build
 
 # builds @usemaf/react and @usemaf/client and publishes them to npm
 [group('npm')]
 npm-publish: npm-build
-    pnpm publish --filter=@usemaf/react --filter=@usemaf/client --access public --no-git-checks
+    pnpm publish --filter=@usemaf/react --filter=@usemaf/client --filter=@usemaf/platform --access public --no-git-checks
 
 # [interactive] bumps the version of all packages 
 [group('npm')]
