@@ -1,12 +1,17 @@
 [package]
 name = "maf_typed"
-version = "0.1.0-alpha.4"
+version = "0.1.0-alpha.5"
 edition = "2024"
-publish = false
+
+license = "MIT"
+description = "MAF Typed provides type generation for MAF applications and libraries."
+homepage = "https://maf.gilbertz.me"
+repository = "https://github.com/giilbert/maf"
+readme = "../../README.md"
 
 [dependencies]
 anyhow = "^1.0.96"
-maf_schemas = { path = "../maf_schemas" }
+maf_schemas = { version = "0.1.0-alpha.5", path = "../maf_schemas" }
 schemars = "1.0.4"
 serde = { version = "^1", features = ["derive", "rc"] }
 serde_json = "1.0.140"
