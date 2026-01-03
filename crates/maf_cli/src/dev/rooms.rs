@@ -51,6 +51,7 @@ impl DevRoom {
         runtime: &ContainerRuntime,
         bundle: &Bundle,
         meta: Option<MetaEntryMap>,
+        key: Option<String>,
     ) -> anyhow::Result<(Self, Container)> {
         let (inner, container) = RoomInner::new(
             runtime,
@@ -72,7 +73,7 @@ impl DevRoom {
                 meta: DevRoomMeta {
                     id: inner.id(),
                     _strategy: RoomCreationStrategy::AutoCreate,
-                    key: inner.id().to_string(),
+                    key: key.unwrap_or_else(|| inner.id().to_string()),
                 },
                 inner,
             },
@@ -130,11 +131,12 @@ impl DevRoomsStorage {
         state: &DevServerState,
         param: InsertRoom,
     ) -> anyhow::Result<DevRoom> {
-        let (room, mut container) = DevRoom::new(&state.runtime, &self.bundle, param.meta).await?;
-        let room_key = param.key.unwrap_or(room.id().to_string());
+        let (room, mut container) =
+            DevRoom::new(&state.runtime, &self.bundle, param.meta, param.key.clone()).await?;
         let output_finished_token = tokio_util::sync::CancellationToken::new();
+        let meta = room.meta.clone();
 
-        let room_key_clone = room_key.clone();
+        let room_key_clone = meta.key.clone();
         let output_finished_token_clone = output_finished_token.clone();
         let mut output = container.output().expect("Output should be available");
         tokio::spawn(async move {
@@ -151,7 +153,7 @@ impl DevRoomsStorage {
             output_finished_token_clone.cancel();
         });
 
-        let room_key_clone = room_key.clone();
+        let room_key_clone = meta.key.clone();
         tokio::spawn(async move {
             if let Err(e) = container.run().await {
                 drop(container);
@@ -167,12 +169,6 @@ impl DevRoomsStorage {
             }
         });
 
-        let meta = DevRoomMeta {
-            id: room.id(),
-            _strategy: param.strategy.clone(),
-            key: room_key.clone(),
-        };
-
         match param.strategy {
             RoomCreationStrategy::AutoCreate => {
                 *self.auto_created_room.write().await = Some(room.id());
@@ -187,7 +183,7 @@ impl DevRoomsStorage {
         self.keys
             .write()
             .await
-            .insert(room_key.clone(), meta.id.clone());
+            .insert(meta.key.clone(), meta.id.clone());
 
         println!("[dev] Created room with key `{}`", meta.key);
 
