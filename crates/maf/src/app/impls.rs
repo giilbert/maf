@@ -1,4 +1,7 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use anyhow::Context;
 use maf_schemas::packet::{
@@ -310,6 +313,7 @@ impl App {
     /// work, such as in .background tasks
     pub async fn flush_all_store_changes(&self) -> anyhow::Result<()> {
         let mut store_dirty_rx = self.inner.store_dirty_rx.write().await;
+        let mut has_updated = HashSet::with_capacity(64);
 
         loop {
             let store_id = match store_dirty_rx.try_recv() {
@@ -320,7 +324,11 @@ impl App {
                 }
             };
 
+            if has_updated.contains(&store_id) {
+                continue;
+            }
             self.flush_store_change(&store_id).await?;
+            has_updated.insert(store_id);
         }
 
         Ok(())
