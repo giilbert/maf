@@ -20,12 +20,14 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 use wasmtime as wt;
-use wasmtime_wasi::{ResourceTable, p2::IoView};
-use wasmtime_wasi_http::{
-    HttpResult, WasiHttpCtx,
+use wasmtime_wasi::{ResourceTable, WasiCtxView, WasiView};
+use wasmtime_wasi_http::p2::{
+    HttpResult, WasiHttpCtxView, WasiHttpHooks, WasiHttpView,
     body::HyperOutgoingBody,
-    types::{HostFutureIncomingResponse, OutgoingRequestConfig, default_send_request},
+    default_send_request,
+    types::{HostFutureIncomingResponse, OutgoingRequestConfig},
 };
+use wasmtime_wasi_io::IoView;
 
 use crate::{
     ContainerRuntime,
@@ -99,12 +101,13 @@ pub struct ContainerResourceStats {
 /// heavier and should be used when the container's internal state is needed.
 pub struct ContainerData {
     pub resources: wasmtime_wasi::ResourceTable,
-    pub wasi_ctx: wasmtime_wasi::p2::WasiCtx,
+    pub wasi_ctx: wasmtime_wasi::WasiCtx,
     pub wasi_http_ctx: wasmtime_wasi_http::WasiHttpCtx,
     pub connection_tx: mpsc::Sender<BoxedConnection>,
     pub hook_request_tx: mpsc::Sender<HookRequest>,
     pub connection_rx: Option<mpsc::Receiver<BoxedConnection>>,
     pub hook_request_rx: Option<mpsc::Receiver<HookRequest>>,
+    pub http_hooks: WasiHttpHooksData,
 
     pub app_schema_tx: Option<oneshot::Sender<AppSchema>>,
     pub app_schema_rx: Option<oneshot::Receiver<AppSchema>>,
@@ -159,10 +162,8 @@ impl Container {
         };
 
         let resources = wasmtime_wasi::ResourceTable::default();
-        let stdout = ContainerStdoutFactory {
-            output_tx: output_tx.clone(),
-        };
-        let wasi_ctx = wasmtime_wasi::p2::WasiCtx::builder().stdout(stdout).build();
+        let stdout = ContainerStdoutFactory::new(output_tx.clone());
+        let wasi_ctx = wasmtime_wasi::WasiCtx::builder().stdout(stdout).build();
         let wasi_http_ctx = wasmtime_wasi_http::WasiHttpCtx::new();
 
         let mut store = wt::Store::new(
@@ -178,7 +179,11 @@ impl Container {
                 app_schema_rx: Some(app_schema_rx),
                 app_schema_tx: Some(app_schema_tx),
                 id,
-                secret: options.secret,
+                secret: options.secret.clone(),
+                http_hooks: WasiHttpHooksData {
+                    id,
+                    secret: options.secret,
+                },
                 meta,
                 last_activity: Arc::new(AtomicU64::new(utils::now_as_secs())),
                 app_activity: runtime.app_activity,
@@ -316,9 +321,12 @@ impl ContainerData {
     }
 }
 
-impl wasmtime_wasi::p2::WasiView for ContainerData {
-    fn ctx(&mut self) -> &mut wasmtime_wasi::p2::WasiCtx {
-        &mut self.wasi_ctx
+impl WasiView for ContainerData {
+    fn ctx(&mut self) -> WasiCtxView<'_> {
+        WasiCtxView {
+            ctx: &mut self.wasi_ctx,
+            table: &mut self.resources,
+        }
     }
 }
 
@@ -328,11 +336,22 @@ impl IoView for ContainerData {
     }
 }
 
-impl wasmtime_wasi_http::WasiHttpView for ContainerData {
-    fn ctx(&mut self) -> &mut WasiHttpCtx {
-        &mut self.wasi_http_ctx
+impl WasiHttpView for ContainerData {
+    fn http(&mut self) -> WasiHttpCtxView<'_> {
+        WasiHttpCtxView {
+            ctx: &mut self.wasi_http_ctx,
+            table: &mut self.resources,
+            hooks: &mut self.http_hooks,
+        }
     }
+}
 
+struct WasiHttpHooksData {
+    id: Uuid,
+    secret: String,
+}
+
+impl WasiHttpHooks for WasiHttpHooksData {
     fn send_request(
         &mut self,
         mut request: hyper::Request<HyperOutgoingBody>,
@@ -344,6 +363,7 @@ impl wasmtime_wasi_http::WasiHttpView for ContainerData {
             "X-Maf-Id",
             format!("room:{}:{}", self.id, self.secret).parse().unwrap(),
         );
+
         Ok(default_send_request(request, config))
     }
 }

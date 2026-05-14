@@ -20,7 +20,7 @@ impl ResourceLimiterAsync for ContainerResourceLimiter {
         current: usize,
         desired: usize,
         maximum: Option<usize>,
-    ) -> anyhow::Result<bool> {
+    ) -> wasmtime::Result<bool> {
         tracing::debug!(
             "Room {}: memory growing requested. current={}, desired={}, maximum={:?}",
             self.room_id,
@@ -52,7 +52,7 @@ impl ResourceLimiterAsync for ContainerResourceLimiter {
         current: usize,
         desired: usize,
         maximum: Option<usize>,
-    ) -> anyhow::Result<bool> {
+    ) -> wasmtime::Result<bool> {
         tracing::debug!(
             "Room {}: table growing requested. current={}, desired={}, maximum={:?}",
             self.room_id,

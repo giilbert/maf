@@ -15,6 +15,14 @@ impl From<wasmtime::Trap> for ListenError {
 
 impl From<anyhow::Error> for ListenError {
     fn from(value: anyhow::Error) -> Self {
+        Self(wasmtime_wasi::TrappableError::trap(
+            wasmtime::Error::from_anyhow(value),
+        ))
+    }
+}
+
+impl From<wasmtime::Error> for ListenError {
+    fn from(value: wasmtime::Error) -> Self {
         Self(wasmtime_wasi::TrappableError::trap(value))
     }
 }

@@ -94,10 +94,7 @@ impl bindings::HostHookRequest for ContainerData {
         Ok(hook_request.respond(response).await)
     }
 
-    async fn drop(
-        &mut self,
-        hook_request: Resource<bindings::HookRequest>,
-    ) -> wasmtime::Result<()> {
+    async fn drop(&mut self, hook_request: Resource<bindings::HookRequest>) -> anyhow::Result<()> {
         let _hook_request = self.resources.delete(hook_request)?;
         Ok(())
     }

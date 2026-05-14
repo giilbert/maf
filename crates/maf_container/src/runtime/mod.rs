@@ -22,11 +22,7 @@ impl Debug for ContainerRuntime {
 
 impl ContainerRuntime {
     pub fn init(app_activity: &'static AtomicU64) -> anyhow::Result<Self> {
-        let engine = wt::Engine::new(
-            &wt::Config::new()
-                .async_support(true)
-                .epoch_interruption(true),
-        )?;
+        let engine = wt::Engine::new(&wt::Config::new().epoch_interruption(true))?;
         let linker = Self::create_component_linker(&engine)?;
 
         Ok(Self {
@@ -42,17 +38,8 @@ impl ContainerRuntime {
         let mut linker = wt::component::Linker::new(engine);
 
         wasmtime_wasi::p2::add_to_linker_async(&mut linker)?;
-        wasmtime_wasi_http::add_only_http_to_linker_async(&mut linker)?;
+        wasmtime_wasi_http::p2::add_only_http_to_linker_async(&mut linker)?;
         // // TODO: Limit HTTP bandwidth?
-        // wasmtime_wasi_http::bindings::http::outgoing_handler::add_to_linker::<_, WasiHttp<_>>(
-        //     &mut linker,
-        //     |state| WasiHttpImpl(IoImpl(state)),
-        // )?;
-        // wasmtime_wasi_http::bindings::http::types::add_to_linker::<_, WasiHttp<_>>(
-        //     &mut linker,
-        //     &LinkOptions::default(),
-        //     |state| WasiHttpImpl(IoImpl(state)),
-        // )?;
         wasi::bindings::add_to_linker::<_, HasSelf<_>>(&mut linker, |state| state)?;
 
         Ok(linker)

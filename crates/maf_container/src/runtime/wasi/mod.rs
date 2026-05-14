@@ -20,19 +20,21 @@ use errors::ListenError;
 mod generated {
     wasmtime::component::bindgen!({
         path: "../maf/wit",
-        async: true,
+        world: "imports",
+        imports: { default: async | trappable },
+        exports: { default: async },
         with: {
             "wasi:io/poll": wasmtime_wasi_io::bindings::wasi::io::poll,
-            "maf:bindings/bindings/future-user": crate::runtime::wasi::FutureUserImpl,
-            "maf:bindings/bindings/future-message": crate::runtime::wasi::FutureMessageImpl,
-            "maf:bindings/bindings/future-hook-request": crate::runtime::wasi::FutureHookRequest,
-            "maf:bindings/bindings/user": crate::runtime::wasi::UserImpl,
-            "maf:bindings/bindings/hook-request": crate::runtime::wasi::HookRequest,
+            "maf:bindings/bindings.future-user": crate::runtime::wasi::FutureUserImpl,
+            "maf:bindings/bindings.future-message": crate::runtime::wasi::FutureMessageImpl,
+            "maf:bindings/bindings.future-hook-request": crate::runtime::wasi::FutureHookRequest,
+            "maf:bindings/bindings.user": crate::runtime::wasi::UserImpl,
+            "maf:bindings/bindings.hook-request": crate::runtime::wasi::HookRequest,
         },
-        trappable_imports: true,
         trappable_error_type: {
-            "maf:bindings/bindings/listen-error" => crate::runtime::wasi::ListenError
-        }
+            "maf:bindings/bindings.listen-error" => crate::runtime::wasi::ListenError
+        },
+        anyhow: true,
     });
 }
 
@@ -64,7 +66,7 @@ impl bindings::Host for ContainerData {
         Ok(self.resources.push(res)?)
     }
 
-    async fn report_app_schema(&mut self, schema: String) -> wasmtime::Result<()> {
+    async fn report_app_schema(&mut self, schema: String) -> anyhow::Result<()> {
         let app_schema = serde_json::from_str::<AppSchema>(&schema)
             .map_err(|_| anyhow::anyhow!("invalid app schema reported"))?;
 
@@ -128,6 +130,6 @@ impl bindings::Host for ContainerData {
     }
 
     fn convert_listen_error(&mut self, err: ListenError) -> anyhow::Result<bindings::ListenError> {
-        err.0.downcast()
+        err.0.downcast().map_err(|e| anyhow::anyhow!(e))
     }
 }

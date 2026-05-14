@@ -21,8 +21,8 @@ serde_json = "1.0.140"
 thiserror = "^2"
 tracing = "0.1.41"
 uuid = { version = "1.16.0", features = ["serde", "v4"] }
-wasmtime = { version = "35.0.0", features = ["async"] }
-wasmtime-wasi = "35.0.0"
-wasmtime-wasi-http = "35.0.0"
-wasmtime-wasi-io = "35.0.0"
+wasmtime = { version = "44.0.1", features = ["async", "anyhow"] }
+wasmtime-wasi = "44.0.1"
+wasmtime-wasi-http = "44.0.1"
+wasmtime-wasi-io = "44.0.1"
 hyper = "1.8.1"

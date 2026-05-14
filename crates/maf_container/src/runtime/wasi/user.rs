@@ -77,7 +77,7 @@ impl wasmtime_wasi::p2::Pollable for FutureMessageImpl {
 }
 
 impl bindings::HostFutureMessage for ContainerData {
-    async fn drop(&mut self, future_message: Resource<FutureMessageImpl>) -> wasmtime::Result<()> {
+    async fn drop(&mut self, future_message: Resource<FutureMessageImpl>) -> anyhow::Result<()> {
         let mut future_message = self.resources.delete(future_message)?;
         future_message.channel.close();
         Ok(())
@@ -116,7 +116,7 @@ impl bindings::HostUser for ContainerData {
         Ok(())
     }
 
-    async fn meta(&mut self, user: Resource<UserImpl>) -> wasmtime::Result<bindings::UserMeta> {
+    async fn meta(&mut self, user: Resource<UserImpl>) -> anyhow::Result<bindings::UserMeta> {
         let user = self.resources.get_mut(&user)?;
         Ok(bindings::UserMeta {
             id: user.connection.id().as_u64_pair(),

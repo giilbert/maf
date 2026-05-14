@@ -1,21 +1,31 @@
+use std::{pin::Pin, task::Poll};
+
 use async_trait::async_trait;
 use bytes::Bytes;
-use tokio::sync::mpsc;
-use wasmtime_wasi::p2::{OutputStream, StdoutStream, StreamResult};
+use tokio::{io::AsyncWrite, sync::mpsc};
+use wasmtime_wasi::cli::{IsTerminal, StdoutStream};
 
 /// A factory for creating [`ContainerStdout`]. This is needed because WASI uses factory-pattern
 /// for creating custom stdout streams.
 #[derive(Debug, Clone)]
 pub struct ContainerStdoutFactory {
-    pub(super) output_tx: mpsc::Sender<String>,
+    output_tx: mpsc::Sender<String>,
+}
+
+impl ContainerStdoutFactory {
+    pub fn new(output_tx: mpsc::Sender<String>) -> Self {
+        Self { output_tx }
+    }
+}
+
+impl IsTerminal for ContainerStdoutFactory {
+    fn is_terminal(&self) -> bool {
+        false
+    }
 }
 
 impl StdoutStream for ContainerStdoutFactory {
-    fn isatty(&self) -> bool {
-        false
-    }
-
-    fn stream(&self) -> Box<dyn wasmtime_wasi::p2::OutputStream> {
+    fn async_stream(&self) -> Box<dyn AsyncWrite + Send + Sync> {
         Box::new(ContainerStdout {
             buffer_length: 0,
             buffer: Vec::new(),
@@ -37,16 +47,21 @@ pub struct ContainerStdout {
     pub(super) output_tx: mpsc::Sender<String>,
 }
 
-// FIXME: limit buffer size
-impl OutputStream for ContainerStdout {
-    fn write(&mut self, bytes: Bytes) -> StreamResult<()> {
-        self.buffer_length += bytes.len();
-        self.buffer.push(bytes);
-        Ok(())
+impl AsyncWrite for ContainerStdout {
+    fn poll_write(
+        mut self: Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+        buf: &[u8],
+    ) -> Poll<std::io::Result<usize>> {
+        self.buffer_length += buf.len();
+        self.buffer.push(Bytes::copy_from_slice(buf));
+        Poll::Ready(Ok(buf.len()))
     }
 
-    fn flush(&mut self) -> wasmtime_wasi::p2::StreamResult<()> {
-        // Move the current buffer to a string and clear it
+    fn poll_flush(
+        mut self: Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+    ) -> Poll<std::io::Result<()>> {
         let buffer = self.buffer.concat();
         let string = String::from_utf8_lossy(&buffer);
 
@@ -58,16 +73,19 @@ impl OutputStream for ContainerStdout {
         // Send complete lines to the output channel
         while let Some(pos) = self.line_buffer.find('\n') {
             let line = self.line_buffer.drain(..=pos).collect::<String>();
-            self.output_tx
-                .try_send(line)
-                .map_err(|_| wasmtime_wasi::p2::StreamError::Closed)?;
+            self.output_tx.try_send(line).map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::BrokenPipe, "failed to send output")
+            })?;
         }
 
-        Ok(())
+        Poll::Ready(Ok(()))
     }
 
-    fn check_write(&mut self) -> wasmtime_wasi::p2::StreamResult<usize> {
-        Ok(usize::MAX)
+    fn poll_shutdown(
+        self: Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        Poll::Ready(Ok(()))
     }
 }
 
