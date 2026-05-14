@@ -1,4 +1,4 @@
-use axum::ServiceExt;
+use axum::{ServiceExt, serve::ListenerExt};
 use tower::ServiceBuilder;
 use tower_http::normalize_path::NormalizePathLayer;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
@@ -38,7 +38,13 @@ async fn try_main() -> anyhow::Result<()> {
 
     tracing::info!("Initializing server...");
     let (state, app) = api::create_app().await?;
-    let listener = tokio::net::TcpListener::bind(address).await?;
+    let listener = tokio::net::TcpListener::bind(address)
+        .await?
+        .tap_io(|tcp_stream| {
+            if let Err(err) = tcp_stream.set_nodelay(true) {
+                tracing::warn!("failed to set TCP_NODELAY on incoming connection: {err}");
+            }
+        });
 
     let state_clone = state.clone();
     tracing::info!("Server is listening on {}", address);

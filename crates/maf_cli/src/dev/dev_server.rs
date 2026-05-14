@@ -9,6 +9,7 @@ use std::sync::{atomic::AtomicU64, Arc};
 use axum::{
     extract::{Path, Query, State, WebSocketUpgrade},
     response::Response,
+    serve::ListenerExt,
     routing::get,
     ServiceExt,
 };
@@ -123,7 +124,13 @@ pub async fn start_local_server(
         .with_state(state.clone());
 
     let address = format!("0.0.0.0:{}", config.port);
-    let listener = tokio::net::TcpListener::bind(&address).await?;
+    let listener = tokio::net::TcpListener::bind(&address)
+        .await?
+        .tap_io(|tcp_stream| {
+            if let Err(err) = tcp_stream.set_nodelay(true) {
+                tracing::warn!("failed to set TCP_NODELAY on dev connection: {err}");
+            }
+        });
 
     println!("[dev] Development server listening on {}", address);
     axum::serve(
