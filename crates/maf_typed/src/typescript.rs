@@ -37,7 +37,7 @@ impl TypeScriptCodegen {
         output.push_str("export type MafStoresList = {\n");
         for store in &self.schema.stores {
             output.push_str(&self.indent(self.emit_store(store)?));
-            output.push_str("\n");
+            output.push('\n');
         }
         output.push_str("};\n\n");
 
@@ -45,7 +45,7 @@ impl TypeScriptCodegen {
         output.push_str("export type MafRpcsList = {\n");
         for rpc in &self.schema.rpcs {
             output.push_str(&self.indent(self.emit_rpc(rpc)?));
-            output.push_str("\n");
+            output.push('\n');
         }
         output.push_str("};\n\n");
 
@@ -148,7 +148,7 @@ impl TypeScriptCodegen {
                 let multilined = variant_types.iter().any(|s| s.contains('\n'));
 
                 if multilined {
-                    self.indent(format!("\n| ",) + &variant_types.join("\n| "))
+                    self.indent("\n| ".to_string() + &variant_types.join("\n| "))
                         .trim_start_matches(&self.indent)
                         .to_string()
                 } else {
@@ -162,13 +162,13 @@ impl TypeScriptCodegen {
                     .and_then(|v| v.as_object())
                     .is_some() =>
             {
-                let required = value
+                let required: HashSet<String> = value
                     .get("required")
                     .and_then(|v| v.as_array())
                     .map(|arr| {
                         HashSet::from_iter(arr.iter().filter_map(|v| v.as_str()).map(String::from))
                     })
-                    .unwrap_or(HashSet::new());
+                    .unwrap_or_default();
 
                 let fields = value
                     .get("properties")
@@ -259,7 +259,7 @@ impl TypeScriptCodegen {
 
             if multilined {
                 return Ok(self
-                    .indent(format!("\n| ",) + &type_strings.join("\n| "))
+                    .indent("\n| ".to_string() + &type_strings.join("\n| "))
                     .trim_start_matches(&self.indent)
                     .to_string());
             } else {
@@ -280,12 +280,12 @@ impl TypeScriptCodegen {
 
         output.push_str(&format!("\"{}\": {{\n", store.name));
         output.push_str(&self.indent(format!("name: \"{}\";", store.name.replace("\"", "\\\""))));
-        output.push_str("\n");
+        output.push('\n');
         output.push_str(&self.indent(format!(
             "select: {};",
-            self.format_type(&store.select.as_value())?
+            self.format_type(store.select.as_value())?
         )));
-        output.push_str("\n};");
+        output.push('\n');
 
         Ok(output)
     }
@@ -297,7 +297,7 @@ impl TypeScriptCodegen {
                 Some(params) => self.format_type(params.as_value())?,
                 None => "void".to_string(),
             },
-            self.format_type(&rpc.result.as_value())?,
+            self.format_type(rpc.result.as_value())?,
             name = rpc.name.replace("\"", "\\\"")
         ))
     }
@@ -323,7 +323,7 @@ mod tests {
 
         let schema = T::json_schema(&mut generator);
         let codegen = create_default_codegen();
-        let types = codegen.format_type(&schema.as_value()).unwrap();
+        let types = codegen.format_type(schema.as_value()).unwrap();
 
         if assert_no_warnings {
             let warnings = codegen.clear_warnings();

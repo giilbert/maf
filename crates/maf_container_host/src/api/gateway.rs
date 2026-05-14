@@ -83,26 +83,25 @@ async fn connect_route(
     // Fetch the app and determine its room creation strategy, defaulting based on environment and
     // whether it is set
     let app = app_repo::get_app_by_name_and_org_slug(&state.db, &app_name, &org_slug).await?;
-    let (room_creation_strategy, auth_mode) =
-        match app.as_ref().map(|app| app.config.clone()).flatten() {
-            Some(config) => {
-                let parsed_config = toml::from_str::<ProjectConfigFile>(&config).map_err(|_| {
-                    ErrorResponse::bad_request(Some(&format!("failed to parse app config")))
-                })?;
+    let (room_creation_strategy, auth_mode) = match app.as_ref().and_then(|app| app.config.clone())
+    {
+        Some(config) => {
+            let parsed_config = toml::from_str::<ProjectConfigFile>(&config)
+                .map_err(|_| ErrorResponse::bad_request(Some("failed to parse app config")))?;
 
-                (parsed_config.rooms, parsed_config.auth.map(|a| a.mode))
-            }
-            None => (
-                if state.environment == Environment::Development {
-                    RoomCreationStrategy::AutoCreate
-                } else {
-                    RoomCreationStrategy::AuthenticatedApiRequest
-                },
-                None,
-            ),
-        };
+            (parsed_config.rooms, parsed_config.auth.map(|a| a.mode))
+        }
+        None => (
+            if state.environment == Environment::Development {
+                RoomCreationStrategy::AutoCreate
+            } else {
+                RoomCreationStrategy::AuthenticatedApiRequest
+            },
+            None,
+        ),
+    };
 
-    let _ = pre_create_room_auth_check(&query_params, auth_mode.as_ref())?;
+    pre_create_room_auth_check(&query_params, auth_mode.as_ref())?;
 
     let room = match room_creation_strategy {
         RoomCreationStrategy::AuthenticatedApiRequest => {

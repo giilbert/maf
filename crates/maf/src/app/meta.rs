@@ -23,7 +23,7 @@ impl Deref for MetaKey {
     }
 }
 
-///! An interace that holds entries for the MAF Meta API.
+/// An interace that holds entries for the MAF Meta API.
 #[derive(Default)]
 pub struct MetaStorage {
     /// The `platform` property of [`MetaStorage`] is only needed when actually modifying values and
@@ -109,7 +109,7 @@ impl MetaStorage {
         if let Some(updater) = self.updaters.get(name) {
             let ctx = MetaContext { app };
             let value = (updater.create)(ctx).await?;
-            self.set(updater.visibility, &name, value)?;
+            self.set(updater.visibility, name, value)?;
         }
 
         Ok(())

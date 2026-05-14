@@ -213,6 +213,7 @@ enum Token {
     Id,
     UserId,
     Name,
+    #[allow(clippy::enum_variant_names)] // This needs to be a database column
     Token,
 }
 

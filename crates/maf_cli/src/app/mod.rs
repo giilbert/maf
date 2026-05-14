@@ -104,7 +104,7 @@ async fn show_short_app_info(
         app.name.bold(),
         format!("(id: {})", app.id).dimmed()
     );
-    println!("");
+    println!();
 
     Ok(app)
 }

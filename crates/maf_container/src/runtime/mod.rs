@@ -22,7 +22,7 @@ impl Debug for ContainerRuntime {
 
 impl ContainerRuntime {
     pub fn init(app_activity: &'static AtomicU64) -> anyhow::Result<Self> {
-        let engine = wt::Engine::new(&wt::Config::new().epoch_interruption(true))?;
+        let engine = wt::Engine::new(wt::Config::new().epoch_interruption(true))?;
         let linker = Self::create_component_linker(&engine)?;
 
         Ok(Self {

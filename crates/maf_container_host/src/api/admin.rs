@@ -186,15 +186,14 @@ async fn delete_user(
                         .await?
                         > 0;
 
-                    if !org_in_use {
-                        if let Some(deleted_org) = org::Entity::delete_by_id(org_id)
+                    if !org_in_use
+                        && let Some(deleted_org) = org::Entity::delete_by_id(org_id)
                             .exec_with_returning(tx)
                             .await?
                             .pop()
                         {
                             deleted_orgs.push(deleted_org.into());
                         }
-                    }
                 }
 
                 Ok(DeleteUserAdminView {

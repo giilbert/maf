@@ -82,7 +82,7 @@ impl bindings::HostHookRequest for ContainerData {
             .get_mut(&hook_request)?
             .init
             .take()
-            .ok_or_else(|| bindings::HookRequestError::InitConsumed)?))
+            .ok_or(bindings::HookRequestError::InitConsumed)?))
     }
 
     async fn respond(

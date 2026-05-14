@@ -50,11 +50,11 @@ impl GlobalConfig {
             }
         }
 
-        if let Some(token_variable) = dotenvy::var("MAF_CLI_TOKEN").ok() {
+        if let Ok(token_variable) = dotenvy::var("MAF_CLI_TOKEN") {
             config_data.token = Some(token_variable);
         }
 
-        if let Some(server_url_variable) = dotenvy::var("MAF_CLI_SERVER_URL").ok() {
+        if let Ok(server_url_variable) = dotenvy::var("MAF_CLI_SERVER_URL") {
             config_data.server_url = Some(server_url_variable);
         }
 

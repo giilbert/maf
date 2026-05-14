@@ -87,9 +87,9 @@ impl ValueType for Permissions {
     }
 }
 
-impl Into<Value> for Permissions {
-    fn into(self) -> Value {
-        Value::BigInt(Some(self.bits()))
+impl From<Permissions> for Value {
+    fn from(val: Permissions) -> Self {
+        Value::BigInt(Some(val.bits()))
     }
 }
 
@@ -106,13 +106,13 @@ impl Permissions {
     }
 }
 
-impl Into<maf_schemas::admin::UserAdminView> for Model {
-    fn into(self) -> maf_schemas::admin::UserAdminView {
+impl From<Model> for maf_schemas::admin::UserAdminView {
+    fn from(val: Model) -> Self {
         maf_schemas::admin::UserAdminView {
-            id: self.id,
-            username: self.username,
-            name: self.name,
-            permissions: format!("{:?}", self.permissions),
+            id: val.id,
+            username: val.username,
+            name: val.name,
+            permissions: format!("{:?}", val.permissions),
         }
     }
 }

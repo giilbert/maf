@@ -202,7 +202,7 @@ async fn update_app(
             .map_err(|e| {
                 ErrorResponse::bad_request(Some(&format!(
                     "Failed to validate project config: {}",
-                    e.to_string()
+                    e
                 )))
             })?;
     }
@@ -356,7 +356,7 @@ async fn service_get_rooms(
             let mut rooms: Vec<RoomInfo> = vec![];
 
             for room_id in rooms_set.iter() {
-                if let Some(room) = state.rooms.get(&room_id).await {
+                if let Some(room) = state.rooms.get(room_id).await {
                     rooms.push(RoomInfo {
                         id: room.id,
                         key: room.meta.key.clone(),
@@ -414,7 +414,7 @@ async fn service_create_room(
 
     let room_creation_strategy = match &app.config {
         Some(config) => {
-            let config: ProjectConfigFile = toml::from_str(&config)
+            let config: ProjectConfigFile = toml::from_str(config)
                 .map_err(|_| ErrorResponse::bad_request(Some("Invalid project config")))?;
             config.rooms
         }

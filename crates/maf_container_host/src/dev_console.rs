@@ -70,7 +70,7 @@ impl DevConsole {
 
         let last_activity_display = chrono::Utc::now()
             .signed_duration_since(
-                &chrono::DateTime::<chrono::Utc>::from_timestamp(
+                chrono::DateTime::<chrono::Utc>::from_timestamp(
                     self.state
                         .last_activity
                         .load(std::sync::atomic::Ordering::Relaxed) as i64,

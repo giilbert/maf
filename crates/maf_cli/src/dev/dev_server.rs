@@ -195,7 +195,7 @@ async fn connect_route(
         .and_then(|p| p.data.auth)
         .map(|a| a.mode);
 
-    let _ = pre_create_room_auth_check(&query_params, auth_mode.as_ref())?;
+    pre_create_room_auth_check(&query_params, auth_mode.as_ref())?;
     let room = match state.rooms.get_by_key_or_id(&room_key).await {
         Some(room) => room,
         None => {

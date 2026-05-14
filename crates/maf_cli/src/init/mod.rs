@@ -125,7 +125,7 @@ fn run_setup_commands(options: InitOptions) -> anyhow::Result<()> {
 
             (
                 TEMPLATES
-                    .get_dir(&PathBuf::from(template_name.to_string()))
+                    .get_dir(PathBuf::from(template_name.to_string()))
                     .ok_or_else(|| {
                         anyhow::anyhow!(
                             "Template '{}' not found in the included templates.",
@@ -264,10 +264,7 @@ fn run_setup_commands(options: InitOptions) -> anyhow::Result<()> {
 
     // Perform additional setup based on the selected template
     // e.g. installing tools and dependencies
-    match template_name.as_str() {
-        "rust" => additional_rust_setup()?,
-        _ => (),
-    }
+    if template_name.as_str() == "rust" { additional_rust_setup()? }
 
     pretty::info!(
         "Done! Your project '{}' has been initialized using the '{}' template.",
@@ -283,7 +280,7 @@ fn additional_rust_setup() -> anyhow::Result<()> {
 
     println!("{} rustup target add wasm32-wasip2", "$".bold().purple());
     let status = process::Command::new("rustup")
-        .args(&["target", "add", "wasm32-wasip2"])
+        .args(["target", "add", "wasm32-wasip2"])
         .status()?;
 
     if status.code().unwrap_or(1) != 0 {

@@ -37,7 +37,7 @@ impl RoomInner {
         let room_id = Uuid::new_v4();
         let secret = generate_room_secret();
         let container = Container::load_from_binary(
-            &container_runtime,
+            container_runtime,
             room_id,
             CreateContainerOptions {
                 bytes: &options.bundle.wasm_module_bytes,
@@ -114,7 +114,7 @@ impl RoomInner {
     /// is invalid or verification fails, returns `Err`.
     pub fn decode_token(&self, token: &str) -> Result<serde_json::Value, anyhow::Error> {
         let mut verified_jwt: JWT<ClaimsSet<serde_json::Value>, serde_json::Value> =
-            JWT::new_encoded(&token)
+            JWT::new_encoded(token)
                 .decode(
                     &Secret::bytes_from_str(&self.secret),
                     SignatureAlgorithm::HS256,
@@ -129,6 +129,6 @@ impl RoomInner {
             anyhow::bail!("invalid audience in JWT");
         }
 
-        Ok(serde_json::to_value(payload).context("failed to reencode JWT")?)
+        serde_json::to_value(payload).context("failed to reencode JWT")
     }
 }

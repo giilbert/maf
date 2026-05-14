@@ -31,7 +31,7 @@ async fn dev_service_get_rooms(
     if let Some(query_id) = &query.by_id {
         if let Some(room) = state.rooms.inner.read().await.get(query_id) {
             let room_info = RoomInfo {
-                id: room.id.clone(),
+                id: room.id,
                 key: room.meta.key.clone(),
                 secret: room.inner.secret.clone(),
                 meta: room
@@ -53,7 +53,7 @@ async fn dev_service_get_rooms(
         for room in state.rooms.inner.read().await.values() {
             if &room.meta.key == query_key {
                 return Ok(Json(RoomQueryResponse::Single(RoomInfo {
-                    id: room.id.clone(),
+                    id: room.id,
                     key: room.meta.key.clone(),
                     secret: room.inner.secret.clone(),
                     meta: room
@@ -73,7 +73,7 @@ async fn dev_service_get_rooms(
 
     for room in state.rooms.inner.read().await.values() {
         rooms.push(RoomInfo {
-            id: room.id.clone(),
+            id: room.id,
             key: room.meta.key.clone(),
             secret: room.inner.secret.clone(),
             meta: room
@@ -105,7 +105,7 @@ async fn dev_server_create_room(
         .await?;
 
     Ok(Json(RoomInfo {
-        id: room.id.clone(),
+        id: room.id,
         key: room.meta.key.clone(),
         secret: room.inner.secret.clone(),
         meta: room

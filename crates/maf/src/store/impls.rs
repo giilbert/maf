@@ -30,6 +30,13 @@ impl StoreId {
     }
 }
 
+type AnyStoreSerializerFn = Arc<
+    dyn Fn(&dyn Any, &User) -> Result<serde_json::Value, StoreSerializeError>
+        + Send
+        + Sync
+        + 'static,
+>;
+
 /// A type-erased store that can hold any data implementing [`StoreData`].
 #[derive(Clone)]
 pub struct AnyStore {
@@ -44,12 +51,7 @@ pub struct AnyStore {
     pub(crate) data: Arc<RwLock<dyn Any + Send + Sync>>,
     /// Function to serialize the store's data for a given user. If serialization fails, returns a
     /// [`StoreSerializeError`].
-    pub(crate) serializer: Arc<
-        dyn Fn(&dyn Any, &User) -> Result<serde_json::Value, StoreSerializeError>
-            + Send
-            + Sync
-            + 'static,
-    >,
+    pub(crate) serializer: AnyStoreSerializerFn,
 
     #[cfg(feature = "typed")]
     pub(crate) desc:

@@ -130,7 +130,7 @@ impl PlatformUser for RawUser {
             .map_err(|_| crate::user::UserNextMessageError::Listen(ListenError::AlreadyListening))?
             .recv()
             .await
-            .ok_or_else(|| crate::user::UserNextMessageError::Listen(ListenError::Closed))
+            .ok_or(crate::user::UserNextMessageError::Listen(ListenError::Closed))
     }
 }
 

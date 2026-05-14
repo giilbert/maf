@@ -130,7 +130,7 @@ impl User {
 
     pub fn channel<T>(&self, name: impl ToString) -> BoundChannel<T> {
         let name = name.to_string();
-        BoundChannel::new(Channel::new(self.state.clone(), name), &self)
+        BoundChannel::new(Channel::new(self.state.clone(), name), self)
     }
 }
 

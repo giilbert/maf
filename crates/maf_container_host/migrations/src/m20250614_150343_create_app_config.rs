@@ -1,6 +1,5 @@
 use sea_orm::ActiveValue::Set;
 use sea_orm_migration::prelude::*;
-use serde::Deserialize;
 
 use crate::{entity::app, m20250419_015427_create_apps::App};
 

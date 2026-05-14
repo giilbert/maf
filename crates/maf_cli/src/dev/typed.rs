@@ -18,7 +18,7 @@ pub async fn create_types_file_for_project(
                 if !warnings.is_empty() {
                     println!(
                         "{}",
-                        format!("[dev] Warnings while generating types:").yellow()
+                        "[dev] Warnings while generating types:".to_string().yellow()
                     );
                     for warning in warnings {
                         println!("{}", format!("[dev] - {}", warning).yellow());

@@ -256,7 +256,7 @@ pub fn get_auth_data(
         Some(token) => {
             // If the mode is JWT, we need to decode and verify the token
             if let Some(AuthMode::Jwt) = auth_mode {
-                let decoded = room.decode_token(&token).map_err(|e| {
+                let decoded = room.decode_token(token).map_err(|e| {
                     ErrorResponse::unauthorized(Some(&format!("invalid token: {}", e)))
                 })?;
 
@@ -264,7 +264,7 @@ pub fn get_auth_data(
             } else {
                 // If the auth mode is not JWT, first base64 decode the token and then parse as JSON
                 let decoded = base64::engine::general_purpose::STANDARD
-                    .decode(&token)
+                    .decode(token)
                     .map_err(|e| {
                         ErrorResponse::bad_request(Some(&format!("failed to decode token: {}", e)))
                     })?;

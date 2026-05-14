@@ -50,12 +50,12 @@ impl Related<org_member::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
-impl Into<maf_schemas::admin::OrgAdminView> for Model {
-    fn into(self) -> maf_schemas::admin::OrgAdminView {
+impl From<Model> for maf_schemas::admin::OrgAdminView {
+    fn from(val: Model) -> Self {
         maf_schemas::admin::OrgAdminView {
-            name: self.name,
-            slug: self.slug,
-            is_default: self.is_default,
+            name: val.name,
+            slug: val.slug,
+            is_default: val.is_default,
         }
     }
 }

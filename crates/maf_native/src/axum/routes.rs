@@ -25,6 +25,12 @@ pub trait RouteConfig: Sized + Clone + Send + Sync + 'static {
     ) -> impl Future<Output = Option<Room>> + Send + Sync;
 }
 
+impl<S: RouteConfig> Default for MafRoutes<S> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<S: RouteConfig> MafRoutes<S> {
     pub fn new() -> Self {
         Self {

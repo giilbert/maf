@@ -31,8 +31,7 @@ impl Context {
         let server_url = global_config
             .server_url
             .clone()
-            .map(|url| Url::parse(&url).ok())
-            .flatten();
+            .and_then(|url| Url::parse(&url).ok());
 
         let client = reqwest::Client::builder()
             .default_headers(headers)
@@ -61,8 +60,7 @@ impl Context {
 
     pub fn assert_token(&self) {
         let token = self.global_config.token.as_deref();
-        if token.is_some_and(|t| t.len() > 0) {
-            return;
+        if token.is_some_and(|t| !t.is_empty()) {
         } else {
             pretty::error!(
                 "You need to be logged in to perform this action. Please run `maf auth login`."

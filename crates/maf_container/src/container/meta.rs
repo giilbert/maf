@@ -3,7 +3,7 @@
 //!
 //! This module defines the storage and limits for metadata associated with a [`ContainerData`].
 
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use maf_schemas::apps::{JsonMetaEntry, MetaEntry, MetaEntryMap, MetaVisibility};
 use tokio::sync::RwLock;
@@ -39,7 +39,7 @@ impl MetaStorage {
 
         Self {
             inner: Arc::new(MetaStorageInner {
-                data: RwLock::new(initial.unwrap_or_else(HashMap::new)),
+                data: RwLock::new(initial.unwrap_or_default()),
                 max_key_size: MAX_KEY_SIZE,
                 max_num_keys: MAX_NUM_KEYS,
                 max_value_size: MAX_META_VALUE_SIZE,
@@ -56,13 +56,11 @@ impl MetaStorage {
     ) -> Result<Option<JsonMetaEntry>, MetaStorageError> {
         tracing::trace!(
             visibility = ?visibility,
-            value_size = %value.as_ref().as_bytes().len(),
+            value_size = %value.as_ref().len(),
             "setting metadata key: {key}"
         );
 
-        if value.as_ref().as_bytes().len() > self.inner.max_value_size
-            || key.as_bytes().len() > self.inner.max_key_size
-        {
+        if value.as_ref().len() > self.inner.max_value_size || key.len() > self.inner.max_key_size {
             return Err(MetaStorageError::SizeLimitExceeded);
         }
 
@@ -162,9 +160,9 @@ impl MetaStorage {
 mod conversion_impls {
     use super::*;
 
-    impl Into<bindings::MetaVisibility> for MetaVisibility {
-        fn into(self) -> bindings::MetaVisibility {
-            match self {
+    impl From<MetaVisibility> for bindings::MetaVisibility {
+        fn from(val: MetaVisibility) -> Self {
+            match val {
                 MetaVisibility::Public => bindings::MetaVisibility::Public,
                 MetaVisibility::Private => bindings::MetaVisibility::Private,
             }
@@ -180,11 +178,11 @@ mod conversion_impls {
         }
     }
 
-    impl Into<bindings::MetaEntry> for MetaEntry {
-        fn into(self) -> bindings::MetaEntry {
+    impl From<MetaEntry> for bindings::MetaEntry {
+        fn from(val: MetaEntry) -> Self {
             bindings::MetaEntry {
-                visibility: self.visibility.into(),
-                value: self.value,
+                visibility: val.visibility.into(),
+                value: val.value,
             }
         }
     }

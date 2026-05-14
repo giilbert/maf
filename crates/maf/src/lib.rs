@@ -93,9 +93,9 @@ pub mod prelude {
     pub use user::{User, Users};
     pub use uuid::Uuid;
 
-    pub use serde;
-    pub use serde_json;
-    pub use wasi;
+    pub use ::serde;
+    pub use ::serde_json;
+    pub use ::wasi;
 }
 
 // For usage inside MAF, prelude is always available.

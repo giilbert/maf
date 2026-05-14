@@ -63,10 +63,10 @@
 //!
 //! Please forgive me.
 
-mod callable;
+mod impls;
 mod params;
 mod supports;
 
-pub use callable::*;
+pub use impls::*;
 pub use params::*;
 pub use supports::*;

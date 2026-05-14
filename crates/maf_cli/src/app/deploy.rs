@@ -125,11 +125,11 @@ async fn deploy_wasm_module(context: &Context, name: String, path: &Path) -> any
         HumanBytes(metadata.len())
     ));
 
-    println!("");
+    println!();
 
     // Update the app's config
     if let Some(config) = &context.project_config {
-        println!("");
+        println!();
         pretty::info!(
             "Updating app configuration to {}...",
             config.base.join("maf-project.toml").display()

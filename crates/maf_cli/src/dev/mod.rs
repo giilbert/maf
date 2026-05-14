@@ -88,7 +88,7 @@ pub fn run_build_command(base_path: &Path, command: &str) -> anyhow::Result<()> 
 
     let status = process::Command::new(executable)
         .args(args)
-        .current_dir(&base_path)
+        .current_dir(base_path)
         .spawn()?
         .wait()?;
 

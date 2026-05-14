@@ -104,7 +104,10 @@ impl<T: DeserializeOwned> Channel<T> {
         user: Option<&User>,
     ) -> &mut broadcast::Receiver<ChannelSendRx> {
         if self.rx.is_some() {
-            return self.rx.as_mut().expect("rx is None");
+            // The borrow checker doesn't know that this borrow is returned and so it interacts
+            // weirdly with the code in the else block.
+            #[allow(clippy::unnecessary_unwrap)]
+            self.rx.as_mut().expect("rx is None")
         } else {
             // Create the broadcast channel if it doesn't exist
             match user {
@@ -156,7 +159,7 @@ impl<T: DeserializeOwned> Channel<T> {
                 }
             }
 
-            return self.rx.as_mut().expect("rx is None");
+            self.rx.as_mut().expect("rx is None")
         }
     }
 

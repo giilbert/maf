@@ -32,7 +32,7 @@ where
         buf = buf.trim().to_string();
 
         let value =
-            T::from_str(&mut buf).map_err(|e| anyhow::anyhow!("failed to parse input: {e:?}"))?;
+            T::from_str(&buf).map_err(|e| anyhow::anyhow!("failed to parse input: {e:?}"))?;
 
         match (transform)(value) {
             Ok(value) => {

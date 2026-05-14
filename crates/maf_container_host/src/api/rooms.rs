@@ -90,7 +90,7 @@ impl RoomsStorage {
         let meta = RoomMeta {
             id: param.room.id(),
             app_info: param.app.clone(),
-            strategy: param.strategy.clone(),
+            strategy: param.strategy,
             key: param.key.clone(),
         };
 

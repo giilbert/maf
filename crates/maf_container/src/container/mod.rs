@@ -112,8 +112,6 @@ pub struct ContainerData {
     pub app_schema_tx: Option<oneshot::Sender<AppSchema>>,
     pub app_schema_rx: Option<oneshot::Receiver<AppSchema>>,
 
-    pub(crate) id: Uuid,
-    pub(crate) secret: String,
     pub(crate) meta: MetaStorage,
     pub(crate) last_activity: Arc<AtomicU64>,
     pub(crate) app_activity: &'static AtomicU64,
@@ -141,7 +139,7 @@ impl Container {
         id: Uuid,
         options: CreateContainerOptions<'_>,
     ) -> anyhow::Result<Self> {
-        let component = wt::component::Component::new(&runtime.engine, &options.bytes)?;
+        let component = wt::component::Component::new(&runtime.engine, options.bytes)?;
 
         let (connection_tx, connection_rx) = mpsc::channel(10);
         let (output_tx, output_rx) = mpsc::channel(100);
@@ -178,8 +176,6 @@ impl Container {
                 hook_request_rx: Some(hook_request_rx),
                 app_schema_rx: Some(app_schema_rx),
                 app_schema_tx: Some(app_schema_tx),
-                id,
-                secret: options.secret.clone(),
                 http_hooks: WasiHttpHooksData {
                     id,
                     secret: options.secret,
@@ -279,7 +275,7 @@ impl Container {
     /// Consumes the container's output channel and forwards all output lines to tracing logs.
     pub fn pass_output(&mut self) {
         let mut output = self.output().expect("output channel should be available");
-        let container_id = self.room_id.clone();
+        let container_id = self.room_id;
 
         tokio::spawn(async move {
             while let Some(line) = output.recv().await {
@@ -346,7 +342,7 @@ impl WasiHttpView for ContainerData {
     }
 }
 
-struct WasiHttpHooksData {
+pub struct WasiHttpHooksData {
     id: Uuid,
     secret: String,
 }

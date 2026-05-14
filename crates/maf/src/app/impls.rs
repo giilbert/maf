@@ -148,21 +148,18 @@ impl App {
             let on_disconnect = self.inner.on_disconnect.clone();
             let on_connect = self.inner.on_connect.clone();
             tasks::spawn(async move {
-                match on_connect.as_ref() {
-                    Some(handler) => {
-                        let handler = handler.clone();
-                        if let Err(e) = handler(OnConnectDiconnectContext {
-                            app: app.clone(),
-                            user: user_clone.clone(),
-                        })
-                        .await
-                        {
-                            println!("failed to run on_connect handler: {e}");
-                        }
-
-                        app.flush_all_store_changes().await.ok();
+                if let Some(handler) = on_connect.as_ref() {
+                    let handler = handler.clone();
+                    if let Err(e) = handler(OnConnectDiconnectContext {
+                        app: app.clone(),
+                        user: user_clone.clone(),
+                    })
+                    .await
+                    {
+                        println!("failed to run on_connect handler: {e}");
                     }
-                    None => (),
+
+                    app.flush_all_store_changes().await.ok();
                 }
 
                 loop {
@@ -185,21 +182,18 @@ impl App {
 
                 // println!("user disconnected: {}", user_clone.meta.id());
 
-                match on_disconnect.as_ref() {
-                    Some(handler) => {
-                        let handler = handler.clone();
-                        if let Err(e) = handler(OnConnectDiconnectContext {
-                            app: app.clone(),
-                            user: user_clone.clone(),
-                        })
-                        .await
-                        {
-                            println!("failed to run on_disconnect handler: {e}");
-                        }
-
-                        let _ = app.flush_all_store_changes().await;
+                if let Some(handler) = on_disconnect.as_ref() {
+                    let handler = handler.clone();
+                    if let Err(e) = handler(OnConnectDiconnectContext {
+                        app: app.clone(),
+                        user: user_clone.clone(),
+                    })
+                    .await
+                    {
+                        println!("failed to run on_disconnect handler: {e}");
                     }
-                    None => {}
+
+                    let _ = app.flush_all_store_changes().await;
                 }
 
                 app.inner
@@ -279,9 +273,9 @@ impl App {
     pub(crate) async fn handle_message<'a>(&self, message: UserMessage<'a>) -> anyhow::Result<()> {
         match message.packet {
             RxPacket::ChannelSend(channel_data) => {
-                self.handle_channel_send(&message.user, channel_data).await;
+                self.handle_channel_send(message.user, channel_data).await;
             }
-            RxPacket::TypedRpcCall(rpc_data) => self.handle_rpc(&message.user, rpc_data).await?,
+            RxPacket::TypedRpcCall(rpc_data) => self.handle_rpc(message.user, rpc_data).await?,
         }
 
         Ok(())
@@ -387,7 +381,7 @@ impl App {
         user.send(TxPacket::ManyStoreUpdate::<serde_json::Value>(
             data.iter()
                 .map(|(k, v)| OneStoreUpdate {
-                    store: k.as_ref(),
+                    store: k,
                     data: Bull::Borrowed(v),
                 })
                 .collect(),

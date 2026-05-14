@@ -69,14 +69,11 @@ impl App {
 
         // These types of dependencies do not affect users and only run once on the app level
         for target in dependents.into_iter().flatten() {
-            match target {
-                ObserveTarget::Meta(meta_key) => {
-                    self.inner
-                        .meta
-                        .trigger_meta_update(self.clone(), meta_key)
-                        .await?;
-                }
-                _ => (),
+            if let ObserveTarget::Meta(meta_key) = target {
+                self.inner
+                    .meta
+                    .trigger_meta_update(self.clone(), meta_key)
+                    .await?;
             }
         }
 
@@ -92,18 +89,15 @@ impl App {
             }
 
             for target in dependents.into_iter().flatten() {
-                match target {
-                    ObserveTarget::Select(select_key) => {
-                        let content = self
-                            .compute_select_contents(&select_key, user.clone())
-                            .await?;
+                if let ObserveTarget::Select(select_key) = target {
+                    let content = self
+                        .compute_select_contents(select_key, user.clone())
+                        .await?;
 
-                        store_updates.push(OneStoreUpdate {
-                            store: &select_key.0,
-                            data: Bull::Owned(content),
-                        });
-                    }
-                    _ => (),
+                    store_updates.push(OneStoreUpdate {
+                        store: &select_key.0,
+                        data: Bull::Owned(content),
+                    });
                 }
             }
 

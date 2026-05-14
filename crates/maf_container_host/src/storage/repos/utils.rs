@@ -18,7 +18,7 @@ pub trait DbErrorExt {
 
 impl DbErrorExt for DbErr {
     fn is_unique_violation(&self) -> bool {
-        is_db_error_code(&self, "23505")
+        is_db_error_code(self, "23505")
     }
 }
 

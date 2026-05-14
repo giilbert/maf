@@ -49,7 +49,7 @@ pub trait ProjectConfigExt {
 
 impl ProjectConfigExt for ProjectConfig {
     fn room_creation_strategy_or_default(&self) -> RoomCreationStrategy {
-        self.data.rooms.clone()
+        self.data.rooms
     }
 }
 

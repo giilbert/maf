@@ -146,7 +146,7 @@ impl BundleStorage {
                 entry_reader
                     .read_exact(&mut data)
                     .await
-                    .map_err(|e| BundleError::Io(e))?;
+                    .map_err(BundleError::Io)?;
 
                 return Ok(Some(Bundle {
                     wasm_module_bytes: Arc::from(data),
@@ -154,7 +154,7 @@ impl BundleStorage {
             }
         }
 
-        return Err(BundleError::InvalidZip);
+        Err(BundleError::InvalidZip)
     }
 
     pub async fn load_app_bundle(&self, app_id: Uuid) -> Result<Option<Bundle>, BundleError> {
@@ -188,7 +188,7 @@ impl BundleStorage {
     }
 
     pub async fn load_test_app(&self) -> anyhow::Result<Bundle> {
-        const PATH: &'static str = "target/wasm32-wasip2/debug/example_basic.wasm";
+        const PATH: &str = "target/wasm32-wasip2/debug/example_basic.wasm";
         Ok(Bundle {
             wasm_module_bytes: Arc::from(tokio::fs::read(PATH).await?),
         })
@@ -221,9 +221,9 @@ impl BundleStorage {
     }
 }
 
-impl Into<std::io::Error> for BundleError {
-    fn into(self) -> std::io::Error {
-        std::io::Error::new(std::io::ErrorKind::Other, self)
+impl From<BundleError> for std::io::Error {
+    fn from(val: BundleError) -> Self {
+        std::io::Error::other(val)
     }
 }
 

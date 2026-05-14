@@ -82,7 +82,7 @@ impl DevRoom {
     }
 
     pub fn id(&self) -> RoomId {
-        self.id.clone()
+        self.id
     }
 }
 
@@ -141,7 +141,7 @@ impl DevRoomsStorage {
         let mut output = container.output().expect("Output should be available");
         tokio::spawn(async move {
             while let Some(line) = output.recv().await {
-                let line = line.trim_matches(&['\n', '\r', ' ']);
+                let line = line.trim_matches(['\n', '\r', ' ']);
                 println!(
                     "{} {} {line}",
                     format!("[dev] `{}`", room_key_clone).dimmed(),
@@ -183,7 +183,7 @@ impl DevRoomsStorage {
         self.keys
             .write()
             .await
-            .insert(meta.key.clone(), meta.id.clone());
+            .insert(meta.key.clone(), meta.id);
 
         println!("[dev] Created room with key `{}`", meta.key);
 
@@ -196,7 +196,7 @@ impl DevRoomsStorage {
         self.keys.write().await.remove(room.meta.key.as_str());
 
         *self.auto_created_room.write().await = None;
-        self.api_created_rooms.write().await.remove(&room_id);
+        self.api_created_rooms.write().await.remove(room_id);
 
         Some(room)
     }

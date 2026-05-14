@@ -40,8 +40,8 @@ impl HookRequest {
     ) -> Result<Self, HookRequestError> {
         let init = raw.init()?;
         Ok(Self {
-            caller: init.caller.into(),
-            data: init.data.into(),
+            caller: init.caller,
+            data: init.data,
             method: init.method,
             state,
             raw,

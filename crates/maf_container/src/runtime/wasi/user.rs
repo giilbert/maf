@@ -23,7 +23,7 @@ impl FutureUserImpl {
             channel: container_data
                 .connection_rx
                 .take()
-                .ok_or_else(|| bindings::ListenError::AlreadyListening)?,
+                .ok_or(bindings::ListenError::AlreadyListening)?,
         })
     }
 }
