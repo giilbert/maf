@@ -20,6 +20,32 @@ impl StoreData for CounterStore {
     }
 }
 
+struct ShouldDoubleStore {
+    should_double: bool,
+    aramie: String,
+    nobble: bool,
+}
+
+impl StoreData for ShouldDoubleStore {
+    type Select<'this> = bool;
+
+    fn init() -> Self {
+        ShouldDoubleStore {
+            should_double: false,
+            aramie: String::from("aramie"),
+            nobble: true,
+        }
+    }
+
+    fn select(&self, _user: &User) -> Self::Select<'_> {
+        self.should_double
+    }
+
+    fn name() -> impl AsRef<str> {
+        "should_double"
+    }
+}
+
 fn increment_counter(
     app: App,
     Params(counter): Params<i32>,
@@ -49,9 +75,16 @@ fn build() -> App {
         .on_connect(on_connect)
         .store::<CounterStore>()
         .rpc("increment_counter", increment_counter)
-        .select("counter_times_two", |counter: StoreRef<CounterStore>| {
-            counter.count * 2
-        })
+        .select(
+            "counter_times_two",
+            |counter: StoreRef<CounterStore>, should_double: StoreRef<ShouldDoubleStore>| {
+                if should_double.should_double {
+                    counter.count * 2
+                } else {
+                    counter.count
+                }
+            },
+        )
         .meta(
             MetaVisibility::Public,
             "count",

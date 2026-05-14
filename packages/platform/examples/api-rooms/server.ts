@@ -5,13 +5,13 @@ import { cors } from "hono/cors";
 const server = new MafServiceClient({
   // You would likely have a import.meta.env switch here to choose between
   // dev/prod servers.
-  // server: "dev",
+  server: "dev",
   // Uncomment to use local platform server
-  server: {
-    type: "platform",
-    app: "gilbert/example-platform",
-    url: "http://localhost:1147",
-  },
+  // server: {
+  //   type: "platform",
+  //   app: "gilbert/example-platform",
+  //   url: "http://localhost:1147",
+  // },
 
   // Fake credentials for testing purposes
   // In a real application, you would use actual credentials

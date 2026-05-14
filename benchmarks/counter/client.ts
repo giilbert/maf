@@ -12,6 +12,7 @@ for (let i = 0; i < ROUNDs; i++) {
   const start = performance.now();
   await client.rpc("increment_counter", 1);
   const end = performance.now();
+  console.log(`rpc call ${i + 1} took ${(end - start).toFixed(1)} ms`);
   times.push(end - start);
 
   if ((i + 1) % 100 === 0) {

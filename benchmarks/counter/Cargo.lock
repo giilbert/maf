@@ -469,12 +469,13 @@ checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
 
 [[package]]
 name = "maf"
-version = "0.1.0-alpha.3"
+version = "0.1.0-alpha.6"
 dependencies = [
  "anyhow",
  "futures-util",
  "http",
  "maf_schemas",
+ "mea",
  "ouroboros",
  "serde",
  "serde_json",
@@ -488,7 +489,7 @@ dependencies = [
 
 [[package]]
 name = "maf_schemas"
-version = "0.1.0-alpha.3"
+version = "0.1.0-alpha.6"
 dependencies = [
  "anyhow",
  "colored",
@@ -498,6 +499,15 @@ dependencies = [
  "serde_json",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "mea"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6747f54621d156e1b47eb6b25f39a941b9fc347f98f67d25d8881ff99e8ed832"
+dependencies = [
+ "slab",
 ]
 
 [[package]]
@@ -794,9 +804,9 @@ dependencies = [
 
 [[package]]
 name = "slab"
-version = "0.4.10"
+version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04dc19736151f35336d325007ac991178d504a119863a2fcb3758cdb5e52c50d"
+checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
 name = "smallvec"

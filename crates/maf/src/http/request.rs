@@ -153,7 +153,9 @@ impl Request {
                 let mut left = &data[..];
 
                 loop {
-                    tasks::wait_for(body_stream.subscribe()).await;
+                    tasks::wait_for(body_stream.subscribe())
+                        .named("get body write permit")
+                        .await;
 
                     let permit_write =
                         body_stream.check_write().map_err(RequestError::Body)? as usize;
@@ -179,7 +181,9 @@ impl Request {
             }
         }
 
-        tasks::wait_for(future_response.subscribe()).await;
+        tasks::wait_for(future_response.subscribe())
+            .named("get future response")
+            .await;
 
         let response = future_response
             .get()

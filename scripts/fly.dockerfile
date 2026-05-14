@@ -1,7 +1,7 @@
 # This Dockerfile should be built from the root of the repository.
 # `just docker-build` or `docker build -f scripts/fly.dockerfile -t maf-server:latest .`
 
-FROM rust:1.86-slim-bookworm AS builder
+FROM rust:1.91-slim-bookworm AS builder
 
 WORKDIR /app
 

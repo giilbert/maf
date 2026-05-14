@@ -1,14 +1,16 @@
+use core::panic;
 use std::{
     any::{Any, TypeId},
     sync::{atomic::AtomicBool, Arc},
 };
 
+use mea::rwlock::{
+    MappedRwLockReadGuard, OwnedMappedRwLockReadGuard, OwnedRwLockReadGuard, OwnedRwLockWriteGuard,
+    RwLock, RwLockReadGuard, RwLockWriteGuard,
+};
 #[cfg(feature = "typed")]
 use schemars::{JsonSchema, SchemaGenerator};
 use serde::Serialize;
-use tokio::sync::{
-    OwnedRwLockReadGuard, OwnedRwLockWriteGuard, RwLock, RwLockReadGuard, RwLockWriteGuard,
-};
 
 use crate::{
     callable::{CallableFetch, CallableParam, SupportsAsync},
@@ -273,12 +275,14 @@ impl AnyStore {
             dirty: Arc::new(AtomicBool::new(false)),
             data: Arc::new(RwLock::new(T::init())),
             serializer: Arc::new(|data, user| {
-                let data = data.downcast_ref::<T>().expect(&std::format!(
-                    "store data is not of expected type {}",
-                    std::any::type_name::<T>()
-                ));
+                let data = data.downcast_ref::<T>().unwrap_or_else(|| {
+                    panic!(
+                        "store data is not of expected type {}",
+                        std::any::type_name::<T>()
+                    )
+                });
 
-                serde_json::to_value(T::select(&data, user)).map_err(Into::into)
+                serde_json::to_value(T::select(data, user)).map_err(Into::into)
             }),
             #[cfg(feature = "typed")]
             desc: Arc::new(|generator| crate::typed::StoreDesc::new::<T>(generator)),
@@ -315,7 +319,7 @@ impl<T: StoreData> Store<T> {
     ///
     /// This creates a lock with a lifetime tied to the `Store` instance. If you need an owned lock
     /// that can outlive the `Store`, consider using [`Store::read_owned`].
-    pub async fn read(&self) -> RwLockReadGuard<'_, T> {
+    pub async fn read(&self) -> MappedRwLockReadGuard<'_, T> {
         RwLockReadGuard::map(self.inner.data.read().await, |inner| {
             inner
                 .downcast_ref::<T>()
@@ -344,7 +348,7 @@ impl<T: StoreData> Store<T> {
     /// concurrently.
     ///
     /// This creates a lock that is owned and can outlive the `Store` instance.
-    pub async fn read_owned(&self) -> OwnedRwLockReadGuard<dyn Any + Send + Sync, T> {
+    pub async fn read_owned(&self) -> OwnedMappedRwLockReadGuard<dyn Any + Send + Sync, T> {
         OwnedRwLockReadGuard::map(self.inner.data.clone().read_owned().await, |inner| {
             inner
                 .downcast_ref::<T>()

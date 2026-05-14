@@ -37,6 +37,16 @@ pub fn sleep(duration: std::time::Duration) -> SleepFuture {
 #[must_use]
 pub struct WaitForPollable {
     pollable: Option<Pollable>,
+    name: Option<&'static str>,
+}
+
+impl WaitForPollable {
+    /// Optionally sets a name for the pollable being waited on, which can be used for debugging
+    /// purposes.
+    pub fn named(mut self, name: &'static str) -> Self {
+        self.name = Some(name);
+        self
+    }
 }
 
 /// Waits for a [`Pollable`] to become ready. Useful for waiting on WASI I/O operations where
@@ -44,6 +54,7 @@ pub struct WaitForPollable {
 pub fn wait_for(pollable: Pollable) -> WaitForPollable {
     WaitForPollable {
         pollable: Some(pollable),
+        name: None,
     }
 }
 
@@ -57,7 +68,7 @@ impl Future for WaitForPollable {
             Runtime::new_waker(
                 cx,
                 self.pollable.take().expect("pollable not set"),
-                Some("WaitForPollable"),
+                self.name.clone(),
             );
 
             Poll::Pending

@@ -27,13 +27,13 @@ impl Platform for WasiPlatform {
 
     async fn next_user(&self) -> Result<RawUser, ListenError> {
         let pollable = self.future_user.subscribe()?;
-        tasks::wait_for(pollable).await;
+        tasks::wait_for(pollable).named("next user").await;
         Ok(RawUser::new(self.future_user.get()?))
     }
 
     async fn next_hook_request(&self) -> Result<RawHookRequest, ListenError> {
         let pollable = self.future_hook_request.subscribe()?;
-        tasks::wait_for(pollable).await;
+        tasks::wait_for(pollable).named("next hook request").await;
         Ok(RawHookRequest::new(self.future_hook_request.get()?))
     }
 
@@ -107,6 +107,7 @@ impl PlatformUser for RawUser {
                 .subscribe()
                 .map_err(|e| UserNextMessageError::Listen(e.into()))?,
         )
+        .named("next user message")
         .await;
 
         let message = self

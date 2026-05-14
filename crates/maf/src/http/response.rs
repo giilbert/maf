@@ -78,7 +78,9 @@ impl Response {
         let mut buffer = Vec::new();
 
         loop {
-            tasks::wait_for(stream.subscribe()).await;
+            tasks::wait_for(stream.subscribe())
+                .named("get response body")
+                .await;
 
             match stream.read(u64::MAX) {
                 Ok(data) => buffer.extend_from_slice(&data),

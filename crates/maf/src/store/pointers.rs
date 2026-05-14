@@ -4,7 +4,9 @@ use std::{
     sync::atomic,
 };
 
-use tokio::sync::{OwnedRwLockMappedWriteGuard, OwnedRwLockReadGuard, RwLockMappedWriteGuard};
+use mea::rwlock::{
+    MappedRwLockWriteGuard, OwnedMappedRwLockReadGuard, OwnedMappedRwLockWriteGuard,
+};
 
 use crate::{
     callable::{CallableFetch, CallableParam},
@@ -20,11 +22,11 @@ use super::AnyStore;
 pub struct StoreWriteLock<'a, T: StoreData> {
     app: &'a App,
     inner: &'a AnyStore,
-    guard: RwLockMappedWriteGuard<'a, T>,
+    guard: MappedRwLockWriteGuard<'a, T>,
 }
 
 impl<'a, T: StoreData> StoreWriteLock<'a, T> {
-    pub fn new(app: &'a App, inner: &'a AnyStore, guard: RwLockMappedWriteGuard<'a, T>) -> Self {
+    pub fn new(app: &'a App, inner: &'a AnyStore, guard: MappedRwLockWriteGuard<'a, T>) -> Self {
         Self { app, guard, inner }
     }
 }
@@ -64,7 +66,7 @@ impl<T: StoreData> Drop for StoreWriteLock<'_, T> {
 pub struct OwnedStoreWriteLock<T: StoreData> {
     pub(crate) app: App,
     pub(crate) store: Store<T>,
-    pub(crate) guard: OwnedRwLockMappedWriteGuard<dyn Any + Send + Sync, T>,
+    pub(crate) guard: OwnedMappedRwLockWriteGuard<dyn Any + Send + Sync, T>,
 }
 
 impl<T: StoreData> Deref for OwnedStoreWriteLock<T> {
@@ -134,7 +136,7 @@ impl<T: StoreData, Ctx: CallableFetch<App>, Init: Send + Sync> CallableParam<Ctx
 ///
 /// For more information on locking behavior, see [`Store`].
 pub struct StoreRef<T: StoreData> {
-    inner: OwnedRwLockReadGuard<dyn Any + Send + Sync, T>,
+    inner: OwnedMappedRwLockReadGuard<dyn Any + Send + Sync, T>,
 }
 
 impl<T: StoreData, Ctx: CallableFetch<App>, Init: Send + Sync> CallableParam<Ctx, Init>

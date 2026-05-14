@@ -31,6 +31,10 @@ fn increment_counter(
     counter.count
 }
 
+fn noop() {
+    println!("noop called");
+}
+
 async fn on_connect(user: User) {
     println!("user connected! id: {}", user.meta().id());
 }
@@ -40,6 +44,7 @@ fn build() -> App {
         .on_connect(on_connect)
         .store::<CounterStore>()
         .rpc("increment_counter", increment_counter)
+        .rpc("noop", noop)
         .build()
 }
 

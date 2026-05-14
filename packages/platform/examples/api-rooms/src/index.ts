@@ -12,13 +12,13 @@ import { MafClient } from "@usemaf/client";
 const client = new MafClient({
   // You would likely have a import.meta.env switch here to choose between
   // dev/prod servers.
-  // server: "dev",
+  server: "dev",
   // Uncomment to use local platform server
-  server: {
-    type: "platform",
-    app: "gilbert/example-platform",
-    url: "http://localhost:1147",
-  },
+  // server: {
+  //   type: "platform",
+  //   app: "gilbert/example-platform",
+  //   url: "http://localhost:1147",
+  // },
 });
 
 // I actually don't like builing frontends but here is a minimal element to
