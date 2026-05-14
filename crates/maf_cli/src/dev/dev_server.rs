@@ -9,8 +9,8 @@ use std::sync::{atomic::AtomicU64, Arc};
 use axum::{
     extract::{Path, Query, State, WebSocketUpgrade},
     response::Response,
-    serve::ListenerExt,
     routing::get,
+    serve::ListenerExt,
     ServiceExt,
 };
 use colored::Colorize;
