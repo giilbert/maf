@@ -73,8 +73,8 @@ impl App {
         let select_stores = self
             .inner
             .selects
-            .iter()
-            .map(|(_, select)| {
+            .values()
+            .map(|select| {
                 let desc = (select.desc)(&mut generator);
                 maf_schemas::typed::StoreSerialized {
                     name: desc.name,
@@ -84,8 +84,8 @@ impl App {
             .collect::<Vec<_>>();
 
         let stores = stores
-            .iter()
-            .map(|(_, store)| {
+            .values()
+            .map(|store| {
                 let desc = (store.desc)(&mut generator);
                 maf_schemas::typed::StoreSerialized {
                     name: desc.name,
@@ -93,7 +93,7 @@ impl App {
                 }
             })
             // Selects behave like stores client-side, so we can include them here
-            .chain(select_stores.into_iter())
+            .chain(select_stores)
             .collect();
 
         self.inner.platform.report_app_schema(

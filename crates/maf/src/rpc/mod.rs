@@ -219,9 +219,7 @@ mod tests {
                 T {}
             }
 
-            fn select(&self, _user: &User) -> Self::Select<'_> {
-                ()
-            }
+            fn select(&self, _user: &User) -> Self::Select<'_> {}
         }
 
         check_rpc_parameter::<Store<T>>();
