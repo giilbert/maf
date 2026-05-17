@@ -129,20 +129,20 @@ impl Runtime {
             }
 
             // self.debug_pollables();
-            let poll_start = std::time::Instant::now();
+            // let poll_start = std::time::Instant::now();
             let mut ready_poll_indices = wasi::io::poll::poll(&pollable_ref);
             // println!("woke up after {:?}", poll_start.elapsed());
-            println!(
-                "woke up after {:?}. ready pollables: {:?}",
-                poll_start.elapsed(),
-                &inner
-                    .pollables
-                    .iter()
-                    .enumerate()
-                    .filter(|(index, _)| ready_poll_indices.contains(&(*index as u32)))
-                    .map(|(_, (_, _, name))| name.unwrap_or("<unnamed>"))
-                    .collect::<Vec<_>>()
-            );
+            // println!(
+            //     "woke up after {:?}. ready pollables: {:?}",
+            //     poll_start.elapsed(),
+            //     &inner
+            //         .pollables
+            //         .iter()
+            //         .enumerate()
+            //         .filter(|(index, _)| ready_poll_indices.contains(&(*index as u32)))
+            //         .map(|(_, (_, _, name))| name.unwrap_or("<unnamed>"))
+            //         .collect::<Vec<_>>()
+            // );
             drop(inner);
 
             // Sort in descending order to avoid changing the indices of ready pollables
