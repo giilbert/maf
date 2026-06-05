@@ -134,7 +134,7 @@ async fn connect_route(
         }
     };
 
-    let auth_data = get_auth_data(&query_params, auth_mode.as_ref(), &room.inner())?;
+    let auth_data = get_auth_data(&query_params, auth_mode.as_ref(), room.inner())?;
 
     Ok(do_ws_upgrade(WsUpgradeOptions {
         ws,
