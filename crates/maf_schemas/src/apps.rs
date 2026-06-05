@@ -2,7 +2,8 @@ use std::collections::{BTreeMap, HashMap};
 
 use colored::Colorize;
 use rand::Rng as _;
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 pub fn generate_room_secret() -> String {

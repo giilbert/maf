@@ -14,26 +14,21 @@
 
 use std::collections::BTreeMap;
 
-use axum::{
-    Json, Router,
-    extract::{Path, Query, State, WebSocketUpgrade},
-    response::Response,
-    routing::get,
-};
+use axum::extract::{Path, Query, State, WebSocketUpgrade};
+use axum::response::Response;
+use axum::routing::get;
+use axum::{Json, Router};
 use maf_container::server::{
     WsUpgradeOptions, do_ws_upgrade, get_auth_data, pre_create_room_auth_check,
 };
-use maf_schemas::{
-    apps::{
-        AppNameAndOrgSlug, ConnectQueryParams, InfoResponse, MetaVisibility, RoomCreationStrategy,
-    },
-    error::ErrorResponse,
-    project_config::ProjectConfigFile,
+use maf_schemas::apps::{
+    AppNameAndOrgSlug, ConnectQueryParams, InfoResponse, MetaVisibility, RoomCreationStrategy,
 };
-
-use crate::storage::repos::app_repo;
+use maf_schemas::error::ErrorResponse;
+use maf_schemas::project_config::ProjectConfigFile;
 
 use super::state::{AppState, Environment};
+use crate::storage::repos::app_repo;
 
 pub fn create_gateway_router(_state: AppState) -> Router<AppState> {
     let inner = Router::new()

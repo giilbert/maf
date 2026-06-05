@@ -1,9 +1,9 @@
-use std::{fs, path::PathBuf};
+use std::fs;
+use std::path::PathBuf;
 
 use anyhow::Context;
-use serde::{Deserialize, Serialize};
-
 use directories::ProjectDirs;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct GlobalConfig {

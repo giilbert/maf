@@ -16,7 +16,7 @@
 //! // An RPC function that adds a given amount to a counter store.
 //! async fn add_counter(
 //!     Params(amount): Params<i32>, // `Params<T>` extractor for input parameters
-//!     counter: Store<Counter> // `Store<T>` extractor for accessing a store
+//!     counter: Store<Counter>,     // `Store<T>` extractor for accessing a store
 //! ) -> i32 {
 //!     let mut store = counter.write().await;
 //!     store.count += amount;
@@ -25,7 +25,7 @@
 //!
 //! async fn reset_counter(
 //!     user: User, // `User` extractor for accessing the user making the request
-//!     counter: Store<Counter>
+//!     counter: Store<Counter>,
 //! ) {
 //!     println!("User {} reset the counter", user.meta().id());
 //!     let mut store = counter.write().await;
@@ -64,20 +64,18 @@
 
 mod params;
 
+use std::any::TypeId;
+use std::collections::HashMap;
 #[cfg(feature = "typed")]
 use std::sync::Arc;
-use std::{any::TypeId, collections::HashMap};
 
 use maf_schemas::packet::{TypedRpcRequestPacket, TypedRpcResponsePacket};
 pub use params::Params;
-
 use params::ParamsError;
 
-use crate::{
-    callable::{BoxedCallable, CallableFetch},
-    platform::SendError,
-    App, LocalStateError, User,
-};
+use crate::callable::{BoxedCallable, CallableFetch};
+use crate::platform::SendError;
+use crate::{App, LocalStateError, User};
 
 /// A type-erased RPC function handler.
 pub struct RpcFunction {
@@ -199,9 +197,9 @@ impl CallableFetch<User> for RpcRequestContext {
 
 #[cfg(test)]
 mod tests {
-    use crate::{callable::CallableParam, Store, StoreData};
-
     use super::*;
+    use crate::callable::CallableParam;
+    use crate::{Store, StoreData};
 
     #[test]
     fn type_checks() {

@@ -1,14 +1,11 @@
+use maf_schemas::apps;
 use uuid::Uuid;
 
-use maf_schemas::apps;
-
-use crate::{
-    app::hooks::{self, HookBody, HookRequestError, HookRequestInit},
-    bindings::bindgen,
-    platform::{ListenError, Platform, PlatformHookRequest, PlatformUser, SendError},
-    tasks,
-    user::{UserMeta, UserNextMessageError},
-};
+use crate::app::hooks::{self, HookBody, HookRequestError, HookRequestInit};
+use crate::bindings::bindgen;
+use crate::platform::{ListenError, Platform, PlatformHookRequest, PlatformUser, SendError};
+use crate::tasks;
+use crate::user::{UserMeta, UserNextMessageError};
 
 pub struct WasiPlatform {
     future_user: bindgen::FutureUser,

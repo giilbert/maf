@@ -1,18 +1,16 @@
-use std::{
-    collections::{HashMap, HashSet},
-    path::Path,
-};
+use std::collections::{HashMap, HashSet};
+use std::path::Path;
 
 use anyhow::Context;
 use colored::Colorize as _;
-use maf_container::{
-    server::{Bundle, CreateRoomInnerOptions, RoomInner},
-    Container, ContainerResourceLimit, ContainerRuntime,
-};
+use maf_container::server::{Bundle, CreateRoomInnerOptions, RoomInner};
+use maf_container::{Container, ContainerResourceLimit, ContainerRuntime};
 use maf_schemas::apps::{MetaEntryMap, RoomCreationStrategy, RoomId};
 use tokio::sync::{RwLock, RwLockReadGuard};
 
-use crate::{config::ProjectConfig, dev::dev_server::DevServerState, print_dimmed};
+use crate::config::ProjectConfig;
+use crate::dev::dev_server::DevServerState;
+use crate::print_dimmed;
 
 // Simplified version of RoomKeyHash and InsertRoom for development purposes
 
@@ -180,10 +178,7 @@ impl DevRoomsStorage {
 
         self.inner.write().await.insert(room.id(), room.clone());
 
-        self.keys
-            .write()
-            .await
-            .insert(meta.key.clone(), meta.id);
+        self.keys.write().await.insert(meta.key.clone(), meta.id);
 
         println!("[dev] Created room with key `{}`", meta.key);
 

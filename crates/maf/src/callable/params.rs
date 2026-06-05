@@ -1,6 +1,7 @@
 use std::future::Future;
 
-use crate::{callable::SupportsAsync, App, User};
+use crate::callable::SupportsAsync;
+use crate::{App, User};
 
 /// A parameter that could appear in a callable function (e.g. `rpc` or `on_connect`).
 ///

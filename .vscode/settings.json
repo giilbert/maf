@@ -6,4 +6,8 @@
   },
   "rust-analyzer.cargo.features": [],
   "rust-analyzer.cargo.noDefaultFeatures": true,
+  "rust-analyzer.rustfmt.extraArgs": [
+    "+nightly",
+    "--unstable-features"
+  ]
 }

@@ -1,7 +1,5 @@
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 use anyhow::Context;
 use maf_schemas::packet::{
@@ -10,40 +8,32 @@ use maf_schemas::packet::{
 };
 use serde::Serialize;
 use serde_json::Value;
-use tokio::sync::{
-    mpsc::{self, error::TryRecvError},
-    RwLock,
-};
+use tokio::sync::mpsc::error::TryRecvError;
+use tokio::sync::mpsc::{self};
+use tokio::sync::RwLock;
 use uuid::Uuid;
 
-use crate::{
-    app::{
-        background::BackgroundFnContext,
-        hooks::{HookBody, HookRequest, HookResponse},
-        meta::{AnyMetaUpdater, MetaContext, MetaKey, MetaStorage},
-        observe::{ObserveDepdendency, ObserveStore, ObserveTarget},
-    },
-    callable::{BoxedCallable, IntoCallable},
-    channel::UntypedChannelBroadcast,
-    platform::{ListenError, Platform, TargetPlatform},
-    rpc::{RpcError, RpcRequestContext, RpcRequestInit, RpcStore},
-    store::{
-        AnySelect, AnyStore, GetParamSelectDependencies, SelectContext, SelectDependencyType,
-        SelectKey, StoreId,
-    },
-    tasks::{self},
-    user::{UserMessage, UserNextMessageError},
-    Channel, Local, MetaVisibility, RpcFunction, Store, StoreData, User,
+use super::background::{BackgroundFn, BackgroundFnError};
+use super::hooks::{HookContext, HookError, HookFunction, HookStore};
+use super::local::LocalStateStore;
+use super::on_connect_disconnect::{
+    OnConnectDiconnectContext, OnConnectDisconnectError, OnConnectDisconnectFn,
 };
-
-use super::{
-    background::{BackgroundFn, BackgroundFnError},
-    hooks::{HookContext, HookError, HookFunction, HookStore},
-    local::LocalStateStore,
-    on_connect_disconnect::{
-        OnConnectDiconnectContext, OnConnectDisconnectError, OnConnectDisconnectFn,
-    },
+use crate::app::background::BackgroundFnContext;
+use crate::app::hooks::{HookBody, HookRequest, HookResponse};
+use crate::app::meta::{AnyMetaUpdater, MetaContext, MetaKey, MetaStorage};
+use crate::app::observe::{ObserveDepdendency, ObserveStore, ObserveTarget};
+use crate::callable::{BoxedCallable, IntoCallable};
+use crate::channel::UntypedChannelBroadcast;
+use crate::platform::{ListenError, Platform, TargetPlatform};
+use crate::rpc::{RpcError, RpcRequestContext, RpcRequestInit, RpcStore};
+use crate::store::{
+    AnySelect, AnyStore, GetParamSelectDependencies, SelectContext, SelectDependencyType,
+    SelectKey, StoreId,
 };
+use crate::tasks::{self};
+use crate::user::{UserMessage, UserNextMessageError};
+use crate::{Channel, Local, MetaVisibility, RpcFunction, Store, StoreData, User};
 
 /// A complete MAF application, containing stores, RPC functions, background tasks, and more.
 #[derive(Clone)]
@@ -453,9 +443,7 @@ impl AppBuilder {
     /// }
     ///
     /// fn build() -> App {
-    ///    App::builder()
-    ///        .on_connect(on_connect)
-    ///        .build()
+    ///     App::builder().on_connect(on_connect).build()
     /// }
     /// ```
     pub fn on_connect<Params, Handler, const IS_ASYNC: bool>(mut self, handler: Handler) -> Self
@@ -486,9 +474,7 @@ impl AppBuilder {
     /// }
     ///
     /// fn build() -> App {
-    ///    App::builder()
-    ///        .on_disconnect(on_disconnect)
-    ///        .build()
+    ///     App::builder().on_disconnect(on_disconnect).build()
     /// }
     /// ```
     pub fn on_disconnect<Params, Handler, const IS_ASYNC: bool>(mut self, handler: Handler) -> Self
@@ -519,7 +505,9 @@ impl AppBuilder {
     ///     count: i32,
     /// }
     ///
-    /// impl StoreData for CounterStore { /* ... */ }
+    /// impl StoreData for CounterStore {
+    ///     /* ... */
+    /// }
     ///
     /// async fn add(Params(count): Params<i32>, store: Store<CounterStore>) -> i32 {
     ///     let mut data = store.write().await;
@@ -595,14 +583,12 @@ impl AppBuilder {
     /// async fn background() {
     ///     loop {
     ///         tasks::sleep(std::time::Duration::from_secs(1)).await;
-    ///         println!("Hello from the background!");  
+    ///         println!("Hello from the background!");
     ///     }
     /// }
     ///
     /// fn build() -> App {
-    ///     App::builder()
-    ///         .background(background)
-    ///         .build()
+    ///     App::builder().background(background).build()
     /// }
     /// ```
     pub fn background<Params, Handler, const IS_ASYNC: bool>(mut self, handler: Handler) -> Self
@@ -692,7 +678,9 @@ impl AppBuilder {
     ///         // changes. Clients will see an "alive_players" store that contains only the alive
     ///         // players.
     ///         .select("alive_players", |store: StoreRef<GameStore>| {
-    ///             store.players.values()
+    ///             store
+    ///                 .players
+    ///                 .values()
     ///                 .filter(|player| player.is_alive)
     ///                 .cloned()
     ///                 .collect::<Vec<Player>>()
@@ -772,16 +760,20 @@ impl AppBuilder {
     ///     count: i32,
     /// }
     ///
-    /// impl StoreData for CounterStore { /* ... */ }
+    /// impl StoreData for CounterStore {
+    ///     /* ... */
+    /// }
     ///
     /// fn build() -> App {
     ///     App::builder()
     ///         .store::<CounterStore>()
     ///         // Whenever the `CounterStore` is updated, the "count" meta value will also be
     ///         // updated.
-    ///         .meta(MetaVisibility::Public, "count", |store: StoreRef<CounterStore>| {
-    ///             store.count
-    ///         })
+    ///         .meta(
+    ///             MetaVisibility::Public,
+    ///             "count",
+    ///             |store: StoreRef<CounterStore>| store.count,
+    ///         )
     /// }
     ///
     /// maf::register!(build);

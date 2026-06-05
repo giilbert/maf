@@ -1,33 +1,25 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use axum::{
-    extract::{
-        WebSocketUpgrade,
-        ws::{Message, WebSocket},
-    },
-    response::Response,
-};
+use axum::extract::WebSocketUpgrade;
+use axum::extract::ws::{Message, WebSocket};
+use axum::response::Response;
 use base64::Engine;
 use bytes::Bytes;
-use futures_util::{
-    SinkExt, StreamExt,
-    stream::{SplitSink, SplitStream},
-};
-use maf_schemas::{
-    apps::ConnectQueryParams,
-    error::ErrorResponse,
-    packet::{ServerHandshake, TxPacket},
-    project_config::AuthMode,
-};
-use tokio::{
-    sync::{Mutex, mpsc},
-    time::timeout,
-};
+use futures_util::stream::{SplitSink, SplitStream};
+use futures_util::{SinkExt, StreamExt};
+use maf_schemas::apps::ConnectQueryParams;
+use maf_schemas::error::ErrorResponse;
+use maf_schemas::packet::{ServerHandshake, TxPacket};
+use maf_schemas::project_config::AuthMode;
+use tokio::sync::{Mutex, mpsc};
+use tokio::time::timeout;
 use uuid::Uuid;
 
-use crate::{server::RoomInner, wasi::bindings};
+use crate::server::RoomInner;
+use crate::wasi::bindings;
 
 /// Represents a WebSocket connection to a client.
 pub struct WsConnection {

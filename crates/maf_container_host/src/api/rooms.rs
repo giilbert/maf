@@ -1,24 +1,16 @@
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 use anyhow::Context;
 use dashmap::{DashMap, DashSet};
-use maf_container::{
-    ContainerResourceLimit,
-    server::{CreateRoomInnerOptions, RoomInner},
-};
-use maf_schemas::{
-    apps::{AppNameAndOrgSlug, RoomCreationStrategy, RoomId, RoomKeyHash},
-    error::ErrorResponse,
-};
+use maf_container::ContainerResourceLimit;
+use maf_container::server::{CreateRoomInnerOptions, RoomInner};
+use maf_schemas::apps::{AppNameAndOrgSlug, RoomCreationStrategy, RoomId, RoomKeyHash};
+use maf_schemas::error::ErrorResponse;
 use tokio::sync::{Notify, RwLock, RwLockReadGuard};
 
-use crate::{
-    api::{AppState, Environment},
-    storage::db::app,
-};
+use crate::api::{AppState, Environment};
+use crate::storage::db::app;
 
 /// A "room" represents an instance of a user's MAF app running.
 ///

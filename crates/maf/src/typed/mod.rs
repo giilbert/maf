@@ -44,7 +44,6 @@
 //!         // ...
 //!         .build()
 //! }
-//!
 //! ```
 //!
 //! ## ⚠️ Work in Progress ⚠️
@@ -57,7 +56,8 @@ mod desc;
 pub(crate) use desc::{ExtractRpcDesc, ExtractSelectDesc};
 pub use desc::{RpcDesc, StoreDesc};
 
-use crate::{platform::Platform, App};
+use crate::platform::Platform;
+use crate::App;
 
 impl App {
     pub(crate) fn export_types(&self) {

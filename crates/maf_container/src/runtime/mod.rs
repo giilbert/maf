@@ -1,11 +1,13 @@
 pub mod wasi;
 
+use std::fmt::Debug;
+use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
+
+use wasmtime::component::HasSelf;
+use wasmtime::{self as wt};
+
 use crate::container::ContainerData;
-use std::{
-    fmt::Debug,
-    sync::{Arc, atomic::AtomicU64},
-};
-use wasmtime::{self as wt, component::HasSelf};
 
 #[derive(Clone)]
 pub struct ContainerRuntime {

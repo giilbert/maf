@@ -8,6 +8,7 @@ mod hooks;
 mod user;
 
 use anyhow::Context;
+use errors::ListenError;
 pub use hooks::{FutureHookRequest, HookRequest};
 use maf_schemas::apps::{JsonMetaEntry, MetaVisibility};
 use maf_schemas::typed::AppSchema;
@@ -15,7 +16,6 @@ pub use user::{FutureMessageImpl, FutureUserImpl, UserImpl};
 use wasmtime::component::Resource;
 
 use crate::container::ContainerData;
-use errors::ListenError;
 
 mod generated {
     wasmtime::component::bindgen!({

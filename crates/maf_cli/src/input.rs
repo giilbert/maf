@@ -1,4 +1,6 @@
-use std::{fmt::Debug, io::Write, str::FromStr};
+use std::fmt::Debug;
+use std::io::Write;
+use std::str::FromStr;
 
 use colored::Colorize;
 

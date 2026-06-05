@@ -1,21 +1,17 @@
 use anyhow::Context;
-use biscuit::{ClaimsSet, JWT, jwa::SignatureAlgorithm, jws::Secret};
+use biscuit::jwa::SignatureAlgorithm;
+use biscuit::jws::Secret;
+use biscuit::{ClaimsSet, JWT};
 use maf_schemas::apps::{MetaEntryMap, RoomId, generate_room_secret};
 use tokio::sync::oneshot;
 use uuid::Uuid;
 
-use crate::{
-    Connection, Container, ContainerResourceStats, ContainerRuntime,
-    container::{
-        ContainerHandle, ContainerResourceLimit, CreateContainerOptions, meta::MetaStorage,
-    },
-    wasi::{
-        HookRequest,
-        bindings::{self, HookRequestCaller, HookRequestInit},
-    },
-};
-
 use super::Bundle;
+use crate::container::meta::MetaStorage;
+use crate::container::{ContainerHandle, ContainerResourceLimit, CreateContainerOptions};
+use crate::wasi::HookRequest;
+use crate::wasi::bindings::{self, HookRequestCaller, HookRequestInit};
+use crate::{Connection, Container, ContainerResourceStats, ContainerRuntime};
 
 /// The core implementation of a MAF room, containing the container, bundle, and other internal
 /// data. This struct is intended to be wrapped in some container that decorates it with additional

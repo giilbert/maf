@@ -1,15 +1,16 @@
 //! An interface to inactive with the MAF Meta API.
 
-use std::{collections::HashMap, ops::Deref, sync::Arc};
+use std::collections::HashMap;
+use std::ops::Deref;
+use std::sync::Arc;
 
 use maf_schemas::apps::{MetaEntry, MetaVisibility};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
-use crate::{
-    callable::{BoxedCallable, CallableFetch},
-    platform::{Platform, TargetPlatform},
-    App,
-};
+use crate::callable::{BoxedCallable, CallableFetch};
+use crate::platform::{Platform, TargetPlatform};
+use crate::App;
 
 #[repr(transparent)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

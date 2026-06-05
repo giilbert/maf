@@ -7,7 +7,8 @@ use clap::Subcommand;
 use colored::Colorize;
 use maf_schemas::apps::CreateUserAppRequest;
 
-use crate::{input::input, pretty, Context};
+use crate::input::input;
+use crate::{pretty, Context};
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum AppCommands {

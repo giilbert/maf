@@ -1,42 +1,33 @@
 use std::collections::BTreeMap;
 
-use axum::{
-    Json, Router,
-    body::Body,
-    extract::{Path, Query, State},
-    middleware,
-    routing::{get, post},
-};
+use axum::body::Body;
+use axum::extract::{Path, Query, State};
+use axum::routing::{get, post};
+use axum::{Json, Router, middleware};
 use chrono::Utc;
-use maf_container::{
-    ContainerResourceLimit,
-    server::{CreateRoomInnerOptions, RoomInner},
+use maf_container::ContainerResourceLimit;
+use maf_container::server::{CreateRoomInnerOptions, RoomInner};
+use maf_schemas::apps::{
+    AppNameAndOrgSlug, CreateRoomOptions, CreateUserAppRequest, MetaVisibility,
+    RoomCreationStrategy, RoomInfo, RoomKeyHash, RoomListQueryParams, RoomQueryResponse,
+    UpdateUserAppRequest,
 };
-use maf_schemas::{
-    apps::{
-        AppNameAndOrgSlug, CreateRoomOptions, CreateUserAppRequest, MetaVisibility,
-        RoomCreationStrategy, RoomInfo, RoomKeyHash, RoomListQueryParams, RoomQueryResponse,
-        UpdateUserAppRequest,
-    },
-    error::ErrorResponse,
-    project_config::ProjectConfigFile,
-};
-use sea_orm::{ActiveModelTrait, ActiveValue::Set, ModelTrait};
+use maf_schemas::error::ErrorResponse;
+use maf_schemas::project_config::ProjectConfigFile;
+use sea_orm::ActiveValue::Set;
+use sea_orm::{ActiveModelTrait, ModelTrait};
 use uuid::Uuid;
 
-use crate::{
-    api::{
-        auth::{AuthedServiceAccount, authenticate_service_request, authenticate_user_request},
-        rooms::InsertRoom,
-    },
-    storage::{
-        bundle::BundleError,
-        db::app,
-        repos::{app_repo, org_repo, utils::DbErrorExt},
-    },
+use super::auth::AuthedUser;
+use super::state::AppState;
+use crate::api::auth::{
+    AuthedServiceAccount, authenticate_service_request, authenticate_user_request,
 };
-
-use super::{auth::AuthedUser, state::AppState};
+use crate::api::rooms::InsertRoom;
+use crate::storage::bundle::BundleError;
+use crate::storage::db::app;
+use crate::storage::repos::utils::DbErrorExt;
+use crate::storage::repos::{app_repo, org_repo};
 
 pub fn create_user_app_router(state: AppState) -> Router<AppState> {
     // Router for user operations

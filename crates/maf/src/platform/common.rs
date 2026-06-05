@@ -9,11 +9,9 @@ use std::future::Future;
 
 use maf_schemas::apps;
 
-use crate::{
-    app::hooks,
-    platform::{self, ListenError, SendError},
-    user::{UserMeta, UserNextMessageError},
-};
+use crate::app::hooks;
+use crate::platform::{self, ListenError, SendError};
+use crate::user::{UserMeta, UserNextMessageError};
 
 /// Traits defining how a MAF app running should interact with the underlying platform (e.g. MAF
 /// Platform, native server, etc.). This is almost a 1-1 translation of `maf.wit`.

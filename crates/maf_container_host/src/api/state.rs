@@ -1,26 +1,20 @@
-use std::{sync::atomic::AtomicU64, time::Duration};
+use std::sync::atomic::AtomicU64;
+use std::time::Duration;
 
 use anyhow::Context;
-use maf_container::{utils, ContainerRuntime};
+use maf_container::{ContainerRuntime, utils};
+use sea_orm::ActiveValue::Set;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectOptions, EntityTrait, QueryFilter,
-    TransactionTrait,
+    ActiveModelTrait, ColumnTrait, ConnectOptions, EntityTrait, QueryFilter, TransactionTrait,
 };
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-use crate::{
-    api::rooms::RoomsStorage,
-    storage::{
-        bundle::BundleStorage,
-        db::{
-            self,
-            user::{self, Permissions},
-            TxnError,
-        },
-        repos::user_repo,
-    },
-};
+use crate::api::rooms::RoomsStorage;
+use crate::storage::bundle::BundleStorage;
+use crate::storage::db::user::{self, Permissions};
+use crate::storage::db::{self, TxnError};
+use crate::storage::repos::user_repo;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Environment {

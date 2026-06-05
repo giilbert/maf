@@ -1,4 +1,5 @@
-use std::{cell::RefCell, collections::HashSet};
+use std::cell::RefCell;
+use std::collections::HashSet;
 
 use anyhow::Context;
 use maf_schemas::typed::{AppSchema, StoreSerialized};
@@ -306,7 +307,8 @@ impl TypeScriptCodegen {
 #[cfg(test)]
 mod tests {
 
-    use schemars::{JsonSchema, generate::SchemaSettings};
+    use schemars::JsonSchema;
+    use schemars::generate::SchemaSettings;
 
     fn create_default_codegen() -> super::TypeScriptCodegen {
         let schema = maf_schemas::typed::AppSchema {

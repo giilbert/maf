@@ -1,9 +1,8 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::entity::user;
-
 use super::{app, org_member};
+use crate::entity::user;
 
 pub type OrgSlug = String;
 

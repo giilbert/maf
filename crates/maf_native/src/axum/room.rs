@@ -1,9 +1,7 @@
 use axum::extract::ws::WebSocket;
-use maf::{
-    app::AppBuilder,
-    platform::{ActorPlatformHandle, Platform, TargetPlatform as ActorPlatform},
-    prelude::Uuid,
-};
+use maf::app::AppBuilder;
+use maf::platform::{ActorPlatformHandle, Platform, TargetPlatform as ActorPlatform};
+use maf::prelude::Uuid;
 
 use crate::axum::Connection;
 

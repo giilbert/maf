@@ -1,13 +1,10 @@
 use maf_schemas::apps;
-use tokio::sync::{
-    mpsc::{self, error::TrySendError},
-    Mutex,
-};
+use tokio::sync::mpsc::error::TrySendError;
+use tokio::sync::mpsc::{self};
+use tokio::sync::Mutex;
 
-use crate::{
-    platform::{ListenError, Message, Platform, PlatformHookRequest, PlatformUser},
-    user::UserMeta,
-};
+use crate::platform::{ListenError, Message, Platform, PlatformHookRequest, PlatformUser};
+use crate::user::UserMeta;
 
 /// Platforms that are implemented with the actor model: abstractions are implemented by sending
 /// messages through channels.
@@ -130,7 +127,9 @@ impl PlatformUser for RawUser {
             .map_err(|_| crate::user::UserNextMessageError::Listen(ListenError::AlreadyListening))?
             .recv()
             .await
-            .ok_or(crate::user::UserNextMessageError::Listen(ListenError::Closed))
+            .ok_or(crate::user::UserNextMessageError::Listen(
+                ListenError::Closed,
+            ))
     }
 }
 

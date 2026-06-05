@@ -1,29 +1,21 @@
-use axum::{
-    extract::{Request, State},
-    middleware::{self, Next},
-    response::IntoResponse,
-    Json, Router,
-};
-use maf_schemas::{
-    admin::{DeleteUserAdminView, UserWithOrgsAdminView},
-    error::ErrorResponse,
-};
+use axum::extract::{Request, State};
+use axum::middleware::{self, Next};
+use axum::response::IntoResponse;
+use axum::{Json, Router};
+use maf_schemas::admin::{DeleteUserAdminView, UserWithOrgsAdminView};
+use maf_schemas::error::ErrorResponse;
 use migrations::entity::{org, org_member};
+use sea_orm::ActiveValue::*;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::*, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter,
-    TransactionTrait,
+    ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, TransactionTrait,
 };
 use uuid::Uuid;
 
-use crate::{
-    api::auth::authenticate_user_request,
-    storage::{
-        db::{user, TxnError},
-        repos::utils::DbErrorExt,
-    },
-};
-
-use super::{auth::AuthedUser, state::AppState};
+use super::auth::AuthedUser;
+use super::state::AppState;
+use crate::api::auth::authenticate_user_request;
+use crate::storage::db::{TxnError, user};
+use crate::storage::repos::utils::DbErrorExt;
 
 /// Middleware that asserts the user is an admin.
 pub async fn assert_admin(req: Request, next: Next) -> impl IntoResponse {
@@ -191,9 +183,9 @@ async fn delete_user(
                             .exec_with_returning(tx)
                             .await?
                             .pop()
-                        {
-                            deleted_orgs.push(deleted_org.into());
-                        }
+                    {
+                        deleted_orgs.push(deleted_org.into());
+                    }
                 }
 
                 Ok(DeleteUserAdminView {

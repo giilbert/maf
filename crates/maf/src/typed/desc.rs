@@ -9,10 +9,9 @@ use std::sync::Arc;
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::de::DeserializeOwned;
 
-use crate::{
-    callable::IntoCallable, store::SelectContext, App, Params, Store, StoreData, StoreMut,
-    StoreRef, User,
-};
+use crate::callable::IntoCallable;
+use crate::store::SelectContext;
+use crate::{App, Params, Store, StoreData, StoreMut, StoreRef, User};
 
 /// A description of a store, including its name and the schema of its select type.
 #[derive(Debug, Clone, PartialEq)]
@@ -219,10 +218,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        typed::{desc::ExtractRpcDesc, ExtractSelectDesc},
-        Params, Store, StoreData,
-    };
+    use crate::typed::desc::ExtractRpcDesc;
+    use crate::typed::ExtractSelectDesc;
+    use crate::{Params, Store, StoreData};
 
     struct Test;
     impl StoreData for Test {

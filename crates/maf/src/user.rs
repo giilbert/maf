@@ -1,21 +1,17 @@
 //! Abstractions for connected users.
 
-use std::{
-    collections::HashMap,
-    sync::{Arc, RwLock},
-};
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 
 use maf_schemas::packet::RxPacket;
 use serde::de::DeserializeOwned;
 use uuid::Uuid;
 
-use crate::{
-    app::AppState,
-    callable::{CallableFetch, CallableParam, SupportsAsync},
-    channel::BoundChannel,
-    platform::{self, Message, PlatformUser, SendError},
-    App, Channel,
-};
+use crate::app::AppState;
+use crate::callable::{CallableFetch, CallableParam, SupportsAsync};
+use crate::channel::BoundChannel;
+use crate::platform::{self, Message, PlatformUser, SendError};
+use crate::{App, Channel};
 
 /// Represents a connected user.
 ///
@@ -30,9 +26,7 @@ use crate::{
 /// }
 ///
 /// fn build() -> App {
-///     App::builder()
-///         .rpc("greet_user", greet_user)
-///         .build()
+///     App::builder().rpc("greet_user", greet_user).build()
 /// }
 ///
 /// maf::register!(build);
@@ -169,9 +163,7 @@ impl Users {
     /// }
     ///
     /// fn build() -> App {
-    ///     App::builder()
-    ///         .rpc("list_users", list_users)
-    ///         .build()
+    ///     App::builder().rpc("list_users", list_users).build()
     /// }
     ///
     /// maf::register!(build);
@@ -218,7 +210,7 @@ impl Users {
     ///         .select("connected_user_count", |users: Users| async move {
     ///             users.count().await
     ///         })
-    ///        .build()
+    ///         .build()
     /// }
     ///
     /// maf::register!(build);

@@ -11,12 +11,15 @@ mod pretty;
 use admin::AdminCommands;
 use app::AppCommands;
 use clap::{Parser, Subcommand};
-
 use colored::Colorize;
 pub use context::Context;
-use tracing_subscriber::{fmt, layer::SubscriberExt as _, util::SubscriberInitExt as _, EnvFilter};
+use tracing_subscriber::layer::SubscriberExt as _;
+use tracing_subscriber::util::SubscriberInitExt as _;
+use tracing_subscriber::{fmt, EnvFilter};
 
-use crate::{auth::AuthCommands, config::ConfigCommands, init::InitOptions};
+use crate::auth::AuthCommands;
+use crate::config::ConfigCommands;
+use crate::init::InitOptions;
 
 #[derive(Parser, Debug)]
 #[command(version, about = include_str!("./about.txt"), long_about = None)]

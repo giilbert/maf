@@ -1,9 +1,8 @@
-use std::{
-    rc::Rc,
-    task::{RawWaker, RawWakerVTable, Waker},
-};
+use std::rc::Rc;
+use std::task::{RawWaker, RawWakerVTable, Waker};
 
-use super::{task::TaskId, Runtime};
+use super::task::TaskId;
+use super::Runtime;
 
 struct WakerData {
     runtime: Runtime,

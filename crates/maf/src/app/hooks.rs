@@ -1,11 +1,10 @@
-use std::{any::TypeId, collections::HashMap, sync::Arc};
-
-use crate::{
-    callable::{BoxedCallable, CallableFetch},
-    platform::{self, PlatformHookRequest},
-};
+use std::any::TypeId;
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use super::{App, AppState};
+use crate::callable::{BoxedCallable, CallableFetch};
+use crate::platform::{self, PlatformHookRequest};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HookRequestCaller {

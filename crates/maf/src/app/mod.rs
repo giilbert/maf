@@ -44,10 +44,9 @@ pub(crate) mod observe;
 mod on_connect_disconnect;
 pub(crate) mod plugin;
 
+pub(crate) use impls::AppState;
 pub use impls::{App, AppBuilder};
 pub use local::Local;
+pub(crate) use local::LocalStateError;
 pub use maf_schemas::apps::{MetaEntry, MetaVisibility};
 pub use plugin::Plugin;
-
-pub(crate) use impls::AppState;
-pub(crate) use local::LocalStateError;

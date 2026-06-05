@@ -1,14 +1,13 @@
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::process;
+
 use anyhow::Context;
 use dialoguer::Select;
 use include_dir::{include_dir, Dir, DirEntry};
 
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-    process,
-};
-
-use crate::{input::input, pretty};
+use crate::input::input;
+use crate::pretty;
 
 static TEMPLATES: Dir = include_dir!("$CARGO_MANIFEST_DIR/src/init/templates");
 
@@ -264,7 +263,9 @@ fn run_setup_commands(options: InitOptions) -> anyhow::Result<()> {
 
     // Perform additional setup based on the selected template
     // e.g. installing tools and dependencies
-    if template_name.as_str() == "rust" { additional_rust_setup()? }
+    if template_name.as_str() == "rust" {
+        additional_rust_setup()?
+    }
 
     pretty::info!(
         "Done! Your project '{}' has been initialized using the '{}' template.",

@@ -1,21 +1,17 @@
-use std::{
-    any::Any,
-    cell::{Ref, RefCell, RefMut},
-    collections::VecDeque,
-    future::{Future, IntoFuture},
-    marker::PhantomData,
-    pin::Pin,
-    rc::Rc,
-    task::{Context, Poll, Waker},
-};
+use std::any::Any;
+use std::cell::{Ref, RefCell, RefMut};
+use std::collections::VecDeque;
+use std::future::{Future, IntoFuture};
+use std::marker::PhantomData;
+use std::pin::Pin;
+use std::rc::Rc;
+use std::task::{Context, Poll, Waker};
 
 use wasi::io::poll::Pollable;
 
-use super::{
-    gen_vec::GenVec,
-    task::{Task, TaskHandle, TaskId},
-    waker,
-};
+use super::gen_vec::GenVec;
+use super::task::{Task, TaskHandle, TaskId};
+use super::waker;
 
 #[doc(hidden)]
 pub static GLOBAL_RUNTIME: GlobalRuntime = GlobalRuntime::new();

@@ -1,18 +1,15 @@
 use std::str::FromStr;
 
-use http::{header::IntoHeaderName, uri::InvalidUri, HeaderMap, Uri};
-use wasi::{
-    http::{
-        outgoing_handler::RequestOptions,
-        types::{ErrorCode, HeaderError, Method, OutgoingBody, OutgoingRequest, Scheme},
-    },
-    io::streams::StreamError,
-};
+use http::header::IntoHeaderName;
+use http::uri::InvalidUri;
+use http::{HeaderMap, Uri};
+use wasi::http::outgoing_handler::RequestOptions;
+use wasi::http::types::{ErrorCode, HeaderError, Method, OutgoingBody, OutgoingRequest, Scheme};
+use wasi::io::streams::StreamError;
 
-use crate::{
-    http::{header_map_to_fields, response::Response},
-    tasks,
-};
+use crate::http::header_map_to_fields;
+use crate::http::response::Response;
+use crate::tasks;
 
 /// Represents an HTTP request that hasn't been sent yet.
 #[derive(Debug)]

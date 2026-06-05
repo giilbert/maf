@@ -1,12 +1,16 @@
 //! Primitive for sending and receiving messages between the server and the client.
 
-use std::{marker::PhantomData, sync::Arc};
+use std::marker::PhantomData;
+use std::sync::Arc;
 
 use maf_schemas::packet::{ChannelSendRx, TxPacket};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 use tokio::sync::broadcast;
 
-use crate::{app::AppState, platform::SendError, User};
+use crate::app::AppState;
+use crate::platform::SendError;
+use crate::User;
 
 /// A named channel that can be used to send and receive messages of type `T` between the server and
 /// the client.
@@ -20,14 +24,13 @@ use crate::{app::AppState, platform::SendError, User};
 /// ## Example
 ///
 /// ```rust
-/// App::builder()
-///     .background(|app: App| async move {
-///         let channel = app.channel::<String>("messages");
-///         loop {
-///             channel.broadcast("Hello, world!".to_string()).await.ok();
-///             tasks::sleep(std::time::Duration::from_secs(5)).await;
-///         }
-///     })
+/// App::builder().background(|app: App| async move {
+///     let channel = app.channel::<String>("messages");
+///     loop {
+///         channel.broadcast("Hello, world!".to_string()).await.ok();
+///         tasks::sleep(std::time::Duration::from_secs(5)).await;
+///     }
+/// })
 /// ```
 ///
 /// ## Bound Channels

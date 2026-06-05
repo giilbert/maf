@@ -1,4 +1,5 @@
-use sea_orm_migration::{prelude::*, schema::*};
+use sea_orm_migration::prelude::*;
+use sea_orm_migration::schema::*;
 
 use crate::m20220101_000001_setup_users_orgs_apps::Org;
 

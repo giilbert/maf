@@ -1,8 +1,7 @@
-use http::{header::AsHeaderName, HeaderMap, HeaderValue, StatusCode};
-use wasi::{
-    http::types::{IncomingBody, IncomingResponse},
-    io::streams::{InputStream, StreamError},
-};
+use http::header::AsHeaderName;
+use http::{HeaderMap, HeaderValue, StatusCode};
+use wasi::http::types::{IncomingBody, IncomingResponse};
+use wasi::io::streams::{InputStream, StreamError};
 
 use crate::tasks;
 

@@ -3,12 +3,11 @@ use std::time::Duration;
 use anyhow::Context;
 use axum::extract::ws::{Message, WebSocket};
 use futures_util::{SinkExt, StreamExt};
-use maf::{platform::Message as PlatformMessage, prelude::Uuid};
+use maf::platform::Message as PlatformMessage;
+use maf::prelude::Uuid;
 use maf_schemas::packet::{ServerHandshake, TxPacket};
-use tokio::{
-    sync::{Mutex, mpsc},
-    time::timeout,
-};
+use tokio::sync::{Mutex, mpsc};
+use tokio::time::timeout;
 
 pub struct Connection {
     pub(crate) platform: maf::platform::RawUser,

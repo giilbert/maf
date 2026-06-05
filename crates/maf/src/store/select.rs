@@ -3,11 +3,9 @@ use std::sync::Arc;
 #[cfg(feature = "typed")]
 use schemars::SchemaGenerator;
 
-use crate::{
-    callable::{BoxedCallable, CallableFetch},
-    store::StoreId,
-    App, Store, StoreData, StoreMut, StoreRef, User, Users,
-};
+use crate::callable::{BoxedCallable, CallableFetch};
+use crate::store::StoreId;
+use crate::{App, Store, StoreData, StoreMut, StoreRef, User, Users};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SelectKey(pub(crate) Arc<str>);

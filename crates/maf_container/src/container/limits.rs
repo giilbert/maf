@@ -4,7 +4,8 @@ use async_trait::async_trait;
 use maf_schemas::apps::RoomId;
 use wasmtime::ResourceLimiterAsync;
 
-use crate::{ContainerResourceLimit, container::ContainerResourceStats};
+use crate::ContainerResourceLimit;
+use crate::container::ContainerResourceStats;
 
 // TODO: Pass in container data to the limiter
 pub struct ContainerResourceLimiter {

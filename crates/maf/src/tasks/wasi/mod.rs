@@ -4,17 +4,15 @@ mod task;
 pub mod timers;
 mod waker;
 
-pub use futures_util;
-use std::{
-    future::{Future, IntoFuture},
-    pin::Pin,
-    task::Poll,
-};
-use wasi::io::poll::Pollable;
+use std::future::{Future, IntoFuture};
+use std::pin::Pin;
+use std::task::Poll;
 
+pub use futures_util;
 use runtime::JoinHandle;
 pub use runtime::Runtime;
 use timers::SleepFuture;
+use wasi::io::poll::Pollable;
 
 /// Spawns a new asynchronous task on the current runtime.
 pub fn spawn<T: IntoFuture + 'static>(fut: T) -> JoinHandle<T::Output> {

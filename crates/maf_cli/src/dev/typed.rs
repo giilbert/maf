@@ -1,5 +1,6 @@
 use colored::Colorize;
-use maf_schemas::{project_config::Language, typed::AppSchema};
+use maf_schemas::project_config::Language;
+use maf_schemas::typed::AppSchema;
 
 use crate::config::ProjectConfig;
 
@@ -18,7 +19,9 @@ pub async fn create_types_file_for_project(
                 if !warnings.is_empty() {
                     println!(
                         "{}",
-                        "[dev] Warnings while generating types:".to_string().yellow()
+                        "[dev] Warnings while generating types:"
+                            .to_string()
+                            .yellow()
                     );
                     for warning in warnings {
                         println!("{}", format!("[dev] - {}", warning).yellow());

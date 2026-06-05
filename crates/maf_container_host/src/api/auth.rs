@@ -10,25 +10,18 @@
 
 use std::collections::HashMap;
 
-use axum::{
-    extract::{FromRequestParts, Path, Request, State},
-    http::request::Parts,
-    middleware::Next,
-    response::Response,
-};
+use axum::extract::{FromRequestParts, Path, Request, State};
+use axum::http::request::Parts;
+use axum::middleware::Next;
+use axum::response::Response;
 use maf_schemas::error::ErrorResponse;
 use migrations::entity::{app, org};
 use uuid::Uuid;
 
-use crate::{
-    api::state::Environment,
-    storage::{
-        db::user,
-        repos::{app_repo, user_repo},
-    },
-};
-
 use super::state::AppState;
+use crate::api::state::Environment;
+use crate::storage::db::user;
+use crate::storage::repos::{app_repo, user_repo};
 
 /// Extracts the authorization token from the request headers, removing the specified base prefix.
 fn get_authorization(req: &Request, base: &str) -> Option<String> {

@@ -1,20 +1,20 @@
-use std::{
-    path::{Path, PathBuf},
-    time::Duration,
-};
+use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use anyhow::Context as _;
-use async_zip::{tokio::write::ZipFileWriter, Compression, ZipEntryBuilder};
-use futures_util::{io::Cursor, TryStreamExt};
+use async_zip::tokio::write::ZipFileWriter;
+use async_zip::{Compression, ZipEntryBuilder};
+use futures_util::io::Cursor;
+use futures_util::TryStreamExt;
 use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
 use reqwest::Body;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio_util::{
-    codec::{BytesCodec, FramedRead},
-    compat::{FuturesAsyncReadCompatExt, TokioAsyncWriteCompatExt},
-};
+use tokio_util::codec::{BytesCodec, FramedRead};
+use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
-use crate::{app::show_short_app_info, dev::run_build_command, pretty, Context};
+use crate::app::show_short_app_info;
+use crate::dev::run_build_command;
+use crate::{pretty, Context};
 
 /// `maf app deploy <name> <wasm_module_path>` command handler
 ///

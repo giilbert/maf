@@ -8,11 +8,9 @@ use std::collections::{HashMap, HashSet};
 use maf_schemas::packet::{Bull, OneStoreUpdate, TxPacket};
 use serde_json::Value;
 
-use crate::{
-    app::meta::MetaKey,
-    store::{SelectKey, StoreId},
-    App,
-};
+use crate::app::meta::MetaKey;
+use crate::store::{SelectKey, StoreId};
+use crate::App;
 
 #[derive(Debug, Default)]
 pub struct ObserveStore {

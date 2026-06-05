@@ -5,13 +5,11 @@ mod rooms;
 mod state;
 mod user_app;
 
-use axum::{
-    extract::{Request, State},
-    middleware::{self, Next},
-    response::Response,
-    routing::get,
-    Router,
-};
+use axum::Router;
+use axum::extract::{Request, State};
+use axum::middleware::{self, Next};
+use axum::response::Response;
+use axum::routing::get;
 use maf_schemas::error::ErrorResponse;
 pub use state::{AppState, Environment};
 

@@ -29,9 +29,9 @@ impl AppBuilder {
     ///     fn build(&self, app: AppBuilder) -> AppBuilder {
     ///         // Initialize game state, RPCs, stores, etc.
     ///         app
-    ///             // .store::<GameState>()
-    ///             // .rpc("start_round", start_round)
-    ///             // ...
+    ///         // .store::<GameState>()
+    ///         // .rpc("start_round", start_round)
+    ///         // ...
     ///     }
     /// }
     ///

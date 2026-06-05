@@ -84,8 +84,9 @@ pub(crate) use app::LocalStateError;
 
 /// Re-exports of commonly used items from MAF and its dependencies.
 pub mod prelude {
-    use super::*;
-
+    pub use ::serde;
+    pub use ::serde_json;
+    pub use ::wasi;
     pub use app::{App, AppBuilder, Local, MetaEntry, MetaVisibility, Plugin};
     pub use channel::{Channel, RecvError};
     pub use rpc::{Params, RawRpcRequest, RpcFunction};
@@ -93,9 +94,7 @@ pub mod prelude {
     pub use user::{User, Users};
     pub use uuid::Uuid;
 
-    pub use ::serde;
-    pub use ::serde_json;
-    pub use ::wasi;
+    use super::*;
 }
 
 // For usage inside MAF, prelude is always available.

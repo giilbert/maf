@@ -1,8 +1,10 @@
-use std::{pin::Pin, task::Poll};
+use std::pin::Pin;
+use std::task::Poll;
 
 use async_trait::async_trait;
 use bytes::Bytes;
-use tokio::{io::AsyncWrite, sync::mpsc};
+use tokio::io::AsyncWrite;
+use tokio::sync::mpsc;
 use wasmtime_wasi::cli::{IsTerminal, StdoutStream};
 
 /// A factory for creating [`ContainerStdout`]. This is needed because WASI uses factory-pattern

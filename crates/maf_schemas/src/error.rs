@@ -1,8 +1,6 @@
-use axum::{
-    body::Body,
-    http::StatusCode,
-    response::{IntoResponse, Response},
-};
+use axum::body::Body;
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
 use serde_json::json;
 
 pub struct ErrorResponse {

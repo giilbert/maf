@@ -3,9 +3,10 @@ use wasmtime::component::Resource;
 use wasmtime_wasi::async_trait;
 use wasmtime_wasi_io::poll;
 
-use crate::{container::ContainerData, interface::BoxedConnection};
-
-use super::{bindings, errors::ListenError};
+use super::bindings;
+use super::errors::ListenError;
+use crate::container::ContainerData;
+use crate::interface::BoxedConnection;
 
 pub struct UserImpl {
     pub connection: BoxedConnection,

@@ -1,13 +1,10 @@
-use sea_orm::{
-    entity::prelude::*,
-    sea_query::{ArrayType, ValueType, ValueTypeErr},
-    TryGetable,
-};
+use sea_orm::entity::prelude::*;
+use sea_orm::sea_query::{ArrayType, ValueType, ValueTypeErr};
+use sea_orm::TryGetable;
 use serde::{Deserialize, Serialize};
 
-use crate::entity::org;
-
 use super::{org_member, token};
+use crate::entity::org;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, DeriveEntityModel)]
 #[sea_orm(table_name = "user")]

@@ -1,19 +1,16 @@
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use anyhow::Context;
-use async_zip::{error::ZipError, tokio::read::seek::ZipFileReader};
+use async_zip::error::ZipError;
+use async_zip::tokio::read::seek::ZipFileReader;
 use bytes::Bytes;
 use futures_util::{AsyncReadExt, Stream, StreamExt, TryStreamExt};
 use maf_container::server::Bundle;
 use maf_schemas::error::ErrorResponse;
-use tokio::{
-    fs::{self, File},
-    io::{AsyncBufRead, AsyncSeek, BufReader},
-    sync::mpsc,
-};
+use tokio::fs::{self, File};
+use tokio::io::{AsyncBufRead, AsyncSeek, BufReader};
+use tokio::sync::mpsc;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]

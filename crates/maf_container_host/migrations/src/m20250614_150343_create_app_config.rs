@@ -1,7 +1,8 @@
 use sea_orm::ActiveValue::Set;
 use sea_orm_migration::prelude::*;
 
-use crate::{entity::app, m20250419_015427_create_apps::App};
+use crate::entity::app;
+use crate::m20250419_015427_create_apps::App;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;

@@ -11,10 +11,9 @@ mod types;
 #[cfg(not(feature = "native"))]
 mod wasi;
 
-pub use common::*;
-pub use types::*;
-
 #[cfg(feature = "native")]
 pub use actor::{ActorPlatform as TargetPlatform, ActorPlatformHandle, RawHookRequest, RawUser};
+pub use common::*;
+pub use types::*;
 #[cfg(not(feature = "native"))]
 pub use wasi::{RawHookRequest, RawUser, WasiPlatform as TargetPlatform};

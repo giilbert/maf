@@ -2,41 +2,33 @@ mod io;
 mod limits;
 pub mod meta;
 
-use std::{
-    collections::HashMap,
-    sync::{
-        Arc,
-        atomic::{AtomicU64, AtomicUsize, Ordering},
-    },
-    time::Duration,
-};
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::time::Duration;
 
 use io::ContainerStdoutFactory;
-use maf_schemas::{apps::JsonMetaEntry, typed::AppSchema};
-use tokio::{
-    sync::{mpsc, oneshot},
-    time,
-};
+use maf_schemas::apps::JsonMetaEntry;
+use maf_schemas::typed::AppSchema;
+use tokio::sync::{mpsc, oneshot};
+use tokio::time;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 use wasmtime as wt;
 use wasmtime_wasi::{ResourceTable, WasiCtxView, WasiView};
+use wasmtime_wasi_http::p2::body::HyperOutgoingBody;
+use wasmtime_wasi_http::p2::types::{HostFutureIncomingResponse, OutgoingRequestConfig};
 use wasmtime_wasi_http::p2::{
-    HttpResult, WasiHttpCtxView, WasiHttpHooks, WasiHttpView,
-    body::HyperOutgoingBody,
-    default_send_request,
-    types::{HostFutureIncomingResponse, OutgoingRequestConfig},
+    HttpResult, WasiHttpCtxView, WasiHttpHooks, WasiHttpView, default_send_request,
 };
 use wasmtime_wasi_io::IoView;
 
-use crate::{
-    ContainerRuntime,
-    container::{limits::ContainerResourceLimiter, meta::MetaStorage},
-    interface::BoxedConnection,
-    runtime::wasi::Bindings,
-    utils,
-    wasi::HookRequest,
-};
+use crate::container::limits::ContainerResourceLimiter;
+use crate::container::meta::MetaStorage;
+use crate::interface::BoxedConnection;
+use crate::runtime::wasi::Bindings;
+use crate::wasi::HookRequest;
+use crate::{ContainerRuntime, utils};
 
 /// An instance of user-written WASI code running in a sandboxed environment.
 ///

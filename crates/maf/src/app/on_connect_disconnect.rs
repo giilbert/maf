@@ -1,12 +1,9 @@
 //! Utilities for registering [`crate::AppBuilder::on_connect`] and
 //! [`crate::AppBuilder::on_disconnect`] handlers.
 
-use crate::{
-    callable::{BoxedCallable, CallableFetch},
-    App, User,
-};
-
 use super::local::LocalStateError;
+use crate::callable::{BoxedCallable, CallableFetch};
+use crate::{App, User};
 
 pub type OnConnectDisconnectFn =
     BoxedCallable<OnConnectDiconnectContext, (), OnConnectDisconnectError>;
@@ -38,9 +35,9 @@ impl CallableFetch<User> for OnConnectDiconnectContext {
 
 #[cfg(test)]
 mod tests {
-    use crate::{callable::CallableParam, Store, StoreData};
-
     use super::*;
+    use crate::callable::CallableParam;
+    use crate::{Store, StoreData};
 
     #[test]
     fn type_checks() {

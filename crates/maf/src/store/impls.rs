@@ -1,8 +1,7 @@
 use core::panic;
-use std::{
-    any::{Any, TypeId},
-    sync::{atomic::AtomicBool, Arc},
-};
+use std::any::{Any, TypeId};
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 
 use mea::rwlock::{
     MappedRwLockReadGuard, OwnedMappedRwLockReadGuard, OwnedRwLockReadGuard, OwnedRwLockWriteGuard,
@@ -12,13 +11,10 @@ use mea::rwlock::{
 use schemars::{JsonSchema, SchemaGenerator};
 use serde::Serialize;
 
-use crate::{
-    callable::{CallableFetch, CallableParam, SupportsAsync},
-    store::pointers::OwnedStoreWriteLock,
-    App, User,
-};
-
 use super::pointers::StoreWriteLock;
+use crate::callable::{CallableFetch, CallableParam, SupportsAsync};
+use crate::store::pointers::OwnedStoreWriteLock;
+use crate::{App, User};
 
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -161,7 +157,7 @@ pub enum StoreSerializeError {
 ///     // Acquires a write lock on the store's data
 ///     let mut game_data = game.write().await;
 ///     game_data.is_powerup_active = true;
-///     
+///
 ///     // The powerup lasts for 30 seconds
 ///     tasks::sleep(std::time::Duration::from_secs(30)).await;
 ///     game_data.is_powerup_active = false;
@@ -263,7 +259,6 @@ pub trait StoreData: Send + Sync + 'static {
     ///         "message"
     ///     }
     /// }
-    ///
     /// ```
     #[allow(unused_variables)]
     fn select(&self, user: &User) -> Self::Select<'_>;

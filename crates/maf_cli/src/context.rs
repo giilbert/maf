@@ -1,12 +1,11 @@
 use anyhow::Context as _;
 use reqwest::header::HeaderMap;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::{
-    config::{GlobalConfig, ProjectConfig},
-    pretty,
-};
+use crate::config::{GlobalConfig, ProjectConfig};
+use crate::pretty;
 
 pub struct Context {
     pub client: reqwest::Client,

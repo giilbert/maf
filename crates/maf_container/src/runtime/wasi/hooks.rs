@@ -4,12 +4,9 @@ use tokio::sync::{mpsc, oneshot};
 use wasmtime::component::Resource;
 use wasmtime_wasi_io::poll;
 
+use super::bindings::{self, HookRequestInit};
+use super::errors::ListenError;
 use crate::ContainerData;
-
-use super::{
-    bindings::{self, HookRequestInit},
-    errors::ListenError,
-};
 
 pub struct HookRequest {
     init: Option<bindings::HookRequestInit>,

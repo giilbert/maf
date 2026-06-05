@@ -1,14 +1,11 @@
-use std::{
-    any::{Any, TypeId},
-    collections::HashMap,
-    sync::Arc,
-};
+use std::any::{Any, TypeId};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use tokio::sync::{RwLock, RwLockMappedWriteGuard, RwLockReadGuard, RwLockWriteGuard};
 
-use crate::callable::{CallableFetch, CallableParam, SupportsAsync};
-
 use super::App;
+use crate::callable::{CallableFetch, CallableParam, SupportsAsync};
 
 #[derive(Debug, Default)]
 pub struct LocalStateStore {

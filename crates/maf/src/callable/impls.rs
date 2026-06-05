@@ -1,6 +1,9 @@
-use std::{future::Future, pin::Pin, sync::Arc};
+use std::future::Future;
+use std::pin::Pin;
+use std::sync::Arc;
 
-use crate::callable::{supports::SupportsAsync, CallableParam};
+use crate::callable::supports::SupportsAsync;
+use crate::callable::CallableParam;
 
 /// A boxed callable function that is able to extract parameters from a context and create a future
 /// that extracts, runs the wrapped function, and returns the result.

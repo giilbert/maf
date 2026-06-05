@@ -4,36 +4,29 @@
 //! supports creating rooms, connecting via WebSocket, and handling hook requests. See
 //! `maf_container_host::api::gateway` for the full implementation of the API routes.
 
-use std::sync::{atomic::AtomicU64, Arc};
+use std::sync::atomic::AtomicU64;
+use std::sync::Arc;
 
-use axum::{
-    extract::{Path, Query, State, WebSocketUpgrade},
-    response::Response,
-    routing::get,
-    serve::ListenerExt,
-    ServiceExt,
-};
+use axum::extract::{Path, Query, State, WebSocketUpgrade};
+use axum::response::Response;
+use axum::routing::get;
+use axum::serve::ListenerExt;
+use axum::ServiceExt;
 use colored::Colorize;
-use maf_container::{
-    server::{do_ws_upgrade, get_auth_data, pre_create_room_auth_check, WsUpgradeOptions},
-    Container, ContainerResourceLimit, ContainerRuntime, CreateContainerOptions,
+use maf_container::server::{
+    do_ws_upgrade, get_auth_data, pre_create_room_auth_check, WsUpgradeOptions,
 };
-use maf_schemas::{
-    apps::{ConnectQueryParams, InfoResponse, MetaVisibility, RoomCreationStrategy},
-    error::ErrorResponse,
-};
+use maf_container::{Container, ContainerResourceLimit, ContainerRuntime, CreateContainerOptions};
+use maf_schemas::apps::{ConnectQueryParams, InfoResponse, MetaVisibility, RoomCreationStrategy};
+use maf_schemas::error::ErrorResponse;
 use tower::ServiceBuilder;
 use tower_http::normalize_path::NormalizePathLayer;
 use uuid::Uuid;
 
-use crate::{
-    config::{ProjectConfig, ProjectConfigExt},
-    dev::{
-        rooms::{DevRoomsStorage, InsertRoom},
-        typed,
-    },
-    print_dimmed, Context,
-};
+use crate::config::{ProjectConfig, ProjectConfigExt};
+use crate::dev::rooms::{DevRoomsStorage, InsertRoom};
+use crate::dev::typed;
+use crate::{print_dimmed, Context};
 
 #[derive(Debug)]
 pub struct DevServerConfig {

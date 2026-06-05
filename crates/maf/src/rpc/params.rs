@@ -1,8 +1,7 @@
 use serde::de::DeserializeOwned;
 
-use crate::callable::{CallableParam, SupportsAsync};
-
 use super::{RpcError, RpcRequestContext, RpcRequestData, RpcRequestInit};
+use crate::callable::{CallableParam, SupportsAsync};
 
 /// Extractor for RPC function parameters.
 ///
@@ -19,7 +18,7 @@ use super::{RpcError, RpcRequestContext, RpcRequestData, RpcRequestInit};
 /// async fn set_counter(
 ///     // Multiple parameters can be extracted as a tuple.
 ///     Params((new_value, stop, reason)): Params<(i32, boolean, String)>,
-///     test: Store<CounterStore>
+///     test: Store<CounterStore>,
 /// ) {
 ///     let mut store = test.write().await;
 ///     println!("Setting counter to {} because {}", new_value, reason);

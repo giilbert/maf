@@ -1,19 +1,14 @@
-use std::{
-    any::Any,
-    ops::{Deref, DerefMut},
-    sync::atomic,
-};
+use std::any::Any;
+use std::ops::{Deref, DerefMut};
+use std::sync::atomic;
 
 use mea::rwlock::{
     MappedRwLockWriteGuard, OwnedMappedRwLockReadGuard, OwnedMappedRwLockWriteGuard,
 };
 
-use crate::{
-    callable::{CallableFetch, CallableParam},
-    App, Store, StoreData,
-};
-
 use super::AnyStore;
+use crate::callable::{CallableFetch, CallableParam};
+use crate::{App, Store, StoreData};
 
 /// A mutable reference to a store's data with automatic dirty tracking.
 ///

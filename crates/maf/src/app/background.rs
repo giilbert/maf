@@ -1,6 +1,6 @@
+use super::local::LocalStateError;
+use super::App;
 use crate::callable::{BoxedCallable, CallableFetch};
-
-use super::{local::LocalStateError, App};
 
 pub type BackgroundFn = BoxedCallable<BackgroundFnContext, (), BackgroundFnError>;
 

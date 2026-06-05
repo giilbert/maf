@@ -1,4 +1,5 @@
-use std::{path::Path, sync::Arc};
+use std::path::Path;
+use std::sync::Arc;
 
 use anyhow::Context;
 
