@@ -24,7 +24,7 @@ impl Connection {
             ))
             .await?;
 
-        // TODO: Refactor this duplicated code (in maf_container/../container.rs)
+        // TODO: Refactor this duplicated code (in maf_platform_host/../container.rs)
         match timeout(Duration::from_secs(1), ws_rx.next()).await {
             Ok(Some(Ok(Message::Text(_message)))) => {
                 ws_tx

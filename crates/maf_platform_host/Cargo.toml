@@ -1,11 +1,11 @@
 [package]
-name = "maf_container_host"
+name = "maf_platform_host"
 version = "0.1.0"
 edition = "2024"
 publish = false
 
 [dependencies]
-maf_container = { path = "../maf_container" }
+maf_core = { path = "../maf_core" }
 migrations = { path = "migrations" }
 maf_schemas = { path = "../maf_schemas", features = ["error-response"] }
 

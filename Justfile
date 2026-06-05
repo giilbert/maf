@@ -13,7 +13,7 @@ docker-build:
 # start the platform server in development mode
 dev-platform:
     docker compose up -d
-    RUST_LOG=info,maf_container=trace cargo run --bin maf_container_host
+    RUST_LOG=info,maf_core=trace cargo run --bin maf_platform_host
 
 # apply the schema migrations
 migrate:

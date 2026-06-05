@@ -2,7 +2,7 @@
 //!
 //! This is simplified version of the MAF Platform server, intended for use during development. It
 //! supports creating rooms, connecting via WebSocket, and handling hook requests. See
-//! `maf_container_host::api::gateway` for the full implementation of the API routes.
+//! `maf_platform_host::api::gateway` for the full implementation of the API routes.
 
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
@@ -13,10 +13,10 @@ use axum::routing::get;
 use axum::serve::ListenerExt;
 use axum::ServiceExt;
 use colored::Colorize;
-use maf_container::server::{
+use maf_core::server::{
     do_ws_upgrade, get_auth_data, pre_create_room_auth_check, WsUpgradeOptions,
 };
-use maf_container::{Container, ContainerResourceLimit, ContainerRuntime, CreateContainerOptions};
+use maf_core::{Container, ContainerResourceLimit, ContainerRuntime, CreateContainerOptions};
 use maf_schemas::apps::{ConnectQueryParams, InfoResponse, MetaVisibility, RoomCreationStrategy};
 use maf_schemas::error::ErrorResponse;
 use tower::ServiceBuilder;

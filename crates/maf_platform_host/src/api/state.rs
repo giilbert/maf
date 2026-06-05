@@ -2,7 +2,7 @@ use std::sync::atomic::AtomicU64;
 use std::time::Duration;
 
 use anyhow::Context;
-use maf_container::{ContainerRuntime, utils};
+use maf_core::{ContainerRuntime, utils};
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectOptions, EntityTrait, QueryFilter, TransactionTrait,

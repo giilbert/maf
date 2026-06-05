@@ -5,8 +5,8 @@ use axum::extract::{Path, Query, State};
 use axum::routing::{get, post};
 use axum::{Json, Router, middleware};
 use chrono::Utc;
-use maf_container::ContainerResourceLimit;
-use maf_container::server::{CreateRoomInnerOptions, RoomInner};
+use maf_core::ContainerResourceLimit;
+use maf_core::server::{CreateRoomInnerOptions, RoomInner};
 use maf_schemas::apps::{
     AppNameAndOrgSlug, CreateRoomOptions, CreateUserAppRequest, MetaVisibility,
     RoomCreationStrategy, RoomInfo, RoomKeyHash, RoomListQueryParams, RoomQueryResponse,

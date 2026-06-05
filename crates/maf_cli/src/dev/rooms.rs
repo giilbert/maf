@@ -3,8 +3,8 @@ use std::path::Path;
 
 use anyhow::Context;
 use colored::Colorize as _;
-use maf_container::server::{Bundle, CreateRoomInnerOptions, RoomInner};
-use maf_container::{Container, ContainerResourceLimit, ContainerRuntime};
+use maf_core::server::{Bundle, CreateRoomInnerOptions, RoomInner};
+use maf_core::{Container, ContainerResourceLimit, ContainerRuntime};
 use maf_schemas::apps::{MetaEntryMap, RoomCreationStrategy, RoomId};
 use tokio::sync::{RwLock, RwLockReadGuard};
 
@@ -25,7 +25,7 @@ pub struct InsertRoom {
 
 /// Rooms storage for development server.
 ///
-/// Compared to `RoomsStorage` in `maf_container_host`, this is a simplified version that allows
+/// Compared to `RoomsStorage` in `maf_platform_host`, this is a simplified version that allows
 /// more observability and less indexing for the development server.
 #[derive(Debug)]
 pub struct DevRoomsStorage {

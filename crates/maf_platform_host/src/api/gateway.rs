@@ -18,7 +18,7 @@ use axum::extract::{Path, Query, State, WebSocketUpgrade};
 use axum::response::Response;
 use axum::routing::get;
 use axum::{Json, Router};
-use maf_container::server::{
+use maf_core::server::{
     WsUpgradeOptions, do_ws_upgrade, get_auth_data, pre_create_room_auth_check,
 };
 use maf_schemas::apps::{

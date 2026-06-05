@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/*", "crates/maf_container_host/migrations"]
+members = ["crates/*", "crates/maf_platform_host/migrations"]
 exclude = [
     # Examples are excluded as feature flags are weird in examples
     "crates/maf/examples/basic",

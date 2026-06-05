@@ -6,7 +6,7 @@ use async_zip::error::ZipError;
 use async_zip::tokio::read::seek::ZipFileReader;
 use bytes::Bytes;
 use futures_util::{AsyncReadExt, Stream, StreamExt, TryStreamExt};
-use maf_container::server::Bundle;
+use maf_core::server::Bundle;
 use maf_schemas::error::ErrorResponse;
 use tokio::fs::{self, File};
 use tokio::io::{AsyncBufRead, AsyncSeek, BufReader};

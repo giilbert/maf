@@ -5,7 +5,7 @@ edition = "2021"
 publish = false
 
 [dependencies]
-maf_container = { path = "../maf_container" }
+maf_core = { path = "../maf_core" }
 maf_typed = { path = "../maf_typed" }
 maf_schemas = { path = "../maf_schemas", features = ["error-response"] }
 

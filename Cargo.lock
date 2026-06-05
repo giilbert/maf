@@ -2246,7 +2246,7 @@ dependencies = [
  "futures-util",
  "include_dir",
  "indicatif",
- "maf_container",
+ "maf_core",
  "maf_schemas",
  "maf_typed",
  "notify",
@@ -2266,7 +2266,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "maf_container"
+name = "maf_core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -2293,7 +2293,21 @@ dependencies = [
 ]
 
 [[package]]
-name = "maf_container_host"
+name = "maf_native"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "futures-util",
+ "maf",
+ "maf_schemas",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "maf_platform_host"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -2309,7 +2323,7 @@ dependencies = [
  "dotenvy",
  "fmtsize",
  "futures-util",
- "maf_container",
+ "maf_core",
  "maf_schemas",
  "migrations",
  "rand 0.9.1",
@@ -2326,20 +2340,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
-]
-
-[[package]]
-name = "maf_native"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "futures-util",
- "maf",
- "maf_schemas",
- "serde_json",
- "tokio",
- "tracing",
 ]
 
 [[package]]

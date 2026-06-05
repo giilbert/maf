@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use dashmap::{DashMap, DashSet};
-use maf_container::ContainerResourceLimit;
-use maf_container::server::{CreateRoomInnerOptions, RoomInner};
+use maf_core::ContainerResourceLimit;
+use maf_core::server::{CreateRoomInnerOptions, RoomInner};
 use maf_schemas::apps::{AppNameAndOrgSlug, RoomCreationStrategy, RoomId, RoomKeyHash};
 use maf_schemas::error::ErrorResponse;
 use tokio::sync::{Notify, RwLock, RwLockReadGuard};

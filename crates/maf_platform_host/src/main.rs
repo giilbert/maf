@@ -13,7 +13,7 @@ pub mod storage;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    const DEFAULT_LOG_SETTINGS: &str = "maf_container=info,maf_container_host=info";
+    const DEFAULT_LOG_SETTINGS: &str = "maf_core=info,maf_platform_host=info";
     tracing_subscriber::registry()
         .with(fmt::layer())
         .with(
