@@ -39,8 +39,18 @@ use crate::{
 };
 
 /// An instance of user-written WASI code running in a sandboxed environment.
+///
+/// This struct manages the lifecycle of the container, including its creation, execution, and
+/// shutdown. It also provides methods for interacting with the container, such as sending hook
+/// requests and receiving output.
+///
+/// This is different from a "Room" in that it does not contain any logic related to managing
+/// connections, room lifecycle, etc. It is purely the execution environment for the WASI code, and
+/// can be used in different contexts.
 pub struct Container {
-    pub room_id: Uuid,
+    /// The room in which this container was created for, used for logging and identification
+    /// purposes.
+    room_id: Uuid,
     pub store: wt::Store<ContainerData>,
     pub cancel_token: CancellationToken,
     instance: Bindings,
@@ -290,6 +300,12 @@ impl Container {
     #[inline]
     pub fn handle(&self) -> ContainerHandle {
         self.shared.clone()
+    }
+
+    /// Returns the room ID associated with this container, which is used for logging and
+    /// identification purposes.
+    pub fn room_id(&self) -> Uuid {
+        self.room_id
     }
 }
 

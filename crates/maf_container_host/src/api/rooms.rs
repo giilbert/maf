@@ -20,11 +20,34 @@ use crate::{
     storage::db::app,
 };
 
+/// A "room" represents an instance of a user's MAF app running.
+///
+/// Note that this is a fancy wrapper type (containing metadata) around [`RoomInner`]. The actual
+/// implementation of the running room (container, bundle, etc.) is contained in the `inner` field
+/// of this struct.
 #[derive(Debug, Clone)]
 pub struct Room {
-    pub id: RoomId,
-    pub meta: RoomMeta,
-    pub inner: RoomInner,
+    id: RoomId,
+    meta: RoomMeta,
+    inner: RoomInner,
+}
+
+impl Room {
+    /// Returns the room's unique ID.
+    pub fn id(&self) -> RoomId {
+        self.id
+    }
+
+    /// Returns a reference to the room's inner implementation, which contains the container, bundle,
+    /// and other internal data.
+    pub fn inner(&self) -> &RoomInner {
+        &self.inner
+    }
+
+    /// Returns metadata about the room, such as its app and org slug, creation strategy, and key.
+    pub fn meta(&self) -> &RoomMeta {
+        &self.meta
+    }
 }
 
 /// Contains additional information about the room, not related to the running the container.
@@ -303,9 +326,9 @@ impl RoomsStorage {
 
                     tokio::spawn(async move {
                         if let Err(e) = container.run().await {
-                            tracing::error!("container {} error: {e:?}", container.room_id);
+                            tracing::error!("container {} error: {e:?}", container.room_id());
                         }
-                        tracing::info!("container {} stopped", container.room_id);
+                        tracing::info!("container {} stopped", container.room_id());
 
                         state.rooms.remove(&room_id).await;
                     });

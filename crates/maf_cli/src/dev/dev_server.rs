@@ -15,7 +15,7 @@ use axum::{
 };
 use colored::Colorize;
 use maf_container::{
-    server::{get_auth_data, handle_ws_upgrade, pre_create_room_auth_check},
+    server::{do_ws_upgrade, get_auth_data, pre_create_room_auth_check, WsUpgradeOptions},
     Container, ContainerResourceLimit, ContainerRuntime, CreateContainerOptions,
 };
 use maf_schemas::{
@@ -29,7 +29,6 @@ use uuid::Uuid;
 use crate::{
     config::{ProjectConfig, ProjectConfigExt},
     dev::{
-        platform::create_platform_api_router,
         rooms::{DevRoomsStorage, InsertRoom},
         typed,
     },
@@ -120,7 +119,8 @@ pub async fn start_local_server(
     // Implement a subset of Platform APIs for the developer server
     let app = axum::Router::new()
         .nest("/@/{org_slug}/{app_name}/{room_key}", gateway_router)
-        .merge(create_platform_api_router())
+        // TODO: reimplement
+        // .merge(create_platform_api_router())
         .with_state(state.clone());
 
     let address = format!("0.0.0.0:{}", config.port);
@@ -179,8 +179,7 @@ async fn info_route(
         .await
         .ok_or_else(|| ErrorResponse::not_found(Some("room not found")))?
         .inner
-        .container
-        .meta
+        .meta_storage()
         .list_values::<std::collections::BTreeMap<String, serde_json::Value>>(
             MetaVisibility::Public,
         )
@@ -237,7 +236,12 @@ async fn connect_route(
     };
     let auth_data = get_auth_data(&query_params, auth_mode.as_ref(), &room.inner)?;
 
-    Ok(handle_ws_upgrade(ws, room.inner.clone(), auth_data).await)
+    Ok(do_ws_upgrade(WsUpgradeOptions {
+        ws,
+        room: room.inner.clone(),
+        auth_data,
+    })
+    .await)
 }
 
 // async fn hook_request_handler(

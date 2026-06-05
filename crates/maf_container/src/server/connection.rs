@@ -1,5 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
+use anyhow::Context;
 use async_trait::async_trait;
 use axum::{
     extract::{
@@ -28,26 +29,30 @@ use uuid::Uuid;
 
 use crate::{server::RoomInner, wasi::bindings};
 
-pub struct Connection {
+/// Represents a WebSocket connection to a client.
+pub struct WsConnection {
     takeable: Option<TakeableConnection>,
-    shared: ConnectionHandle,
+    shared: WsConnectionHandle,
 }
 
 #[derive(Clone)]
-pub struct ConnectionHandle {
+pub struct WsConnectionHandle {
     pub(crate) id: Uuid,
     pub(crate) auth_data: Option<serde_json::Value>,
     message_rx: Arc<Mutex<Option<mpsc::Receiver<bindings::Message>>>>,
     command_tx: mpsc::Sender<ConnectionCommand>,
 }
 
+/// The parts of a WebSocket connection that can only be owned by one task at a time. When a
+/// connection si created
 struct TakeableConnection {
     command_rx: mpsc::Receiver<ConnectionCommand>,
-    // command_tx: mpsc::Sender<ConnectionCommand>,
     message_tx: mpsc::Sender<bindings::Message>,
 
-    ws_rx: SplitStream<WebSocket>,
-    ws_tx: SplitSink<WebSocket, Message>,
+    /// The raw WebSocket's receiving end. See [`WebSocket::split`] for details.
+    raw_ws_rx: SplitStream<WebSocket>,
+    /// The raw WebSocket's sending end. See [`WebSocket::split`] for details.
+    raw_ws_tx: SplitSink<WebSocket, Message>,
 }
 
 pub enum ConnectionCommand {
@@ -56,29 +61,36 @@ pub enum ConnectionCommand {
     SendPong(Bytes),
 }
 
-impl Connection {
-    pub async fn init(ws: WebSocket, auth_data: Option<serde_json::Value>) -> anyhow::Result<Self> {
-        let (mut ws_tx, mut ws_rx) = ws.split();
+impl WsConnection {
+    pub async fn init_from_client(
+        ws: WebSocket,
+        auth_data: Option<serde_json::Value>,
+    ) -> anyhow::Result<Self> {
+        let (mut raw_ws_tx, mut raw_ws_rx) = ws.split();
+
         let (message_tx, message_rx) = mpsc::channel::<bindings::Message>(100);
         let (command_tx, command_rx) = mpsc::channel::<ConnectionCommand>(100);
 
-        let connection_id = Uuid::new_v4();
+        let id = Uuid::new_v4();
 
-        match timeout(Duration::from_secs(1), ws_rx.next()).await {
+        // Try to receive a handshake message within 1 second of the connection being established.
+        // If we can't, or if we receive an invalid message, we'll close the connection.
+        //
+        // TODO: real error responses/reporting here
+        match timeout(Duration::from_secs(1), raw_ws_rx.next()).await {
             Ok(Some(Ok(Message::Text(_message)))) => {
-                ws_tx
+                raw_ws_tx
                     .send(Message::Text(
-                        serde_json::to_string(&TxPacket::Handshake::<()>(ServerHandshake {
-                            id: connection_id,
-                        }))?
-                        .into(),
+                        serde_json::to_string(&TxPacket::Handshake::<()>(ServerHandshake { id }))?
+                            .into(),
                     ))
                     .await?;
 
                 // TODO: take auth payload and do something
             }
+            // Failed to receive a message within the timeout, or an error occurred while receiving
             rest => {
-                let mut ws = ws_tx.reunite(ws_rx)?;
+                let mut ws = raw_ws_tx.reunite(raw_ws_rx)?;
                 ws.close().await?;
 
                 match rest {
@@ -91,26 +103,27 @@ impl Connection {
         }
 
         Ok(Self {
-            shared: ConnectionHandle {
-                id: connection_id,
+            shared: WsConnectionHandle {
+                id,
                 auth_data,
                 command_tx: command_tx.clone(),
                 message_rx: Arc::new(Mutex::new(Some(message_rx))),
             },
             takeable: Some(TakeableConnection {
                 command_rx,
-                // command_tx,
                 message_tx,
-                ws_rx,
-                ws_tx,
+                raw_ws_rx,
+                raw_ws_tx,
             }),
         })
     }
 
-    pub fn handle(&self) -> ConnectionHandle {
+    pub fn handle(&self) -> WsConnectionHandle {
         self.shared.clone()
     }
 
+    /// Called by [`Self::run`] to translate an incoming WebSocket message into a generic "bindings"
+    /// message and forwards it to the rest of the system.
     async fn handle_websocket_message(
         &self,
         message_tx: &mpsc::Sender<bindings::Message>,
@@ -138,17 +151,22 @@ impl Connection {
         Ok(())
     }
 
+    /// Processes incoming and outgoing messages for this connection until a close event or command
+    /// is received.
+    ///
+    /// Users should use [`WsConnectionHandle`] to interact with the connection, and should not call
+    /// this method directly.
     pub async fn run(mut self) -> anyhow::Result<()> {
         let mut takeable = self
             .takeable
             .take()
-            .ok_or_else(|| anyhow::anyhow!("connection has already been taken"))?;
+            .context("Connection.run() called multiple times")?;
 
         let commands = self.shared.command_tx.clone();
 
         loop {
             tokio::select! {
-                message = &mut takeable.ws_rx.next() => {
+                message = &mut takeable.raw_ws_rx.next() => {
                     match message {
                         Some(Ok(Message::Ping(frame))) => {
                             commands.send(ConnectionCommand::SendPong(frame)).await?;
@@ -167,13 +185,12 @@ impl Connection {
                     match command {
                         Some(ConnectionCommand::Close) | None => break,
                         Some(ConnectionCommand::Send(message)) => {
-                            if let Err(error) = takeable.ws_tx.send(
-                                convert_to_axum_message(message)).await {
+                            if let Err(error) = takeable.raw_ws_tx.send(convert_to_axum_message(message)).await {
                                 tracing::warn!("an error occurred sending WebSocket message: {error:?}");
                             }
                         },
                         Some(ConnectionCommand::SendPong(frame)) => {
-                            if let Err(error) = takeable.ws_tx.send(Message::Pong(frame)).await {
+                            if let Err(error) = takeable.raw_ws_tx.send(Message::Pong(frame)).await {
                                 tracing::warn!("an error occurred sending WebSocket message: {error:?}");
                             }
                         }
@@ -187,7 +204,7 @@ impl Connection {
 }
 
 #[async_trait]
-impl crate::Connection for ConnectionHandle {
+impl crate::Connection for WsConnectionHandle {
     fn id(&self) -> Uuid {
         self.id
     }
@@ -279,21 +296,33 @@ pub fn get_auth_data(
     }
 }
 
-pub async fn handle_ws_upgrade(
-    ws: WebSocketUpgrade,
-    room: RoomInner,
-    auth_data: Option<serde_json::Value>,
+#[derive(Debug)]
+pub struct WsUpgradeOptions {
+    pub ws: WebSocketUpgrade,
+    /// The room to connect this connection to.
+    pub room: RoomInner,
+    /// The authentication data extracted from the client's request, if any. This is generated by
+    /// the user of this API.
+    pub auth_data: Option<serde_json::Value>,
+}
+
+/// Connects an Axum WebSocket to a room, returning an HTTP response that upgrades the connection.
+pub async fn do_ws_upgrade(
+    WsUpgradeOptions {
+        ws,
+        room,
+        auth_data,
+    }: WsUpgradeOptions,
 ) -> Response {
     ws.on_upgrade(|ws| async move {
         tracing::debug!(
-            auth_data = ?auth_data,
+            auth = ?auth_data,
             "connecting websocket to room {}", room.id()
         );
 
         let try_init = |ws: WebSocket, room: RoomInner| async move {
-            let connection = Connection::init(ws, auth_data).await?;
-            let handle = connection.handle();
-            room.add_connection(handle).await?;
+            let connection = WsConnection::init_from_client(ws, auth_data).await?;
+            room.add_connection(connection.handle()).await?;
             Ok::<_, anyhow::Error>(connection)
         };
 

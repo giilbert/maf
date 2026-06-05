@@ -284,15 +284,14 @@ async fn service_get_rooms(
 
     if let Some(query_id) = query.by_id {
         match state.rooms.get(&query_id).await {
-            Some(room) if room.meta.app_info == (&app.name, &org.slug) => {
+            Some(room) if room.meta().app_info == (&app.name, &org.slug) => {
                 return Ok(Json(RoomQueryResponse::Single(RoomInfo {
-                    id: room.id,
-                    key: room.meta.key.clone(),
-                    secret: room.inner.secret.clone(),
+                    id: room.id(),
+                    key: room.meta().key.clone(),
+                    secret: room.inner().secret().to_string(),
                     meta: room
-                        .inner
-                        .container
-                        .meta
+                        .inner()
+                        .meta_storage()
                         .list_values::<BTreeMap<_, _>>(MetaVisibility::Private)
                         .await,
                 })));
@@ -318,13 +317,12 @@ async fn service_get_rooms(
             Some(room_id) => match state.rooms.get(room_id).await {
                 Some(room) => {
                     return Ok(Json(RoomQueryResponse::Single(RoomInfo {
-                        id: room.id,
-                        key: room.meta.key.clone(),
-                        secret: room.inner.secret.clone(),
+                        id: room.id(),
+                        key: room.meta().key.clone(),
+                        secret: room.inner().secret().to_string(),
                         meta: room
-                            .inner
-                            .container
-                            .meta
+                            .inner()
+                            .meta_storage()
                             .list_values::<BTreeMap<_, _>>(MetaVisibility::Private)
                             .await,
                     })));
@@ -358,13 +356,12 @@ async fn service_get_rooms(
             for room_id in rooms_set.iter() {
                 if let Some(room) = state.rooms.get(room_id).await {
                     rooms.push(RoomInfo {
-                        id: room.id,
-                        key: room.meta.key.clone(),
-                        secret: room.inner.secret.clone(),
+                        id: room.id(),
+                        key: room.meta().key.clone(),
+                        secret: room.inner().secret().to_string(),
                         meta: room
-                            .inner
-                            .container
-                            .meta
+                            .inner()
+                            .meta_storage()
                             .list_values::<BTreeMap<_, _>>(MetaVisibility::Private)
                             .await,
                     });
@@ -469,9 +466,9 @@ async fn service_create_room(
 
     tokio::spawn(async move {
         if let Err(e) = container.run().await {
-            tracing::error!("container {} error: {e:?}", container.room_id);
+            tracing::error!("container {} error: {e:?}", container.room_id());
         }
-        tracing::info!("container {} stopped", container.room_id);
+        tracing::info!("container {} stopped", container.room_id());
 
         state.rooms.remove(&room_id).await;
     });
@@ -479,10 +476,9 @@ async fn service_create_room(
     Ok(Json(RoomInfo {
         id: room_id,
         key: room_meta.key.clone(),
-        secret: room.secret,
+        secret: room.secret().to_string(),
         meta: room
-            .container
-            .meta
+            .meta_storage()
             .list_values::<BTreeMap<_, _>>(MetaVisibility::Private)
             .await,
     }))

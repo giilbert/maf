@@ -103,30 +103,32 @@ impl DevConsole {
             dev_print!(
                 "- {} {} {} / {}",
                 id,
-                format!("[key {}]", room.meta.key).dimmed(),
-                format!("({}/{})", room.meta.app_info.org, room.meta.app_info.app).dimmed(),
+                format!("[key {}]", room.meta().key).dimmed(),
+                format!(
+                    "({}/{})",
+                    room.meta().app_info.org,
+                    room.meta().app_info.app
+                )
+                .dimmed(),
                 format!(
                     "{} reserved ram | {} wasm table entries",
                     (room
-                        .inner
-                        .container
-                        .resources
+                        .inner()
+                        .resource_usage()
                         .memory_usage
                         .load(std::sync::atomic::Ordering::Relaxed) as u64)
                         .fmt_size(Conventional),
                     (room
-                        .inner
-                        .container
-                        .resources
+                        .inner()
+                        .resource_usage()
                         .table_usage
                         .load(std::sync::atomic::Ordering::Relaxed) as u64)
                 )
             );
             dev_print!(
                 "  - Meta: {}",
-                room.inner
-                    .container
-                    .meta
+                room.inner()
+                    .meta_storage()
                     .list::<BTreeMap<String, JsonMetaEntry>>(MetaVisibility::Private)
                     .await
                     .iter()
@@ -144,7 +146,12 @@ impl DevConsole {
                         "{} room {} {} is autocreated",
                         "+".bold().blue(),
                         room_id,
-                        format!("({}/{})", room.meta.app_info.org, room.meta.app_info.app).dimmed()
+                        format!(
+                            "({}/{})",
+                            room.meta().app_info.org,
+                            room.meta().app_info.app
+                        )
+                        .dimmed()
                     );
                 }
                 None => {

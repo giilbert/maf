@@ -20,7 +20,9 @@ use axum::{
     response::Response,
     routing::get,
 };
-use maf_container::server::{get_auth_data, handle_ws_upgrade, pre_create_room_auth_check};
+use maf_container::server::{
+    WsUpgradeOptions, do_ws_upgrade, get_auth_data, pre_create_room_auth_check,
+};
 use maf_schemas::{
     apps::{
         AppNameAndOrgSlug, ConnectQueryParams, InfoResponse, MetaVisibility, RoomCreationStrategy,
@@ -60,9 +62,8 @@ async fn info_route(
         )
         .await
         .ok_or_else(|| ErrorResponse::not_found(Some("room not found")))?
-        .inner
-        .container
-        .meta
+        .inner()
+        .meta_storage()
         .list_values::<BTreeMap<String, serde_json::Value>>(MetaVisibility::Public)
         .await;
 
@@ -138,9 +139,14 @@ async fn connect_route(
         }
     };
 
-    let auth_data = get_auth_data(&query_params, auth_mode.as_ref(), &room.inner)?;
+    let auth_data = get_auth_data(&query_params, auth_mode.as_ref(), &room.inner())?;
 
-    Ok(handle_ws_upgrade(ws, room.inner, auth_data).await)
+    Ok(do_ws_upgrade(WsUpgradeOptions {
+        ws,
+        room: room.inner().clone(),
+        auth_data,
+    })
+    .await)
 }
 
 // **POST** `/@/{org_slug}/{app_name}/{room_key}/hooks/{method}`
