@@ -1,5 +1,5 @@
 mod dev_server;
-mod rooms;
+mod host;
 mod typed;
 
 use std::path::Path;

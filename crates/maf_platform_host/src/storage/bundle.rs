@@ -8,6 +8,7 @@ use bytes::Bytes;
 use futures_util::{AsyncReadExt, Stream, StreamExt, TryStreamExt};
 use maf_core::server::Bundle;
 use maf_schemas::error::ErrorResponse;
+use maf_schemas::project_config::ProjectConfigFile;
 use tokio::fs::{self, File};
 use tokio::io::{AsyncBufRead, AsyncSeek, BufReader};
 use tokio::sync::mpsc;
@@ -58,6 +59,7 @@ impl BundleStorage {
 
     pub async fn upload_bundle(
         &self,
+        app_config: ProjectConfigFile,
         app_id: Uuid,
         stream: impl Stream<Item = Result<Bytes, axum::Error>>,
     ) -> Result<(), BundleError> {
@@ -94,8 +96,15 @@ impl BundleStorage {
         // Reopen the file to read from the beginning
         file = fs::File::open(path).await?;
 
+        // Validate that the uploaded file is a valid zip and contains the expected contents,
+        // without reading the potentially large WASM module data.
         match self
-            .load_bundle_from_reader(BufReader::new(file), true)
+            .load_bundle_from_zip_reader(
+                app_config,
+                BufReader::new(file),
+                // DO validate that the WASM file is present
+                true,
+            )
             .await
         {
             Ok(_) => Ok(()),
@@ -103,12 +112,16 @@ impl BundleStorage {
         }
     }
 
-    async fn load_bundle_from_reader(
+    /// Loads a bundle from a zip file. If `should_validate_wasm` is true, the zip file will be
+    /// parsed and the WASM module data will be validated. This can be used to validate the zip file
+    /// and extract metadata without reading the potentially large WASM module data.
+    async fn load_bundle_from_zip_reader(
         &self,
-        mut reader: impl AsyncBufRead + AsyncSeek + Unpin,
-        ignore_data: bool,
+        app_config: ProjectConfigFile,
+        mut zip_reader: impl AsyncBufRead + AsyncSeek + Unpin,
+        should_validate_wasm: bool,
     ) -> Result<Option<Bundle>, BundleError> {
-        let mut zip = ZipFileReader::with_tokio(&mut reader).await?;
+        let mut zip = ZipFileReader::with_tokio(&mut zip_reader).await?;
 
         for entry_index in 0.. {
             let mut entry_reader = match zip.reader_with_entry(entry_index).await {
@@ -125,7 +138,9 @@ impl BundleStorage {
                 entry.compressed_size()
             );
 
-            // look for a module.wasm
+            // TODO: load more than just the wasm module
+            // Look for a module.wasm file: this is the expected name for the WASM module in the
+            // bundle
             if entry.filename().as_str()? == "module.wasm" {
                 const WASM_MODULE_MAX_SIZE: usize = 20 * 1024 * 1024; // 20 MB
 
@@ -134,7 +149,7 @@ impl BundleStorage {
                     return Err(BundleError::FileTooLarge);
                 }
 
-                if ignore_data {
+                if !should_validate_wasm {
                     return Ok(None);
                 }
 
@@ -145,19 +160,25 @@ impl BundleStorage {
                     .await
                     .map_err(BundleError::Io)?;
 
-                return Ok(Some(Bundle {
-                    wasm_module_bytes: Arc::from(data),
-                }));
+                return Ok(Some(Bundle::from_wasm_bytes(app_config, Arc::from(data))?));
             }
         }
 
         Err(BundleError::InvalidZip)
     }
 
-    pub async fn load_app_bundle(&self, app_id: Uuid) -> Result<Option<Bundle>, BundleError> {
+    /// Loads the bundle for the given app ID, if it exists.
+    ///
+    /// TODO: this error handing is weird--there is no way to distinguish between an invalid zip
+    /// file or the app not existing
+    pub async fn load_app_bundle(
+        &self,
+        app_config: ProjectConfigFile,
+        app_id: Uuid,
+    ) -> Result<Option<Bundle>, BundleError> {
         Ok(
             match self
-                .load_bundle_from_path(self.storage_dir.join(app_id.to_string()))
+                .load_bundle_from_path(app_config, self.storage_dir.join(app_id.to_string()))
                 .await
             {
                 Ok(bundle) => Some(bundle),
@@ -169,8 +190,11 @@ impl BundleStorage {
         )
     }
 
-    // TODO: load more than just the wasm module
-    async fn load_bundle_from_path(&self, path: impl AsRef<Path>) -> Result<Bundle, BundleError> {
+    async fn load_bundle_from_path(
+        &self,
+        app_config: ProjectConfigFile,
+        path: impl AsRef<Path>,
+    ) -> Result<Bundle, BundleError> {
         let mut file = BufReader::new(File::open(path).await.map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
                 BundleError::FileNotFound
@@ -179,16 +203,16 @@ impl BundleStorage {
             }
         })?);
 
-        self.load_bundle_from_reader(&mut file, false)
+        self.load_bundle_from_zip_reader(app_config, &mut file, false)
             .await
             .map(|bundle| bundle.expect("data should be present"))
     }
 
     pub async fn load_test_app(&self) -> anyhow::Result<Bundle> {
-        const PATH: &str = "target/wasm32-wasip2/debug/example_basic.wasm";
-        Ok(Bundle {
-            wasm_module_bytes: Arc::from(tokio::fs::read(PATH).await?),
-        })
+        // const PATH: &str = "target/wasm32-wasip2/debug/example_basic.wasm";
+        // let bytes = Arc::from(tokio::fs::read(PATH).await?),
+        // Ok(Bundle)
+        todo!();
     }
 
     pub async fn delete_app_bundle(&self, app_id: Uuid) -> Result<(), BundleError> {

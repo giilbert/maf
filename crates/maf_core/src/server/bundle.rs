@@ -1,20 +1,25 @@
-use std::path::Path;
 use std::sync::Arc;
 
-use anyhow::Context;
+use maf_schemas::project_config::ProjectConfigFile;
 
+/// A bundle is a full package of the resources and configuration needed to run a MAF room.
 #[derive(Debug, Clone)]
 pub struct Bundle {
-    pub wasm_module_bytes: Arc<[u8]>,
+    /// Loaded from `maf-project.toml`.
+    config: Arc<ProjectConfigFile>,
+    /// The bytes of the WASM module that will be loaded into the room's container.
+    wasm: Arc<[u8]>,
 }
 
 impl Bundle {
-    pub fn load_wasm_module_from_file(path: impl AsRef<Path>) -> anyhow::Result<Self> {
-        let path = path.as_ref();
-        let bytes = std::fs::read(path)
-            .with_context(|| format!("failed to read wasm module from file {}", path.display()))?;
+    pub fn from_wasm_bytes(config: ProjectConfigFile, bytes: Arc<[u8]>) -> anyhow::Result<Self> {
         Ok(Bundle {
-            wasm_module_bytes: Arc::from(bytes),
+            config: Arc::new(config),
+            wasm: bytes,
         })
+    }
+
+    pub fn wasm_module_bytes(&self) -> &[u8] {
+        &self.wasm
     }
 }

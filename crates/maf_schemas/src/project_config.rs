@@ -10,8 +10,8 @@ pub struct ProjectConfigFile {
     #[serde(default = "default_room_creation_strategy")]
     pub rooms: RoomCreationStrategy,
     pub typed: Option<TypedConfig>,
-    pub debug: TargetConfig,
-    pub release: TargetConfig,
+    pub debug: Option<TargetConfig>,
+    pub release: Option<TargetConfig>,
     pub auth: Option<AuthConfig>,
 }
 
@@ -22,6 +22,18 @@ impl ProjectConfigFile {
         }
 
         Ok(())
+    }
+
+    /// Creates a default ProjectConfigFile with the given name and default values for other fields.
+    pub fn default_for(name: &str) -> ProjectConfigFile {
+        ProjectConfigFile {
+            name: name.to_string(),
+            rooms: RoomCreationStrategy::AuthenticatedApiRequest,
+            typed: None,
+            debug: None,
+            release: None,
+            auth: None,
+        }
     }
 }
 

@@ -1,7 +1,9 @@
+use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 use std::time::Duration;
 
 use anyhow::Context;
+use maf_core::server::{RoomHostImpl, RoomsStorage};
 use maf_core::{ContainerRuntime, utils};
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
@@ -10,7 +12,6 @@ use sea_orm::{
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-use crate::api::rooms::RoomsStorage;
 use crate::storage::bundle::BundleStorage;
 use crate::storage::db::user::{self, Permissions};
 use crate::storage::db::{self, TxnError};
@@ -24,9 +25,9 @@ pub enum Environment {
 
 #[derive(Debug, Clone)]
 pub struct AppState {
+    /// The server-agnostic core for managing rooms.
+    pub room_host: Arc<RoomHost>,
     pub environment: Environment,
-    pub container_runtime: ContainerRuntime,
-    pub rooms: RoomsStorage,
     pub bundle_storage: BundleStorage,
     pub db: sea_orm::DatabaseConnection,
     pub last_activity: &'static AtomicU64,
@@ -47,6 +48,10 @@ impl AppState {
         tracing::info!("Connected to database `{}`", database_url);
 
         let state = Self {
+            room_host: Arc::new(RoomHost {
+                container_runtime: container_runtime.clone(),
+                rooms: RoomsStorage::default(),
+            }),
             environment: dotenvy::var("ENVIRONMENT")
                 .or_else(|_| Ok("development".to_string()))
                 .and_then(|s| match s.to_lowercase().as_str() {
@@ -56,8 +61,6 @@ impl AppState {
                         "expected `development` or `production` in ENVIRONMENT. got `{actual}`."
                     ),
                 })?,
-            container_runtime,
-            rooms: RoomsStorage::default(),
             bundle_storage: BundleStorage::new().await?,
             db,
             last_activity,
@@ -174,5 +177,21 @@ impl AppState {
     pub fn update_last_activity(&self) {
         self.last_activity
             .store(utils::now_as_secs(), std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
+#[derive(Debug)]
+pub struct RoomHost {
+    container_runtime: ContainerRuntime,
+    rooms: RoomsStorage,
+}
+
+impl RoomHostImpl for RoomHost {
+    fn container_runtime(&self) -> &ContainerRuntime {
+        &self.container_runtime
+    }
+
+    fn room_storage(&self) -> &RoomsStorage {
+        &self.rooms
     }
 }

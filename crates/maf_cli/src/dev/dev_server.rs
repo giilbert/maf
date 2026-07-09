@@ -24,7 +24,6 @@ use tower_http::normalize_path::NormalizePathLayer;
 use uuid::Uuid;
 
 use crate::config::{ProjectConfig, ProjectConfigExt};
-use crate::dev::rooms::{DevRoomsStorage, InsertRoom};
 use crate::dev::typed;
 use crate::{print_dimmed, Context};
 

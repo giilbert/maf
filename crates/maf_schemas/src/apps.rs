@@ -6,17 +6,13 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+/// Generates a random string to use as a secret for signing JWTs for room authentication.
 pub fn generate_room_secret() -> String {
     let mut rng = rand::rng();
 
     (0..256)
         .map(|_| rng.sample(rand::distr::Alphanumeric) as char)
         .collect()
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UserAppConfig {
-    pub rooms: RoomCreationStrategy,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

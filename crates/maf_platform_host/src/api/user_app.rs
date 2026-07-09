@@ -4,13 +4,14 @@ use axum::body::Body;
 use axum::extract::{Path, Query, State};
 use axum::routing::{get, post};
 use axum::{Json, Router, middleware};
+use base64::engine::Config;
 use chrono::Utc;
 use maf_core::ContainerResourceLimit;
-use maf_core::server::{CreateRoomInnerOptions, RoomInner};
+use maf_core::server::{CreateRoomCoreOptions, RoomCore};
 use maf_schemas::apps::{
     AppNameAndOrgSlug, CreateRoomOptions, CreateUserAppRequest, MetaVisibility,
     RoomCreationStrategy, RoomInfo, RoomKeyHash, RoomListQueryParams, RoomQueryResponse,
-    UpdateUserAppRequest,
+    UpdateUserAppRequest, UserAppConfig,
 };
 use maf_schemas::error::ErrorResponse;
 use maf_schemas::project_config::ProjectConfigFile;
@@ -151,10 +152,15 @@ async fn upload_app_bundle(
         None => return Err(ErrorResponse::not_found(Some("App not found."))),
     };
 
+    let app_config = app
+        .config
+        .and_then(|config| toml::from_str::<UserAppConfig>(&config).ok())
+        .unwrap_or_else(|| UserAppConfig::default());
+
     let body = body.into_data_stream();
     state
         .bundle_storage
-        .upload_bundle(app.id, body)
+        .upload_bundle(app_config, app.id, body)
         .await
         .map_err(|e| e.error_response())?;
 
@@ -400,27 +406,24 @@ async fn service_create_room(
         }
     }
 
-    let room_creation_strategy = match &app.config {
-        Some(config) => {
-            let config: ProjectConfigFile = toml::from_str(config)
-                .map_err(|_| ErrorResponse::bad_request(Some("Invalid project config")))?;
-            config.rooms
-        }
-        None => RoomCreationStrategy::AuthenticatedApiRequest,
+    let config = match &app.config {
+        Some(config) => toml::from_str(config)
+            .map_err(|_| ErrorResponse::bad_request(Some("Invalid project config")))?,
+        None => ProjectConfigFile::default_for(&app.name),
     };
 
-    if room_creation_strategy != RoomCreationStrategy::AuthenticatedApiRequest {
+    if config.rooms != RoomCreationStrategy::AuthenticatedApiRequest {
         return Err(ErrorResponse::forbidden(Some(
             "Authenticated API request is not supported for this app.",
         )));
     }
 
-    let (room, mut container) = RoomInner::new(
-        &state.container_runtime,
-        CreateRoomInnerOptions {
+    let (room, mut container) = RoomCore::new(
+        state.room_host.clone(),
+        CreateRoomCoreOptions {
             bundle: state
                 .bundle_storage
-                .load_app_bundle(app.id)
+                .load_app_bundle(config, app.id)
                 .await
                 .map_err(|e| match e {
                     BundleError::InvalidZip => {

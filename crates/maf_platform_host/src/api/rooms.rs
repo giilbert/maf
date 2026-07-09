@@ -4,7 +4,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use dashmap::{DashMap, DashSet};
 use maf_core::ContainerResourceLimit;
-use maf_core::server::{CreateRoomInnerOptions, RoomInner};
+use maf_core::server::{CreateRoomCoreOptions, RoomCore};
 use maf_schemas::apps::{AppNameAndOrgSlug, RoomCreationStrategy, RoomId, RoomKeyHash};
 use maf_schemas::error::ErrorResponse;
 use tokio::sync::{Notify, RwLock, RwLockReadGuard};
@@ -21,7 +21,7 @@ use crate::storage::db::app;
 pub struct Room {
     id: RoomId,
     meta: RoomMeta,
-    inner: RoomInner,
+    inner: RoomCore,
 }
 
 impl Room {
@@ -32,7 +32,7 @@ impl Room {
 
     /// Returns a reference to the room's inner implementation, which contains the container, bundle,
     /// and other internal data.
-    pub fn inner(&self) -> &RoomInner {
+    pub fn inner(&self) -> &RoomCore {
         &self.inner
     }
 
@@ -57,12 +57,12 @@ pub struct RoomMeta {
 pub struct InsertRoom {
     pub strategy: RoomCreationStrategy,
     pub app: AppNameAndOrgSlug,
-    pub room: RoomInner,
+    pub room: RoomCore,
     pub key: String,
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct RoomsStorage {
+pub struct RoomsStorageOld {
     pub inner: Arc<RwLock<HashMap<RoomId, Room>>>,
     pub keys: Arc<RwLock<HashMap<RoomKeyHash, RoomId>>>,
     pub auto_created_rooms: Arc<RwLock<HashMap<AppNameAndOrgSlug, RoomId>>>,
@@ -72,7 +72,7 @@ pub struct RoomsStorage {
     autocreate_room_notify: Arc<DashMap<AppNameAndOrgSlug, Arc<Notify>>>,
 }
 
-impl RoomsStorage {
+impl RoomsStorageOld {
     pub async fn get(&self, room_id: &RoomId) -> Option<RwLockReadGuard<'_, Room>> {
         RwLockReadGuard::try_map(self.inner.read().await, |rooms| rooms.get(room_id)).ok()
     }
@@ -264,9 +264,9 @@ impl RoomsStorage {
                 let result: Result<RoomId, ErrorResponse> = async {
                     let (room, mut container) = match &app {
                         Some(app) => {
-                            RoomInner::new(
+                            RoomCore::new(
                                 &state.container_runtime,
-                                CreateRoomInnerOptions {
+                                CreateRoomCoreOptions {
                                     bundle: state
                                         .bundle_storage
                                         .load_app_bundle(app.id)
@@ -284,9 +284,9 @@ impl RoomsStorage {
                             tracing::info!(
                                 "App not found. Defaulting to test app (development only)"
                             );
-                            RoomInner::new(
+                            RoomCore::new(
                                 &state.container_runtime,
-                                CreateRoomInnerOptions {
+                                CreateRoomCoreOptions {
                                     bundle: state
                                         .bundle_storage
                                         .load_test_app()

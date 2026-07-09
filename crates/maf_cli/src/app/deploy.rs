@@ -35,12 +35,17 @@ pub async fn handle_deploy(
             let project = context.assert_project();
             let name = project.data.name.clone();
 
-            run_build_command(&project.base, &project.data.release.command)?;
+            let release_target = project
+                .data
+                .release
+                .clone()
+                .context("release target not provided! do you have a [release] section in your maf-project.toml?")?;
 
-            let output_path =
-                tokio::fs::canonicalize(project.base.join(project.data.release.output.clone()))
-                    .await
-                    .context("Unable to find output file")?;
+            run_build_command(&project.base, &release_target.command)?;
+
+            let output_path = tokio::fs::canonicalize(project.base.join(&release_target.output))
+                .await
+                .context("Unable to find output file")?;
 
             (name, output_path)
         }
