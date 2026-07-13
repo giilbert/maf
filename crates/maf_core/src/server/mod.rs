@@ -1,7 +1,9 @@
+mod app;
 mod bundle;
 mod connection;
 mod room;
 mod room_storage;
+mod routes;
 
 pub use bundle::Bundle;
 pub use connection::{
@@ -10,3 +12,4 @@ pub use connection::{
 };
 pub use room::{CreateRoomCoreOptions, RoomCore, RoomHostImpl};
 pub use room_storage::RoomsStorage;
+pub use routes::create_router;

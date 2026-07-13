@@ -39,32 +39,6 @@ pub fn create_gateway_router(_state: AppState) -> Router<AppState> {
     Router::new().nest("/@/{org_slug}/{app_name}/{room_key}", inner)
 }
 
-/// **GET** `/@/{org_slug}/{app_name}/{room_key}`
-/// Returns public meta information about the specified room, or a 404 error if the room does not
-/// exist.
-async fn info_route(
-    State(state): State<AppState>,
-    Path((org_slug, app_name, room_key)): Path<(String, String, String)>,
-) -> Result<Json<InfoResponse>, ErrorResponse> {
-    let meta = state
-        .rooms
-        .get_by_key_or_id(
-            &AppNameAndOrgSlug {
-                app: app_name,
-                org: org_slug,
-            },
-            &room_key,
-        )
-        .await
-        .ok_or_else(|| ErrorResponse::not_found(Some("room not found")))?
-        .inner()
-        .meta_storage()
-        .list_values::<BTreeMap<String, serde_json::Value>>(MetaVisibility::Public)
-        .await;
-
-    Ok(Json(InfoResponse { meta }))
-}
-
 /// **GET** `/@/{org_slug}/{app_name}/{room_key}/connect`
 ///
 /// FIXME: There is no way for clients to get an error message if something goes wrong here since
@@ -143,48 +117,3 @@ async fn connect_route(
     })
     .await)
 }
-
-// **POST** `/@/{org_slug}/{app_name}/{room_key}/hooks/{method}`
-// async fn hook_request_handler(
-//     State(state): State<AppState>,
-//     Path((org_slug, app_name, room_key, method)): Path<(String, String, String, String)>,
-// ) -> Result<Response, ErrorResponse> {
-//     if room_key != "default" {
-//         return Err(ErrorResponse::forbidden(Some(
-//             "only autocreated rooms are supported right now",
-//         )));
-//     }
-
-//     // TODO: handle other room types other than autocreated
-//     let room = &state
-//         .rooms
-//         .get_by_key_or_id(
-//             &AppNameAndOrgSlug {
-//                 app: app_name,
-//                 org: org_slug,
-//             },
-//             &room_key,
-//         )
-//         .await
-//         .ok_or_else(|| ErrorResponse::not_found(Some("app not found")))?;
-
-//     // TODO: handle hook bodies
-//     let response = room
-//         .inner
-//         .call_hook(
-//             bindings::HookRequestCaller::Service,
-//             method.clone(),
-//             bindings::HookBody::None,
-//         )
-//         .await
-//         .map_err(|e| anyhow::anyhow!(e))?;
-
-//     let response = match response {
-//         bindings::HookBody::None => Response::builder().body(Body::empty())?,
-//         bindings::HookBody::Json(json) => Response::builder()
-//             .header("Content-Type", "application/json")
-//             .body(Body::from(json))?,
-//     };
-
-//     Ok(response)
-// }

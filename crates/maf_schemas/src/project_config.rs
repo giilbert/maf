@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::apps::RoomCreationStrategy;
 
+/// The configuration file for a MAF project, stored at `maf-project.toml` in the root of the
+/// project directory.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectConfigFile {
     pub name: String,
@@ -25,9 +27,9 @@ impl ProjectConfigFile {
     }
 
     /// Creates a default ProjectConfigFile with the given name and default values for other fields.
-    pub fn default_for(name: &str) -> ProjectConfigFile {
+    pub fn default_for(name: impl AsRef<str>) -> ProjectConfigFile {
         ProjectConfigFile {
-            name: name.to_string(),
+            name: name.as_ref().to_string(),
             rooms: RoomCreationStrategy::AuthenticatedApiRequest,
             typed: None,
             debug: None,

@@ -76,7 +76,9 @@ pub struct ContainerHandle {
 
 #[derive(Debug, Clone, Copy)]
 pub struct ContainerResourceLimit {
+    /// The maximum amount of memory (in bytes) that the container is allowed to use.
     pub memory: usize,
+    /// The maximum number of entries in the resource table that the container is allowed to use.
     pub table: usize,
 }
 

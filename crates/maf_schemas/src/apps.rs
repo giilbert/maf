@@ -81,6 +81,8 @@ where
 }
 
 /// A struct used for hashing the room key and app name, used to quickly look up rooms by key.
+///
+/// TODO: use Cow<'a, str> or some kind of immutable string
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct RoomKeyHash {
     pub app: AppNameAndOrgSlug,
@@ -109,6 +111,8 @@ pub struct CreateRoomOptions {
 }
 
 /// An instance of an application returned from the Platform API.
+///
+/// This is the serialized representation of an App! `maf_core` has
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct App {
     pub id: Uuid,
@@ -118,6 +122,9 @@ pub struct App {
     pub api_secret: String,
 }
 
+/// Public information about a room.
+///
+/// Used by GET `/@/{org_slug}/{app_name}/{room_key}`.
 #[derive(Serialize)]
 pub struct InfoResponse {
     /// A map of meta keys to their corresponding values. A [`BTreeMap`] is used here to ensure
@@ -185,6 +192,7 @@ impl JsonMetaEntry {
 
 pub type MetaEntryMap = HashMap<String, JsonMetaEntry>;
 
+/// Used by `GET /@/{org_slug}/{app_name}/{room_key}/connect` route to parse query parameters.
 #[derive(Deserialize)]
 pub struct ConnectQueryParams {
     /// A JWT token for authenticating the user connecting to the room. This token is only needed

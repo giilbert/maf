@@ -16,13 +16,14 @@ use anyhow::Context;
 use biscuit::jwa::SignatureAlgorithm;
 use biscuit::jws::Secret;
 use biscuit::{ClaimsSet, JWT};
-use maf_schemas::apps::{MetaEntryMap, RoomId, generate_room_secret};
+use maf_schemas::apps::{AppNameAndOrgSlug, MetaEntryMap, RoomId, generate_room_secret};
 use tokio::sync::oneshot;
 use uuid::Uuid;
 
 use super::Bundle;
 use crate::container::meta::MetaStorage;
 use crate::container::{ContainerHandle, ContainerResourceLimit, CreateContainerOptions};
+use crate::server::app::App;
 use crate::server::room_storage::RoomsStorage;
 use crate::wasi::HookRequest;
 use crate::wasi::bindings::{self, HookRequestCaller, HookRequestInit};
@@ -37,29 +38,35 @@ use crate::{Connection, Container, ContainerResourceStats, ContainerRuntime};
 ///
 /// See the [module level documentation](`crate::server::room`) for more details on the design and
 /// intended usage of this trait and [`RoomCore`].
-pub trait RoomHostImpl: Debug + Send + Sync + 'static {
+///
+/// TODO: error types
+pub trait RoomHostImpl: Debug + Clone + Send + Sync + 'static {
     /// Returns a reference to the container runtime that should be used to create the room's
     /// container.
     fn container_runtime(&self) -> &ContainerRuntime;
 
     /// Returns a reference to the [`RoomsStorage`], managing all rooms on the server.
-    fn room_storage(&self) -> &RoomsStorage;
-}
+    fn room_storage(&self) -> &RoomsStorage<Self>;
 
-pub type RoomHost = Arc<dyn RoomHostImpl>;
+    // Development server vs. MAF Platform Host should implement the following methods very
+    // differently. These methods involve authentication or some form of loading data.
+
+    fn app(&self, id: AppNameAndOrgSlug) -> anyhow::Result<Option<App>>;
+    async fn load_bundle_for_app(&self, app: &App) -> anyhow::Result<Bundle>;
+}
 
 /// The core implementation of a MAF room, containing the container, bundle, and other internal
 /// data. This struct is intended to be wrapped in some container that decorates it with additional
 /// functionality, such as connection management, room lifecycle management, etc.
 #[derive(Debug, Clone)]
-pub struct RoomCore {
-    inner: Arc<RoomCoreInner>,
+pub struct RoomCore<R: RoomHostImpl> {
+    inner: Arc<RoomCoreInner<R>>,
 }
 
 #[derive(Debug)]
-struct RoomCoreInner {
+struct RoomCoreInner<R: RoomHostImpl> {
     /// A reference to the host's (the server driving this room) API for managing the room.
-    host: RoomHost,
+    host: R,
     /// The unique identifier of the room.
     id: Uuid,
     /// A secret associated with the room, used for signing JWTs for authentication.
@@ -79,11 +86,8 @@ pub struct CreateRoomCoreOptions {
     pub meta: Option<MetaEntryMap>,
 }
 
-impl RoomCore {
-    pub async fn new(
-        host: RoomHost,
-        options: CreateRoomCoreOptions,
-    ) -> anyhow::Result<(Self, Container)> {
+impl<R: RoomHostImpl> RoomCore<R> {
+    pub async fn new(host: R, options: CreateRoomCoreOptions) -> anyhow::Result<(Self, Container)> {
         let room_id = Uuid::new_v4();
         let secret = generate_room_secret();
         let container = Container::load_from_binary(
