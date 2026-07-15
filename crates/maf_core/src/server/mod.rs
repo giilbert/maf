@@ -4,6 +4,7 @@ mod connection;
 mod room;
 mod room_storage;
 mod routes;
+mod types;
 
 pub use bundle::Bundle;
 pub use connection::{

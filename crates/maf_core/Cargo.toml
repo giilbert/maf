@@ -15,7 +15,7 @@ futures-util = "0.3.31"
 rand = "0.9.1"
 tokio = { version = "1.44.2", features = ["full"] }
 tokio-util = { version = "0.7.15", features = ["io"] }
-maf_schemas = { path = "../maf_schemas" }
+maf_schemas = { path = "../maf_schemas", features = ["error-response"] }
 serde = { version = "^1", features = ["derive"] }
 serde_json = "1.0.140"
 thiserror = "^2"

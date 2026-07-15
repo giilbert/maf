@@ -10,7 +10,6 @@
 //! documented adjacent to the route handlers.
 
 mod gateway;
-mod types;
 
 use axum::Router;
 

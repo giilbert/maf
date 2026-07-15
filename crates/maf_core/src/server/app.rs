@@ -1,11 +1,21 @@
-use maf_schemas::apps::{AppNameAndOrgSlug, RoomKeyHash};
+use axum::extract::{FromRequestParts, Path};
+use axum::http::request::Parts;
+use maf_schemas::ErrorResponse;
+use maf_schemas::apps::{AppNameAndOrgSlug, RoomKey, RoomKeyHash};
 use maf_schemas::project_config::ProjectConfigFile;
+
+use crate::server::RoomHostImpl;
+use crate::server::types::AppOrgPath;
 
 /// Information about an application, a bundled set of code and resources that can be used to create
 /// MAF rooms.
 ///
 /// This is the internal representation of an app, with more functionality than the serialized
 /// representation [`maf_schemas::apps::App`].
+///
+/// This struct is also an [`axum::extract::FromRequestParts`] extractor, allowing it to be used in
+/// route handlers to automatically look up an app by its name and organization slug from the
+/// request path. If the app does not exist, the extractor will return a 404 error response.
 #[derive(Debug)]
 pub struct App {
     name: String,
@@ -61,11 +71,48 @@ impl App {
 
     /// Returns a [`RoomKeyHash`] for the given room key, which can be used to look up a room by its
     /// key in the [`crate::server::room_storage::RoomsStorage`].
-    pub fn room_hash_key(&self, room_key: &str) -> RoomKeyHash {
+    pub fn room_key_hash(&self, room_key: RoomKey) -> RoomKeyHash {
         // XXX: less clones
         RoomKeyHash {
             app: self.app_name_and_org_slug(),
-            key: room_key.to_string(),
+            key: room_key,
         }
+    }
+
+    pub fn parse_room_key(&self, room_key: &str) -> Result<RoomKey, ErrorResponse> {
+        RoomKey::new(room_key, self.config.rooms).ok_or_else(|| {
+            ErrorResponse::bad_request(Some(
+                "invalid room key for the app's room creation strategy",
+            ))
+        })
+    }
+}
+
+impl<R> FromRequestParts<R> for App
+where
+    R: RoomHostImpl,
+{
+    type Rejection = ErrorResponse;
+
+    async fn from_request_parts(parts: &mut Parts, state: &R) -> Result<Self, Self::Rejection> {
+        let path = Path::<AppOrgPath>::from_request_parts(parts, state)
+            .await
+            .inspect_err(|err| {
+                tracing::error!(
+                    error=?err,
+                    "the App extractor should only be used on routes with a org_slug and app_name parameter"
+                );
+            })
+            .map_err(|_| ErrorResponse::internal_server_error(None))?;
+
+        let app = state
+            .app(path.app_org())
+            .map_err(|err| {
+                tracing::error!(error=?err, "failed to look up app");
+                ErrorResponse::internal_server_error(None)
+            })?
+            .ok_or_else(|| ErrorResponse::not_found(Some("app not found")))?;
+
+        Ok(app)
     }
 }

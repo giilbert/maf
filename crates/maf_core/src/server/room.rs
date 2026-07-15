@@ -51,8 +51,14 @@ pub trait RoomHostImpl: Debug + Clone + Send + Sync + 'static {
     // Development server vs. MAF Platform Host should implement the following methods very
     // differently. These methods involve authentication or some form of loading data.
 
+    /// Looks up an app by its name and which organization it belongs to.
+    ///
+    /// Returns `Ok(None)` if the app does not exist, or `Err` if there was an error during the
+    /// lookup.
     fn app(&self, id: AppNameAndOrgSlug) -> anyhow::Result<Option<App>>;
-    async fn load_bundle_for_app(&self, app: &App) -> anyhow::Result<Bundle>;
+
+    fn load_bundle_for_app(&self, app: &App)
+    -> impl Future<Output = anyhow::Result<Bundle>> + Send;
 }
 
 /// The core implementation of a MAF room, containing the container, bundle, and other internal

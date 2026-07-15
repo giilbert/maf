@@ -80,13 +80,73 @@ where
     }
 }
 
+/// A user-specified identifier for a room, used to look up rooms by a string.
+///
+/// [`RoomKey::Default`] is used for rooms that are created with
+/// [`RoomCreationStrategy::AutoCreate`]. [`RoomKey::Custom`] is used for rooms that are created
+/// with other methods, such as through the MAF Platform API.
+///
+/// Note that "default" is a reserved key and cannot be used for custom rooms.
+///
+/// When serializing/deserializing, this gets converted to a string, with "default" being used for
+/// [`RoomKey::Default`] and the custom string being used for [`RoomKey::Custom`].
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum RoomKey {
+    Default,
+    Custom(String),
+}
+
+impl RoomKey {
+    /// Creates a new [`RoomKey`] from the given string and room creation strategy.
+    ///
+    /// Returns `None` if the key is invalid (e.g., "default" for a custom room).
+    pub fn new(key: &str, strategy: RoomCreationStrategy) -> Option<Self> {
+        match strategy {
+            RoomCreationStrategy::AutoCreate => Some(RoomKey::Default),
+            RoomCreationStrategy::AuthenticatedApiRequest => {
+                if key == "default" {
+                    None
+                } else {
+                    Some(RoomKey::Custom(key.to_string()))
+                }
+            }
+        }
+    }
+}
+
+impl Serialize for RoomKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            RoomKey::Default => serializer.serialize_str("default"),
+            RoomKey::Custom(key) => serializer.serialize_str(key),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for RoomKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        if s == "default" {
+            Ok(RoomKey::Default)
+        } else {
+            Ok(RoomKey::Custom(s))
+        }
+    }
+}
+
 /// A struct used for hashing the room key and app name, used to quickly look up rooms by key.
 ///
 /// TODO: use Cow<'a, str> or some kind of immutable string
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct RoomKeyHash {
     pub app: AppNameAndOrgSlug,
-    pub key: String,
+    pub key: RoomKey,
 }
 
 /// Serialized information about a room, used for API responses.
@@ -94,7 +154,7 @@ pub struct RoomKeyHash {
 #[serde(rename_all = "camelCase")]
 pub struct RoomInfo {
     pub id: RoomId,
-    pub key: String,
+    pub key: RoomKey,
     /// A secret used for signing and verifying JWT payloads.
     pub secret: String,
     pub meta: BTreeMap<String, serde_json::Value>,
@@ -104,7 +164,7 @@ pub struct RoomInfo {
 pub struct CreateRoomOptions {
     /// A key used to identify the room, defaults to the room ID or "default" for autocreated rooms.
     /// The key cannot be a UUID or "default" as they are reserved.
-    pub key: Option<String>,
+    pub key: Option<RoomKey>,
     /// Initial meta entries for the room.
     /// See https://maf.gilbertz.me/docs/build/meta for more information.
     pub meta: Option<MetaEntryMap>,

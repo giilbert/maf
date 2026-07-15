@@ -14,7 +14,7 @@ macro_rules! impl_error_status {
             #[allow(dead_code)]
             pub fn $name(message: Option<&str>) -> Self {
                 tracing::debug!(
-                    "Error: {} - {}",
+                    "error: {} - {}",
                     StatusCode::$status,
                     message
                         .map(|m| m.to_string())

@@ -19,4 +19,5 @@ pub mod typed;
 
 #[cfg(feature = "error-response")]
 pub mod error;
+#[cfg(feature = "error-response")]
 pub use error::ErrorResponse;

@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 
 use maf_schemas::apps::{
-    AppNameAndOrgSlug, MetaEntryMap, RoomCreationStrategy, RoomId, RoomKeyHash,
+    AppNameAndOrgSlug, MetaEntryMap, RoomCreationStrategy, RoomId, RoomKey, RoomKeyHash,
 };
 use tokio::sync::RwLock;
 
@@ -41,7 +41,7 @@ pub struct CreateRoomOptions<'a> {
     /// The app which this room belongs to.
     pub app: &'a App,
     pub creation_strategy: RoomCreationStrategy,
-    pub room_key: String,
+    pub room_key: RoomKey,
     /// Optional meta information to be stored in the room's meta storage.
     pub meta: Option<MetaEntryMap>,
 }
@@ -55,12 +55,12 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
 
     /// Gets a room by its room key (a string identifier for a room that is chosen by the developer)
     /// or its ID. Returns `None` if no room with the given key or ID exists.
-    pub async fn get_by_key(&self, app: &App, room_key: &str) -> Option<RoomCore<R>> {
+    pub async fn get_by_key(&self, app: &App, room_key: RoomKey) -> Option<RoomCore<R>> {
         let rooms = self.rooms.read().await;
         let keys_to_rooms = self.keys_to_rooms.read().await;
 
         keys_to_rooms
-            .get(&app.room_hash_key(room_key))
+            .get(&app.room_key_hash(room_key))
             .and_then(|room_id| rooms.get(room_id).cloned())
     }
 
