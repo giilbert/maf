@@ -10,11 +10,13 @@
 //! documented adjacent to the route handlers.
 
 mod gateway;
+mod service;
 
 use axum::Router;
 
 use crate::server::RoomHostImpl;
 use crate::server::routes::gateway::create_gateway_router;
+use crate::server::routes::service::create_service_v1_router;
 
 /// Creates an axum router with all the MAF Platform API routes defined in this crate. Users that
 /// want to implement a MAF Platform host should **merge** this router into their own axum router to
@@ -22,10 +24,5 @@ use crate::server::routes::gateway::create_gateway_router;
 pub fn create_router<R: RoomHostImpl>() -> Router<R> {
     Router::<R>::new()
         .merge(create_gateway_router::<R>())
-        .nest("/api/v1", create_api_v1_router::<R>())
-}
-
-/// Create the REST API router for the MAF Platform API routes that are used by services.
-fn create_api_v1_router<R: RoomHostImpl>() -> Router<R> {
-    Router::<R>::new()
+        .nest("/api/v1", create_service_v1_router::<R>())
 }

@@ -149,22 +149,33 @@ pub struct RoomKeyHash {
     pub key: RoomKey,
 }
 
-/// Serialized information about a room, used for API responses.
+/// Serialized information about a room **for service use**, used for API responses.
+///
+/// This is different from [`PublicRoomInfo`] which is used for client-facing API responses in that
+/// this struct contains sensitive information that should not be exposed to clients, such as the
+/// room secret.
+///
+/// Used by:
+/// - GET `/api/v1/apps/{org_slug}/{app_name}/rooms`
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RoomInfo {
+pub struct ServiceRoomInfo {
     pub id: RoomId,
-    pub key: RoomKey,
+    pub keys: Vec<RoomKey>,
     /// A secret used for signing and verifying JWT payloads.
     pub secret: String,
     pub meta: BTreeMap<String, serde_json::Value>,
 }
 
+/// A request to create a room, used for API requests.
+///
+/// Used by:
+/// - POST `/api/v1/apps/{org_slug}/{app_name}/rooms`
 #[derive(Debug, Deserialize)]
-pub struct CreateRoomOptions {
-    /// A key used to identify the room, defaults to the room ID or "default" for autocreated rooms.
-    /// The key cannot be a UUID or "default" as they are reserved.
-    pub key: Option<RoomKey>,
+pub struct ServiceCreateRoomOptions {
+    /// An additional key used to identify the room. A default key being the room's ID will always
+    /// be created for the room, but this allows for a custom key to be specified as well.
+    pub key: Option<String>,
     /// Initial meta entries for the room.
     /// See https://maf.gilbertz.me/docs/build/meta for more information.
     pub meta: Option<MetaEntryMap>,
@@ -184,9 +195,10 @@ pub struct App {
 
 /// Public information about a room.
 ///
-/// Used by GET `/@/{org_slug}/{app_name}/{room_key}`.
+/// Used by:
+/// - GET `/@/{org_slug}/{app_name}/{room_key}`.
 #[derive(Serialize)]
-pub struct InfoResponse {
+pub struct PublicRoomInfo {
     /// A map of meta keys to their corresponding values. A [`BTreeMap`] is used here to ensure
     /// consistent ordering of keys in the serialized output.
     pub meta: BTreeMap<String, serde_json::Value>,
@@ -252,7 +264,8 @@ impl JsonMetaEntry {
 
 pub type MetaEntryMap = HashMap<String, JsonMetaEntry>;
 
-/// Used by `GET /@/{org_slug}/{app_name}/{room_key}/connect` route to parse query parameters.
+/// Used by:
+/// - GET `/@/{org_slug}/{app_name}/{room_key}/connect` route to parse query parameters.
 #[derive(Deserialize)]
 pub struct ConnectQueryParams {
     /// A JWT token for authenticating the user connecting to the room. This token is only needed
@@ -270,7 +283,7 @@ pub struct RoomListQueryParams {
 #[serde(untagged)]
 pub enum RoomQueryResponse {
     /// A single room. This is returned when filtering by a specific key or ID.
-    Single(RoomInfo),
+    Single(ServiceRoomInfo),
     /// Multiple rooms. This is returned when no specific filter is applied.
-    Multiple(Vec<RoomInfo>),
+    Multiple(Vec<ServiceRoomInfo>),
 }

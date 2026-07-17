@@ -8,8 +8,8 @@ use chrono::Utc;
 use maf_core::ContainerResourceLimit;
 use maf_core::server::{CreateRoomCoreOptions, RoomCore};
 use maf_schemas::apps::{
-    AppNameAndOrgSlug, CreateRoomOptions, CreateUserAppRequest, MetaVisibility,
-    RoomCreationStrategy, RoomInfo, RoomKeyHash, RoomListQueryParams, RoomQueryResponse,
+    AppNameAndOrgSlug, ServiceCreateRoomOptions, CreateUserAppRequest, MetaVisibility,
+    RoomCreationStrategy, ServiceRoomInfo, RoomKeyHash, RoomListQueryParams, RoomQueryResponse,
     UpdateUserAppRequest,
 };
 use maf_schemas::error::ErrorResponse;
@@ -281,7 +281,7 @@ async fn service_get_rooms(
     if let Some(query_id) = query.by_id {
         match state.rooms.get(&query_id).await {
             Some(room) if room.meta().app_info == (&app.name, &org.slug) => {
-                return Ok(Json(RoomQueryResponse::Single(RoomInfo {
+                return Ok(Json(RoomQueryResponse::Single(ServiceRoomInfo {
                     id: room.id(),
                     key: room.meta().key.clone(),
                     secret: room.inner().secret().to_string(),
@@ -312,7 +312,7 @@ async fn service_get_rooms(
         match state.rooms.keys.read().await.get(&room_key_hash) {
             Some(room_id) => match state.rooms.get(room_id).await {
                 Some(room) => {
-                    return Ok(Json(RoomQueryResponse::Single(RoomInfo {
+                    return Ok(Json(RoomQueryResponse::Single(ServiceRoomInfo {
                         id: room.id(),
                         key: room.meta().key.clone(),
                         secret: room.inner().secret().to_string(),
@@ -347,11 +347,11 @@ async fn service_get_rooms(
             org: org.slug.clone(),
         }) {
         Some(rooms_set) => {
-            let mut rooms: Vec<RoomInfo> = vec![];
+            let mut rooms: Vec<ServiceRoomInfo> = vec![];
 
             for room_id in rooms_set.iter() {
                 if let Some(room) = state.rooms.get(room_id).await {
-                    rooms.push(RoomInfo {
+                    rooms.push(ServiceRoomInfo {
                         id: room.id(),
                         key: room.meta().key.clone(),
                         secret: room.inner().secret().to_string(),
@@ -374,8 +374,8 @@ async fn service_get_rooms(
 async fn service_create_room(
     State(state): State<AppState>,
     service_account: AuthedServiceAccount,
-    Json(options): Json<CreateRoomOptions>,
-) -> Result<Json<RoomInfo>, ErrorResponse> {
+    Json(options): Json<ServiceCreateRoomOptions>,
+) -> Result<Json<ServiceRoomInfo>, ErrorResponse> {
     let app = service_account.app();
     let org = service_account.org();
 
@@ -466,7 +466,7 @@ async fn service_create_room(
         state.rooms.remove(&room_id).await;
     });
 
-    Ok(Json(RoomInfo {
+    Ok(Json(ServiceRoomInfo {
         id: room_id,
         key: room_meta.key.clone(),
         secret: room.secret().to_string(),

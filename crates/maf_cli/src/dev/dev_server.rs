@@ -17,7 +17,7 @@ use maf_core::server::{
     do_ws_upgrade, get_auth_data, pre_create_room_auth_check, WsUpgradeOptions,
 };
 use maf_core::{Container, ContainerResourceLimit, ContainerRuntime, CreateContainerOptions};
-use maf_schemas::apps::{ConnectQueryParams, InfoResponse, MetaVisibility, RoomCreationStrategy};
+use maf_schemas::apps::{ConnectQueryParams, MetaVisibility, PublicRoomInfo, RoomCreationStrategy};
 use maf_schemas::error::ErrorResponse;
 use tower::ServiceBuilder;
 use tower_http::normalize_path::NormalizePathLayer;
@@ -164,7 +164,7 @@ async fn generate_types(state: DevServerState, project: ProjectConfig) -> anyhow
 async fn info_route(
     State(state): State<DevServerState>,
     Path((_org_slug, _app_name, room_key)): Path<(String, String, String)>,
-) -> Result<axum::Json<InfoResponse>, ErrorResponse> {
+) -> Result<axum::Json<PublicRoomInfo>, ErrorResponse> {
     let meta = state
         .rooms
         .get_by_key_or_id(&room_key)
@@ -177,7 +177,7 @@ async fn info_route(
         )
         .await;
 
-    Ok(axum::Json(InfoResponse { meta }))
+    Ok(axum::Json(PublicRoomInfo { meta }))
 }
 
 async fn connect_route(

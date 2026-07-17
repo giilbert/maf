@@ -16,7 +16,9 @@ use anyhow::Context;
 use biscuit::jwa::SignatureAlgorithm;
 use biscuit::jws::Secret;
 use biscuit::{ClaimsSet, JWT};
-use maf_schemas::apps::{AppNameAndOrgSlug, MetaEntryMap, RoomId, generate_room_secret};
+use maf_schemas::apps::{
+    AppNameAndOrgSlug, MetaEntryMap, MetaVisibility, RoomId, RoomKey, generate_room_secret,
+};
 use tokio::sync::oneshot;
 use uuid::Uuid;
 
@@ -57,6 +59,7 @@ pub trait RoomHostImpl: Debug + Clone + Send + Sync + 'static {
     /// lookup.
     fn app(&self, id: AppNameAndOrgSlug) -> anyhow::Result<Option<App>>;
 
+    /// Loads the bundle for the given app.
     fn load_bundle_for_app(&self, app: &App)
     -> impl Future<Output = anyhow::Result<Bundle>> + Send;
 }
@@ -75,6 +78,11 @@ struct RoomCoreInner<R: RoomHostImpl> {
     host: R,
     /// The unique identifier of the room.
     id: Uuid,
+    /// Which organization and app this room belongs to.
+    app: AppNameAndOrgSlug,
+    /// The keys associated with the room. The first key is always the default key generated from
+    /// the room ID. Additional keys can be [`RoomKey::Default`] or [`RoomKey::Custom`].
+    keys: Vec<RoomKey>,
     /// A secret associated with the room, used for signing JWTs for authentication.
     secret: String,
     /// A handle to the room's container, which can be used to interact with the running instance of
@@ -90,6 +98,11 @@ pub struct CreateRoomCoreOptions {
     pub bundle: Bundle,
     pub resource_limit: ContainerResourceLimit,
     pub meta: Option<MetaEntryMap>,
+    /// The app that this room belongs to.
+    pub app: AppNameAndOrgSlug,
+    /// The keys associated with the room, not including the default key that is generated from the
+    /// room ID.
+    pub extra_keys: Vec<RoomKey>,
 }
 
 impl<R: RoomHostImpl> RoomCore<R> {
@@ -108,6 +121,10 @@ impl<R: RoomHostImpl> RoomCore<R> {
         )
         .await?;
 
+        let mut keys = vec![];
+        keys.push(RoomKey::Custom(room_id.to_string()));
+        keys.extend(options.extra_keys.clone());
+
         Ok((
             Self {
                 inner: Arc::new(RoomCoreInner {
@@ -116,6 +133,8 @@ impl<R: RoomHostImpl> RoomCore<R> {
                     secret,
                     container: container.handle(),
                     bundle: options.bundle,
+                    app: options.app,
+                    keys,
                 }),
             },
             container,
@@ -140,6 +159,17 @@ impl<R: RoomHostImpl> RoomCore<R> {
     /// needed to run the room's container.
     pub fn bundle(&self) -> &Bundle {
         &self.inner.bundle
+    }
+
+    /// Returns the app that this room belongs to.
+    pub fn app(&self) -> &AppNameAndOrgSlug {
+        &self.inner.app
+    }
+
+    /// Returns the keys associated with the room. The first key is always the default key generated
+    /// from the room ID. Additional keys can be [`RoomKey::Default`] or [`RoomKey::Custom`].
+    pub fn keys(&self) -> &[RoomKey] {
+        &self.inner.keys
     }
 
     /// Returns a reference to the room's container, which can be used to interact with the running
@@ -227,5 +257,21 @@ impl<R: RoomHostImpl> RoomCore<R> {
         }
 
         serde_json::to_value(payload).context("failed to reencode JWT")
+    }
+
+    /// Returns a [`maf_schemas::apps::ServiceRoomInfo`] struct containing information about the
+    /// room that is suitable for service accounts to manage the room.
+    pub async fn service_room_info(&self) -> maf_schemas::apps::ServiceRoomInfo {
+        maf_schemas::apps::ServiceRoomInfo {
+            id: self.id(),
+            // FIXME: update documentation to reflect that a room can have multiple keys, not just
+            // one
+            keys: self.keys().to_vec(),
+            meta: self
+                .meta_storage()
+                .list_values(MetaVisibility::Private)
+                .await,
+            secret: self.secret().to_string(),
+        }
     }
 }

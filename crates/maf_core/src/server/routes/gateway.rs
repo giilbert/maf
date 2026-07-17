@@ -6,7 +6,7 @@ use axum::routing::get;
 use axum::{Json, Router};
 use maf_schemas::ErrorResponse;
 use maf_schemas::apps::{
-    ConnectQueryParams, InfoResponse, MetaVisibility, RoomCreationStrategy, RoomKey,
+    ConnectQueryParams, MetaVisibility, PublicRoomInfo, RoomCreationStrategy, RoomKey,
 };
 
 use crate::server::app::App;
@@ -37,7 +37,7 @@ async fn get_room_info_route<R: RoomHostImpl>(
     State(host): State<R>,
     Path(path): Path<AppRoomPath>,
     app: App,
-) -> Result<Json<InfoResponse>, ErrorResponse> {
+) -> Result<Json<PublicRoomInfo>, ErrorResponse> {
     let room = host
         .room_storage()
         .get_by_key(&app, app.parse_room_key(&path.room_key)?)
@@ -49,7 +49,7 @@ async fn get_room_info_route<R: RoomHostImpl>(
         .list_values::<BTreeMap<String, serde_json::Value>>(MetaVisibility::Public)
         .await;
 
-    Ok(Json(InfoResponse { meta }))
+    Ok(Json(PublicRoomInfo { meta }))
 }
 
 /// GET `/@/{org_slug}/{app_name}/{room_key}/connect`
@@ -81,7 +81,7 @@ async fn connect_route<R: RoomHostImpl>(
                     .create(CreateRoomOptions {
                         app: &app,
                         creation_strategy: RoomCreationStrategy::AutoCreate,
-                        room_key: RoomKey::Default,
+                        room_key: None,
                         meta: None,
                     })
                     .await?

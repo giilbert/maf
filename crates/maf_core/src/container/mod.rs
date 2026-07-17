@@ -86,7 +86,7 @@ impl ContainerResourceLimit {
     // TODO: parse resource limit from app config file
     pub fn small_defaults() -> Self {
         Self {
-            memory: 16 * 1024 * 1024, // 16 MiB
+            memory: 10 * 1024 * 1024, // 10 MiB
             table: 10_000,            // 10_000 entries
         }
     }
