@@ -5,9 +5,7 @@ use axum::response::Response;
 use axum::routing::get;
 use axum::{Json, Router};
 use maf_schemas::ErrorResponse;
-use maf_schemas::apps::{
-    ConnectQueryParams, MetaVisibility, PublicRoomInfo, RoomCreationStrategy, RoomKey,
-};
+use maf_schemas::apps::{ConnectQueryParams, MetaVisibility, PublicRoomInfo, RoomCreationStrategy};
 
 use crate::server::app::App;
 use crate::server::room_storage::CreateRoomOptions;
@@ -18,7 +16,7 @@ const ERR_ROOM_NOT_FOUND: &str = "room not found";
 
 /// Create the router for the MAF Platform API routes that are used by clients for a particular app
 /// and/or room. This includes the WebSocket connection route.
-pub fn create_gateway_router<R: RoomHostImpl>() -> Router<R> {
+pub fn create_gateway_router<R: RoomHostImpl>(_host: &R) -> Router<R> {
     // Mounted at /@/{org_slug}/{app_name}/{room_key}
     let rooms_router = Router::<R>::new()
         .route("/", get(get_room_info_route::<R>))

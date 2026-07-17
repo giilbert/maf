@@ -18,7 +18,6 @@ pub async fn create_app() -> anyhow::Result<(AppState, Router)> {
     let router = Router::<AppState>::new()
         .route("/", get(|| async { "Hello, World!" }))
         .nest("/api/v1", create_api_v1_router(state.clone()))
-        .merge(gateway::create_gateway_router(state.clone()))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             update_last_activity,

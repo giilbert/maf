@@ -1,12 +1,13 @@
 use axum::extract::State;
 use axum::routing::get;
-use axum::{Json, Router};
+use axum::{Json, Router, middleware};
 use maf_schemas::ErrorResponse;
 use maf_schemas::apps::{RoomCreationStrategy, ServiceCreateRoomOptions, ServiceRoomInfo};
 
 use crate::server::RoomHostImpl;
 use crate::server::app::App;
 use crate::server::room_storage::CreateRoomOptions;
+use crate::server::routes::service_account_auth_middleware;
 
 /// Create the router for the MAF Platform API routes that are used by service accounts to create
 /// and manage rooms. For routes that clients use to interface with MAF, see
@@ -14,11 +15,16 @@ use crate::server::room_storage::CreateRoomOptions;
 ///
 /// This router should be merged into the main axum router at `/api/v1` to expose the service API
 /// routes.
-pub fn create_service_v1_router<R: RoomHostImpl>() -> Router<R> {
-    let apps_router = Router::<R>::new().route(
-        "/{org_slug}/{app_name}/rooms",
-        get(service_v1_get_rooms_route::<R>).post(service_v1_create_room_route::<R>),
-    );
+pub fn create_service_v1_router<R: RoomHostImpl>(host: &R) -> Router<R> {
+    let service_account_auth =
+        middleware::from_fn_with_state(host.clone(), service_account_auth_middleware::<R>);
+
+    let apps_router = Router::<R>::new()
+        .route(
+            "/{org_slug}/{app_name}/rooms",
+            get(service_v1_get_rooms_route::<R>).post(service_v1_create_room_route::<R>),
+        )
+        .route_layer(service_account_auth);
 
     Router::<R>::new().nest("/apps", apps_router)
 }

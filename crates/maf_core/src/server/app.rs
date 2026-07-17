@@ -16,6 +16,8 @@ use crate::server::types::AppOrgPath;
 /// This struct is also an [`axum::extract::FromRequestParts`] extractor, allowing it to be used in
 /// route handlers to automatically look up an app by its name and organization slug from the
 /// request path. If the app does not exist, the extractor will return a 404 error response.
+///
+/// TODO: make sure this isn't getting loaded multiple times per request
 #[derive(Debug)]
 pub struct App {
     name: String,

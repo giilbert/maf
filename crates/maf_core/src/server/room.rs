@@ -53,6 +53,21 @@ pub trait RoomHostImpl: Debug + Clone + Send + Sync + 'static {
     // Development server vs. MAF Platform Host should implement the following methods very
     // differently. These methods involve authentication or some form of loading data.
 
+    /// Updates the last activity timestamp for the server. This is used to determine when the
+    /// server was last active, and can be used to shut down the server if it has been inactive for
+    /// a long time.
+    fn update_last_activity(&self) -> anyhow::Result<()>;
+
+    /// Checks if the given API key is valid for the given app.
+    ///
+    /// Returns `Ok(true)` if the API key is valid, `Ok(false)` if the API key is invalid, and `Err`
+    /// if there was an error during the validation process.
+    fn validate_api_key(
+        &self,
+        app: &App,
+        request: &axum::extract::Request,
+    ) -> impl Future<Output = anyhow::Result<bool>> + Send;
+
     /// Looks up an app by its name and which organization it belongs to.
     ///
     /// Returns `Ok(None)` if the app does not exist, or `Err` if there was an error during the
@@ -75,6 +90,7 @@ pub struct RoomCore<R: RoomHostImpl> {
 #[derive(Debug)]
 struct RoomCoreInner<R: RoomHostImpl> {
     /// A reference to the host's (the server driving this room) API for managing the room.
+    #[allow(dead_code)] // TODO: remove this if host is used
     host: R,
     /// The unique identifier of the room.
     id: Uuid,
