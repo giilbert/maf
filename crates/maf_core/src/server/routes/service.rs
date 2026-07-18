@@ -70,7 +70,7 @@ async fn service_v1_get_room_route<R: RoomHostImpl>(
         .room_storage()
         .get_by_key(&app, room_key)
         .await
-        .ok_or_else(|| ErrorResponse::not_found(Some("room not found")))?;
+        .ok_or_else(|| ErrorResponse::not_found(Some("Room with requested key not found.")))?;
 
     Ok(Json(room.service_room_info().await))
 }
@@ -89,7 +89,7 @@ async fn service_v1_create_room_route<R: RoomHostImpl>(
     // be a way to "prepare" a room for a user before they connect to it.
     if room_creation_strategy != RoomCreationStrategy::AuthenticatedApiRequest {
         return Err(ErrorResponse::bad_request(Some(
-            "autocreated rooms cannot be created through the service API",
+            "Autocreated rooms cannot be created through the service API.",
         )));
     }
 
@@ -97,24 +97,28 @@ async fn service_v1_create_room_route<R: RoomHostImpl>(
     if let Some(key) = &body.key {
         // This key is reserved for autocreated rooms.
         if key == "default" {
-            return Err(ErrorResponse::bad_request(Some("key cannot be 'default'")));
+            return Err(ErrorResponse::bad_request(Some(
+                "Room key cannot be 'default'.",
+            )));
         }
 
         if key.is_empty() {
-            return Err(ErrorResponse::bad_request(Some("key cannot be empty")));
+            return Err(ErrorResponse::bad_request(Some(
+                "Room key cannot be empty.",
+            )));
         }
 
         if key.len() > MAX_ROOM_KEY_LENGTH {
             return Err(ErrorResponse::bad_request(Some(concat!(
-                "key cannot be longer than ",
+                "Room key cannot be longer than ",
                 stringify!(MAX_ROOM_KEY_LENGTH),
-                " characters"
+                " characters."
             ))));
         }
 
         if Uuid::parse_str(key).is_ok() {
             return Err(ErrorResponse::bad_request(Some(
-                "key cannot be a valid UUID",
+                "Room key cannot be a valid UUID.",
             )));
         }
     }

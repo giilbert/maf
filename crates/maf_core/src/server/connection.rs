@@ -13,7 +13,7 @@ use futures_util::{SinkExt, StreamExt};
 use maf_schemas::apps::ConnectQueryParams;
 use maf_schemas::error::ErrorResponse;
 use maf_schemas::packet::{ServerHandshake, TxPacket};
-use maf_schemas::project_config::AuthMode;
+use maf_schemas::project_config::{AuthMode, ProjectConfigFile};
 use tokio::sync::{Mutex, mpsc};
 use tokio::time::timeout;
 use uuid::Uuid;
@@ -234,8 +234,10 @@ fn convert_to_axum_message(message: bindings::Message) -> Message {
 
 pub fn pre_create_room_auth_check(
     query_params: &ConnectQueryParams,
-    auth_mode: Option<&AuthMode>,
+    config: &ProjectConfigFile,
 ) -> Result<(), ErrorResponse> {
+    let auth_mode = config.auth.as_ref().map(|a| a.mode);
+
     if let Some(AuthMode::Jwt) = auth_mode
         && query_params.token.is_none()
     {
@@ -261,6 +263,9 @@ pub fn pre_create_room_auth_check(
 /// Extracts authentication data from the query parameters of a WebSocket connection request. The
 /// authentication data is returned as a JSON value, which can be used by the room to authenticate
 /// the connection.
+///
+/// NOTE: [`pre_create_room_auth_check`] should be called before this function to ensure that the
+/// authentication data is valid and present if required by the room's auth mode.
 pub fn get_auth_data<R: RoomHostImpl>(
     query_params: &ConnectQueryParams,
     app: &App,

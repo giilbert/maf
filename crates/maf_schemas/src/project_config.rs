@@ -44,7 +44,7 @@ pub struct AuthConfig {
     pub mode: AuthMode,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum AuthMode {
     Jwt,
 }
