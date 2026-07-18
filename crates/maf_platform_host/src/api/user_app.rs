@@ -1,17 +1,9 @@
-use std::collections::BTreeMap;
-
 use axum::body::Body;
-use axum::extract::{Path, Query, State};
+use axum::extract::{Path, State};
 use axum::routing::{get, post};
 use axum::{Json, Router, middleware};
 use chrono::Utc;
-use maf_core::ContainerResourceLimit;
-use maf_core::server::{CreateRoomCoreOptions, RoomCore};
-use maf_schemas::apps::{
-    AppNameAndOrgSlug, ServiceCreateRoomOptions, CreateUserAppRequest, MetaVisibility,
-    RoomCreationStrategy, ServiceRoomInfo, RoomKeyHash, RoomListQueryParams, RoomQueryResponse,
-    UpdateUserAppRequest,
-};
+use maf_schemas::apps::{CreateUserAppRequest, UpdateUserAppRequest};
 use maf_schemas::error::ErrorResponse;
 use maf_schemas::project_config::ProjectConfigFile;
 use sea_orm::ActiveValue::Set;
@@ -20,18 +12,18 @@ use uuid::Uuid;
 
 use super::auth::AuthedUser;
 use super::state::AppState;
-use crate::api::auth::{
-    AuthedServiceAccount, authenticate_service_request, authenticate_user_request,
-};
-use crate::api::rooms::InsertRoom;
+use crate::api::auth::authenticate_user_request;
 use crate::storage::bundle::BundleError;
 use crate::storage::db::app;
 use crate::storage::repos::utils::DbErrorExt;
 use crate::storage::repos::{app_repo, org_repo};
 
+/// Router for managing user apps.
+///
+/// These routes are not part of the MAF Platform API, but are used by the CLI/dashboard to manage
+/// user apps.
 pub fn create_user_app_router(state: AppState) -> Router<AppState> {
-    // Router for user operations
-    let user_router = Router::new()
+    Router::new()
         .route("/", post(create_user_app).get(get_user_apps))
         .route(
             "/{app_name}",
@@ -41,22 +33,7 @@ pub fn create_user_app_router(state: AppState) -> Router<AppState> {
         .layer(middleware::from_fn_with_state(
             state.clone(),
             authenticate_user_request,
-        ));
-
-    // Router for service account operations
-    let service_account_router = Router::new()
-        .route(
-            "/{org_slug}/{app_name}/rooms",
-            get(service_get_rooms).post(service_create_room),
-        )
-        .layer(middleware::from_fn_with_state(
-            state,
-            authenticate_service_request,
-        ));
-
-    Router::new()
-        .merge(user_router)
-        .merge(service_account_router)
+        ))
 }
 
 async fn create_user_app(
@@ -153,8 +130,8 @@ async fn upload_app_bundle(
 
     let app_config = app
         .config
-        .and_then(|config| toml::from_str::<UserAppConfig>(&config).ok())
-        .unwrap_or_else(|| UserAppConfig::default());
+        .and_then(|config| toml::from_str::<ProjectConfigFile>(&config).ok())
+        .unwrap_or_else(|| ProjectConfigFile::default_for(&app.name));
 
     let body = body.into_data_stream();
     state
@@ -251,228 +228,4 @@ async fn delete_app(
     };
 
     Ok(Json(app))
-}
-
-/// **GET** `/api/v1/apps/{org}/{app}/rooms`
-///
-/// Query parameters can be used to filter rooms:
-/// - `by_key`: If provided, only return the room with the specified key.
-/// - `by_id`: If provided, only return the room with the specified ID.
-///
-/// If `by_key` or `by_id` is provided, the response will be a single room if found. If no room can
-/// be found when using these filters, a 404 error is returned.
-///
-/// If no filters are provided, all rooms belonging to the specified app are returned, or an empty
-/// list if no rooms exist.
-async fn service_get_rooms(
-    State(state): State<AppState>,
-    service_account: AuthedServiceAccount,
-    query: Query<RoomListQueryParams>,
-) -> Result<Json<RoomQueryResponse>, ErrorResponse> {
-    let app = service_account.app();
-    let org = service_account.org();
-
-    if query.by_id.is_some() && query.by_key.is_some() {
-        return Err(ErrorResponse::bad_request(Some(
-            "Cannot filter by both ID and key simultaneously.",
-        )));
-    }
-
-    if let Some(query_id) = query.by_id {
-        match state.rooms.get(&query_id).await {
-            Some(room) if room.meta().app_info == (&app.name, &org.slug) => {
-                return Ok(Json(RoomQueryResponse::Single(ServiceRoomInfo {
-                    id: room.id(),
-                    key: room.meta().key.clone(),
-                    secret: room.inner().secret().to_string(),
-                    meta: room
-                        .inner()
-                        .meta_storage()
-                        .list_values::<BTreeMap<_, _>>(MetaVisibility::Private)
-                        .await,
-                })));
-            }
-            _ => {
-                return Err(ErrorResponse::not_found(Some(
-                    "No room found with the specified ID.",
-                )));
-            }
-        }
-    }
-
-    if let Some(query_key) = &query.by_key {
-        let room_key_hash = RoomKeyHash {
-            app: AppNameAndOrgSlug {
-                app: app.name.clone(),
-                org: org.slug.clone(),
-            },
-            key: query_key.clone(),
-        };
-
-        match state.rooms.keys.read().await.get(&room_key_hash) {
-            Some(room_id) => match state.rooms.get(room_id).await {
-                Some(room) => {
-                    return Ok(Json(RoomQueryResponse::Single(ServiceRoomInfo {
-                        id: room.id(),
-                        key: room.meta().key.clone(),
-                        secret: room.inner().secret().to_string(),
-                        meta: room
-                            .inner()
-                            .meta_storage()
-                            .list_values::<BTreeMap<_, _>>(MetaVisibility::Private)
-                            .await,
-                    })));
-                }
-                None => {
-                    return Err(ErrorResponse::not_found(Some(
-                        "No room found with the specified key.",
-                    )));
-                }
-            },
-            None => {
-                return Err(ErrorResponse::not_found(Some(
-                    "No room found with the specified key.",
-                )));
-            }
-        }
-    }
-
-    match state
-        .rooms
-        .api_created_rooms
-        .read()
-        .await
-        .get(&AppNameAndOrgSlug {
-            app: app.name.clone(),
-            org: org.slug.clone(),
-        }) {
-        Some(rooms_set) => {
-            let mut rooms: Vec<ServiceRoomInfo> = vec![];
-
-            for room_id in rooms_set.iter() {
-                if let Some(room) = state.rooms.get(room_id).await {
-                    rooms.push(ServiceRoomInfo {
-                        id: room.id(),
-                        key: room.meta().key.clone(),
-                        secret: room.inner().secret().to_string(),
-                        meta: room
-                            .inner()
-                            .meta_storage()
-                            .list_values::<BTreeMap<_, _>>(MetaVisibility::Private)
-                            .await,
-                    });
-                }
-            }
-
-            Ok(Json(RoomQueryResponse::Multiple(rooms)))
-        }
-        None => Ok(Json(RoomQueryResponse::Multiple(vec![]))),
-    }
-}
-
-/// **POST** `/api/v1/apps/{org}/{app}/rooms`
-async fn service_create_room(
-    State(state): State<AppState>,
-    service_account: AuthedServiceAccount,
-    Json(options): Json<ServiceCreateRoomOptions>,
-) -> Result<Json<ServiceRoomInfo>, ErrorResponse> {
-    let app = service_account.app();
-    let org = service_account.org();
-
-    // Validate options
-    if let Some(key) = &options.key {
-        if key == "default" || Uuid::parse_str(key).is_ok() {
-            return Err(ErrorResponse::bad_request(Some(
-                "Key cannot be 'default' or a valid UUID.",
-            )));
-        }
-
-        if key.len() > 128 {
-            return Err(ErrorResponse::bad_request(Some(
-                "Key cannot be longer than 128 characters.",
-            )));
-        }
-
-        // Check for key uniqueness
-        if state.rooms.keys.read().await.contains_key(&RoomKeyHash {
-            app: AppNameAndOrgSlug {
-                app: app.name.clone(),
-                org: org.slug.clone(),
-            },
-            key: key.clone(),
-        }) {
-            return Err(ErrorResponse::conflict(Some("Room key already exists.")));
-        }
-    }
-
-    let config = match &app.config {
-        Some(config) => toml::from_str(config)
-            .map_err(|_| ErrorResponse::bad_request(Some("Invalid project config")))?,
-        None => ProjectConfigFile::default_for(&app.name),
-    };
-
-    if config.rooms != RoomCreationStrategy::AuthenticatedApiRequest {
-        return Err(ErrorResponse::forbidden(Some(
-            "Authenticated API request is not supported for this app.",
-        )));
-    }
-
-    let (room, mut container) = RoomCore::new(
-        state.room_host.clone(),
-        CreateRoomCoreOptions {
-            bundle: state
-                .bundle_storage
-                .load_app_bundle(config, app.id)
-                .await
-                .map_err(|e| match e {
-                    BundleError::InvalidZip => {
-                        ErrorResponse::bad_request(Some("Invalid app bundle"))
-                    }
-                    _ => ErrorResponse::internal_server_error(Some("Failed to load app bundle")),
-                })?
-                .ok_or_else(|| ErrorResponse::not_found(Some("App bundle not found")))?,
-            resource_limit: ContainerResourceLimit::small_defaults(),
-            meta: options.meta,
-        },
-    )
-    .await?;
-
-    let room_id = room.id();
-    let room_meta = state
-        .rooms
-        .insert(InsertRoom {
-            room: room.clone(),
-            strategy: RoomCreationStrategy::AuthenticatedApiRequest,
-            app: AppNameAndOrgSlug {
-                app: app.name.clone(),
-                org: org.slug.clone(),
-            },
-            key: options.key.unwrap_or_else(|| room_id.to_string()),
-        })
-        .await;
-
-    let room_id = room_meta.id;
-    let state = state.clone();
-
-    container.pass_output();
-    container.start_inactive_shutdown_task();
-
-    tokio::spawn(async move {
-        if let Err(e) = container.run().await {
-            tracing::error!("container {} error: {e:?}", container.room_id());
-        }
-        tracing::info!("container {} stopped", container.room_id());
-
-        state.rooms.remove(&room_id).await;
-    });
-
-    Ok(Json(ServiceRoomInfo {
-        id: room_id,
-        key: room_meta.key.clone(),
-        secret: room.secret().to_string(),
-        meta: room
-            .meta_storage()
-            .list_values::<BTreeMap<_, _>>(MetaVisibility::Private)
-            .await,
-    }))
 }

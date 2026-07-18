@@ -2,7 +2,10 @@ use axum::extract::{Path, State};
 use axum::routing::get;
 use axum::{Json, Router, middleware};
 use maf_schemas::ErrorResponse;
-use maf_schemas::apps::{RoomCreationStrategy, RoomKey, ServiceCreateRoomOptions, ServiceRoomInfo};
+use maf_schemas::apps::{
+    MAX_ROOM_KEY_LENGTH, RoomCreationStrategy, RoomKey, ServiceCreateRoomOptions, ServiceRoomInfo,
+};
+use uuid::Uuid;
 
 use crate::server::RoomHostImpl;
 use crate::server::app::App;
@@ -84,10 +87,36 @@ async fn service_v1_create_room_route<R: RoomHostImpl>(
 
     // TODO: currently autocreated rooms cannot be created through the service API. change? it can
     // be a way to "prepare" a room for a user before they connect to it.
-    if room_creation_strategy == RoomCreationStrategy::AutoCreate {
+    if room_creation_strategy != RoomCreationStrategy::AuthenticatedApiRequest {
         return Err(ErrorResponse::bad_request(Some(
             "autocreated rooms cannot be created through the service API",
         )));
+    }
+
+    // Validate the custom room key if one is provided.
+    if let Some(key) = &body.key {
+        // This key is reserved for autocreated rooms.
+        if key == "default" {
+            return Err(ErrorResponse::bad_request(Some("key cannot be 'default'")));
+        }
+
+        if key.is_empty() {
+            return Err(ErrorResponse::bad_request(Some("key cannot be empty")));
+        }
+
+        if key.len() > MAX_ROOM_KEY_LENGTH {
+            return Err(ErrorResponse::bad_request(Some(concat!(
+                "key cannot be longer than ",
+                stringify!(MAX_ROOM_KEY_LENGTH),
+                " characters"
+            ))));
+        }
+
+        if Uuid::parse_str(key).is_ok() {
+            return Err(ErrorResponse::bad_request(Some(
+                "key cannot be a valid UUID",
+            )));
+        }
     }
 
     let room = host

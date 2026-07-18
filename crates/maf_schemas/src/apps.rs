@@ -167,6 +167,8 @@ pub struct ServiceRoomInfo {
     pub meta: BTreeMap<String, serde_json::Value>,
 }
 
+pub const MAX_ROOM_KEY_LENGTH: usize = 128;
+
 /// A request to create a room, used for API requests.
 ///
 /// Used by:
