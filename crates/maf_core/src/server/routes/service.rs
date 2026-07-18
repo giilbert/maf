@@ -1,8 +1,8 @@
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::routing::get;
 use axum::{Json, Router, middleware};
 use maf_schemas::ErrorResponse;
-use maf_schemas::apps::{RoomCreationStrategy, ServiceCreateRoomOptions, ServiceRoomInfo};
+use maf_schemas::apps::{RoomCreationStrategy, RoomKey, ServiceCreateRoomOptions, ServiceRoomInfo};
 
 use crate::server::RoomHostImpl;
 use crate::server::app::App;
@@ -19,11 +19,15 @@ pub fn create_service_v1_router<R: RoomHostImpl>(host: &R) -> Router<R> {
     let service_account_auth =
         middleware::from_fn_with_state(host.clone(), service_account_auth_middleware::<R>);
 
-    let apps_router = Router::<R>::new()
+    let rooms_router = Router::<R>::new()
         .route(
-            "/{org_slug}/{app_name}/rooms",
+            "/",
             get(service_v1_get_rooms_route::<R>).post(service_v1_create_room_route::<R>),
         )
+        .route("/{room_key_or_id}", get(service_v1_get_room_route::<R>));
+
+    let apps_router = Router::<R>::new()
+        .nest("/{org_slug}/{app_name}/rooms", rooms_router)
         .route_layer(service_account_auth);
 
     Router::<R>::new().nest("/apps", apps_router)
@@ -38,7 +42,6 @@ pub fn create_service_v1_router<R: RoomHostImpl>(host: &R) -> Router<R> {
 /// TODO: implement gateway route `/@/{org_slug}/{app_name}/rooms`
 async fn service_v1_get_rooms_route<R: RoomHostImpl>(
     State(host): State<R>,
-    // FIXME: authentication for service accounts
     app: App,
 ) -> Json<Vec<ServiceRoomInfo>> {
     let mut rooms = vec![];
@@ -48,6 +51,25 @@ async fn service_v1_get_rooms_route<R: RoomHostImpl>(
     }
 
     Json(rooms)
+}
+
+/// GET `/api/v1/apps/{org_slug}/{app_name}/rooms/{room_key_or_id}`
+///
+/// Returns information about a specific room for the specified app. This route is used by service
+/// accounts to manage rooms for an app. This is different from the client-facing route that returns
+/// public information about a room.
+async fn service_v1_get_room_route<R: RoomHostImpl>(
+    State(host): State<R>,
+    app: App,
+    Path((_org_slug, _app_name, room_key)): Path<(String, String, RoomKey)>,
+) -> Result<Json<ServiceRoomInfo>, ErrorResponse> {
+    let room = host
+        .room_storage()
+        .get_by_key(&app, room_key)
+        .await
+        .ok_or_else(|| ErrorResponse::not_found(Some("room not found")))?;
+
+    Ok(Json(room.service_room_info().await))
 }
 
 /// POST `/api/v1/apps/{org_slug}/{app_name}/rooms`

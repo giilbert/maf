@@ -280,8 +280,6 @@ impl<R: RoomHostImpl> RoomCore<R> {
     pub async fn service_room_info(&self) -> maf_schemas::apps::ServiceRoomInfo {
         maf_schemas::apps::ServiceRoomInfo {
             id: self.id(),
-            // FIXME: update documentation to reflect that a room can have multiple keys, not just
-            // one
             keys: self.keys().to_vec(),
             meta: self
                 .meta_storage()

@@ -3,20 +3,17 @@ import { PlatformApiError } from "./error";
 import { SignJWT } from "jose";
 
 // Various ways to identify a room.
+//
+// TODO: change this since we got rid of room IDs vs keys in the API
 export type AnyRoomId = { tag: "id"; id: string } | { tag: "key"; key: string };
 
-const anyRoomIdToQueryParams = (identifier: AnyRoomId) => {
-  switch (identifier.tag) {
-    case "id":
-      return `by_id=${encodeURIComponent(identifier.id)}`;
-    case "key":
-      return `by_key=${encodeURIComponent(identifier.key)}`;
-  }
+const anyRoomIdToPath = (identifier: AnyRoomId) => {
+  return identifier.tag === "id" ? identifier.id : identifier.key;
 };
 
 interface RoomInit {
   id: string;
-  key: string;
+  keys: string[];
   secret: string;
   meta: Record<string, unknown>;
 }
@@ -35,7 +32,7 @@ export class Room {
 
   constructor(
     private client: MafServiceClient,
-    init?: RoomInit
+    init?: RoomInit,
   ) {
     if (init) this._data = init;
   }
@@ -48,13 +45,13 @@ export class Room {
     if (this._data) return;
 
     const response = await this.client.fetch(
-      `/api/v1/apps/${this.client.app}/rooms?${anyRoomIdToQueryParams(identifier)}`
+      `/api/v1/apps/${this.client.app}/rooms/${anyRoomIdToPath(identifier)}`,
     );
 
     if (!response.ok) {
       throw new PlatformApiError(
         `Failed to fetch room: ${response.statusText}`,
-        await response.json()
+        await response.json(),
       );
     }
 
@@ -73,11 +70,14 @@ export class Room {
 
   /**
    * Another identifier for the room. Usually, this is a more developer or
-   * user-friendly string compared to the room ID.
+   * user-friendly string compared to the room ID. If the developer did not
+   * provide a custom key during room creation, this will be the same as the
+   * room ID.
    */
   get key() {
     if (!this._data) throw new Error("Room not initialized");
-    return this._data.key;
+    // The first key is the ID, the second is the developer-defined key (if any)
+    return this._data.keys.length > 1 ? this._data.keys[1] : this._data.keys[0];
   }
 
   /**
@@ -108,7 +108,7 @@ export class Room {
   sign(data: { sub?: string; [key: string]: unknown }) {
     if (!this._data) throw new Error("Room not initialized");
     const jwt = new SignJWT(
-      Object.fromEntries(Object.entries(data).filter(([k]) => k !== "sub"))
+      Object.fromEntries(Object.entries(data).filter(([k]) => k !== "sub")),
     )
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
@@ -124,7 +124,7 @@ export class Room {
     if (!this._data) throw new Error("Room not initialized");
     return {
       id: this._data.id,
-      key: this._data.key,
+      key: this.key,
     };
   }
 }
@@ -169,18 +169,18 @@ export class Rooms {
   async list() {
     const response = await this.client.fetch(
       `/api/v1/apps/${this.client.app}/rooms`,
-      { method: "GET" }
+      { method: "GET" },
     );
 
     if (!response.ok) {
       throw new PlatformApiError(
         `Failed to list rooms: ${response.statusText}`,
-        await response.json()
+        await response.json(),
       );
     }
 
     return ((await response.json()) as RoomInit[]).map(
-      (data) => new Room(this.client, data)
+      (data) => new Room(this.client, data),
     );
   }
 
@@ -223,14 +223,14 @@ export class Rooms {
       {
         method: "POST",
         body: JSON.stringify(options),
-      }
+      },
     );
 
     if (!response.ok) {
       console.log(response);
       throw new PlatformApiError(
         `Failed to create room: ${response.statusText}`,
-        await response.json()
+        await response.json(),
       );
     }
 
