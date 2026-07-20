@@ -5,73 +5,54 @@ mod typed;
 use std::path::Path;
 use std::process;
 
-use dev_server::DevServerConfig;
+use dev_server::StartDevServerConfig;
 
 use crate::Context;
+use crate::dev::dev_server::{DevServerBuildMode, StartDevServerMode};
 
-// FIXME: Actual watch mode implementation?
-// #[derive(Subcommand, Debug, Clone)]
-// pub enum DevCommands {
-//     Run { file_path: String },
-// }
-//
-// pub async fn handle_commands(
-//     context: &mut Context,
-//     file_path: Option<String>,
-//     command: Option<DevCommands>,
-//     port: Option<u16>,
-// ) -> anyhow::Result<()> {
-//     match command {
-//         Some(DevCommands::Run { file_path }) => handle_run(context, Some(file_path), port).await,
-//         None => {
-//             // Use the file path from the project config if available, otherwise use file_path
-//             let file_path = match context
-//                 .project_config
-//                 .as_ref()
-//                 .map(|p| p.data.debug.output.clone())
-//             {
-//                 Some(output) => output,
-//                 None => file_path.ok_or_else(|| {
-//                     anyhow::anyhow!("No file path provided and no project config available")
-//                 })?,
-//             };
+// TODO: watch mode implementation?
 
-//             dev_server::start_local_server(
-//                 context,
-//                 DevServerConfig {
-//                     port: port.unwrap_or(DEFAULT_PORT),
-//                     wasm_module_path: file_path,
-//                     _watch: true,
-//                 },
-//             )
-//             .await
-//         }
-//     }
-// }
+pub const DEFAULT_ADDRESS: &str = "127.0.0.1:1147"; // Looks vaguely like MAF
 
-const DEFAULT_PORT: u16 = 1147; // Looks vaguely like MAF
+#[derive(Debug, Clone, clap::Args)]
+pub struct RunCommand {
+    /// Path to the WASM file to run. If not provided, the development server will look for a
+    /// `maf-project.toml` file in the current directory and run the project defined in that
+    /// file.
+    pub file: Option<String>,
+    /// Address and port to bind the development server to.
+    #[arg(long, short, default_value_t = DEFAULT_ADDRESS.to_string())]
+    pub address: String,
+    /// Whether to use the release mode settings when building the project. If not provided, the
+    /// development server will use the debug mode settings.
+    #[arg(long, default_value_t = false)]
+    pub release: bool,
+}
 
-pub async fn handle_run(
-    context: &mut Context,
-    file_path: Option<String>,
-    port: Option<u16>,
-) -> anyhow::Result<()> {
+pub async fn handle_run(context: &mut Context, args: RunCommand) -> anyhow::Result<()> {
+    let project = context.assert_project();
+    let build_mode = if args.release {
+        DevServerBuildMode::Release
+    } else {
+        DevServerBuildMode::Debug
+    };
+
+    // How we run the development server depends on whether the user provided a WASM file to run or
+    // not. This will probably change in the future.
+    let mode = match args.file {
+        Some(file_path) => StartDevServerMode::RunWasmFile { file_path },
+        None => StartDevServerMode::RunProject {
+            config: project.clone(),
+            build_mode,
+        },
+    };
+
     dev_server::start_local_server(
         context,
-        DevServerConfig {
-            port: port.unwrap_or(DEFAULT_PORT),
-            wasm_module_path: match file_path {
-                Some(path) => path,
-                None => {
-                    let project = context.assert_project();
-                    run_build_command(&project.base, &project.data.debug.command)?;
-
-                    let path =
-                        std::fs::canonicalize(project.base.join(&project.data.debug.output))?;
-                    path.to_string_lossy().to_string()
-                }
-            },
-            _watch: false,
+        StartDevServerConfig {
+            mode,
+            address: args.address,
+            build: build_mode,
         },
     )
     .await

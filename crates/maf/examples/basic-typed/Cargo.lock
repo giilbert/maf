@@ -476,12 +476,13 @@ checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
 
 [[package]]
 name = "maf"
-version = "0.1.0-alpha.3"
+version = "0.1.0-alpha.6"
 dependencies = [
  "anyhow",
  "futures-util",
  "http",
  "maf_schemas",
+ "mea",
  "ouroboros",
  "schemars",
  "serde",
@@ -496,7 +497,7 @@ dependencies = [
 
 [[package]]
 name = "maf_schemas"
-version = "0.1.0-alpha.3"
+version = "0.1.0-alpha.6"
 dependencies = [
  "anyhow",
  "colored",
@@ -506,6 +507,15 @@ dependencies = [
  "serde_json",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "mea"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2640d335e7273dacdcf51044026139b2e269c3bb0dfc3f8cb3496b85e3f6a42c"
+dependencies = [
+ "slab",
 ]
 
 [[package]]

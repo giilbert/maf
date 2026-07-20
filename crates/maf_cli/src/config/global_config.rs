@@ -42,12 +42,13 @@ impl GlobalConfig {
         )
         .context("Failed to parse config file")?;
 
-        if let Some(ref url) = config_data.server_url {
-            if !url.starts_with("http://") && !url.starts_with("https://") {
-                return Err(anyhow::anyhow!(
-                    "Server URL must start with 'http://' or 'https://'"
-                ));
-            }
+        if let Some(ref url) = config_data.server_url
+            && !url.starts_with("http://")
+            && !url.starts_with("https://")
+        {
+            return Err(anyhow::anyhow!(
+                "Server URL must start with 'http://' or 'https://'"
+            ));
         }
 
         if let Ok(token_variable) = dotenvy::var("MAF_CLI_TOKEN") {

@@ -109,11 +109,12 @@ where
 
         let app = state
             .app(path.app_org())
+            .await
             .map_err(|err| {
                 tracing::error!(error=?err, "failed to look up app");
                 ErrorResponse::internal_server_error(None)
             })?
-            .ok_or_else(|| ErrorResponse::not_found(Some("app not found")))?;
+            .ok_or_else(|| ErrorResponse::not_found(Some("App not found.")))?;
 
         Ok(app)
     }

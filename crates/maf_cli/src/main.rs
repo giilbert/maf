@@ -15,10 +15,11 @@ use colored::Colorize;
 pub use context::Context;
 use tracing_subscriber::layer::SubscriberExt as _;
 use tracing_subscriber::util::SubscriberInitExt as _;
-use tracing_subscriber::{fmt, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt};
 
 use crate::auth::AuthCommands;
 use crate::config::ConfigCommands;
+use crate::dev::RunCommand;
 use crate::init::InitOptions;
 
 #[derive(Parser, Debug)]
@@ -31,14 +32,7 @@ struct Cli {
 #[derive(Subcommand, Debug, Clone)]
 enum Commands {
     /// Quickly execute a WASM file.
-    Run {
-        /// Path to the WASM file to run.
-        file: Option<String>,
-        /// Port to run the server on.
-        #[arg(long, short, value_name = "PORT")]
-        port: Option<u16>,
-    },
-
+    Run(RunCommand),
     /// Utilities to manage MAF servers for administrators.
     #[command(subcommand)]
     Admin(AdminCommands),
@@ -64,10 +58,7 @@ async fn try_main() -> anyhow::Result<()> {
     let mut context = Context::new()?;
 
     match Cli::parse().commands {
-        Commands::Run {
-            file: file_path,
-            port,
-        } => dev::handle_run(&mut context, file_path, port).await?,
+        Commands::Run(args) => dev::handle_run(&mut context, args).await?,
         Commands::Admin(admin) => admin::handle_commands(&mut context, admin).await?,
         Commands::App(app) => app::handle_commands(&mut context, app).await?,
         Commands::Auth(auth) => auth::handle_commands(&mut context, auth)?,

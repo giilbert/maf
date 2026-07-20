@@ -2,14 +2,16 @@ use std::fs;
 use std::path::PathBuf;
 
 use anyhow::Context;
-use maf_schemas::apps::RoomCreationStrategy;
 use maf_schemas::project_config::ProjectConfigFile;
 
 /// Configuration information for a MAF project, if found in the current directory or any parent
 /// directory.
 #[derive(Debug, Clone)]
 pub struct ProjectConfig {
+    /// The parsed `maf-project.toml` file for the project.
     pub data: ProjectConfigFile,
+    /// The base path of the project, which is the directory that contains the `maf-project.toml`
+    /// file.
     pub base: PathBuf,
 }
 
@@ -41,24 +43,5 @@ impl ProjectConfig {
         }
 
         Ok(None)
-    }
-}
-
-/// Utility trait to working with [`ProjectConfig`] and [`Option<ProjectConfig>`].
-pub trait ProjectConfigExt {
-    fn room_creation_strategy_or_default(&self) -> RoomCreationStrategy;
-}
-
-impl ProjectConfigExt for ProjectConfig {
-    fn room_creation_strategy_or_default(&self) -> RoomCreationStrategy {
-        self.data.rooms
-    }
-}
-
-impl ProjectConfigExt for Option<ProjectConfig> {
-    fn room_creation_strategy_or_default(&self) -> RoomCreationStrategy {
-        self.as_ref()
-            .map(|config| config.room_creation_strategy_or_default())
-            .unwrap_or(RoomCreationStrategy::AutoCreate)
     }
 }

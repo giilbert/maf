@@ -1,48 +1,42 @@
 use colored::Colorize;
-use maf_schemas::project_config::Language;
+use maf_schemas::project_config::{Language, TypedConfig};
 use maf_schemas::typed::AppSchema;
 
 use crate::config::ProjectConfig;
 
 pub async fn create_types_file_for_project(
-    config: &ProjectConfig,
+    project: &ProjectConfig,
+    config: &TypedConfig,
     schema: AppSchema,
 ) -> anyhow::Result<()> {
-    if let Some(typed_config) = &config.data.typed {
-        let contents = match typed_config.language {
-            Language::TypeScript => {
-                let codegen = maf_typed::TypeScriptCodegen::new(schema);
-                let types = codegen.emit()?;
+    let contents = match config.language {
+        Language::TypeScript => {
+            let codegen = maf_typed::TypeScriptCodegen::new(schema);
+            let types = codegen.emit()?;
 
-                let warnings = codegen.clear_warnings();
+            let warnings = codegen.clear_warnings();
 
-                if !warnings.is_empty() {
-                    println!(
-                        "{}",
-                        "[dev] Warnings while generating types:"
-                            .to_string()
-                            .yellow()
-                    );
-                    for warning in warnings {
-                        println!("{}", format!("[dev] - {}", warning).yellow());
-                    }
+            if !warnings.is_empty() {
+                println!(
+                    "{}",
+                    "[dev] Warnings while generating types:"
+                        .to_string()
+                        .yellow()
+                );
+                for warning in warnings {
+                    println!("{}", format!("[dev] - {}", warning).yellow());
                 }
-
-                types
             }
-        };
 
-        let config_path = tokio::fs::canonicalize(config.base.join(&typed_config.out))
-            .await
-            .expect("Failed to canonicalize typed config path");
+            types
+        }
+    };
 
-        tokio::fs::write(&config_path, contents).await?;
+    let config_path = tokio::fs::canonicalize(project.base.join(&config.out))
+        .await
+        .expect("Failed to canonicalize typed config path");
 
-        println!(
-            "{}",
-            format!("[dev] Types generated to {}", config_path.display()).dimmed()
-        );
-    }
+    tokio::fs::write(&config_path, contents).await?;
 
     Ok(())
 }

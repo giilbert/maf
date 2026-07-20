@@ -43,6 +43,12 @@ use crate::{Connection, Container, ContainerResourceStats, ContainerRuntime};
 ///
 /// TODO: error types
 pub trait RoomHostImpl: Debug + Clone + Send + Sync + 'static {
+    type WeakRef: UpgradeableRoomHostImpl<Self>;
+
+    /// Returns a weak reference to the host, which can be used to avoid cyclic references when the
+    /// host needs to be stored in a room or other structure that is owned by the host.
+    fn weak(&self) -> Self::WeakRef;
+
     /// Returns a reference to the container runtime that should be used to create the room's
     /// container.
     fn container_runtime(&self) -> &ContainerRuntime;
@@ -65,18 +71,26 @@ pub trait RoomHostImpl: Debug + Clone + Send + Sync + 'static {
     fn validate_api_key(
         &self,
         app: &App,
-        request: &axum::extract::Request,
+        headers: &axum::http::HeaderMap,
     ) -> impl Future<Output = anyhow::Result<bool>> + Send;
 
     /// Looks up an app by its name and which organization it belongs to.
     ///
     /// Returns `Ok(None)` if the app does not exist, or `Err` if there was an error during the
     /// lookup.
-    fn app(&self, id: AppNameAndOrgSlug) -> anyhow::Result<Option<App>>;
+    fn app(
+        &self,
+        id: AppNameAndOrgSlug,
+    ) -> impl Future<Output = anyhow::Result<Option<App>>> + Send;
 
     /// Loads the bundle for the given app.
     fn load_bundle_for_app(&self, app: &App)
     -> impl Future<Output = anyhow::Result<Bundle>> + Send;
+}
+
+pub trait UpgradeableRoomHostImpl<R>: Debug + Clone + Send + Sync + 'static {
+    /// Upgrades the weak reference to a strong reference, if the host is still alive.
+    fn upgrade(&self) -> Option<R>;
 }
 
 /// The core implementation of a MAF room, containing the container, bundle, and other internal

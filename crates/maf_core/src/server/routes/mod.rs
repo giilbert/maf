@@ -45,7 +45,8 @@ pub async fn service_account_auth_middleware<R: RoomHostImpl>(
     request: Request,
     next: Next,
 ) -> Result<Response, ErrorResponse> {
-    let is_api_client_valid = host.validate_api_key(&app, &request).await?;
+    let headers = request.headers();
+    let is_api_client_valid = host.validate_api_key(&app, headers).await?;
     if !is_api_client_valid {
         return Err(ErrorResponse::unauthorized(None));
     }

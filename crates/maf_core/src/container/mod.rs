@@ -131,6 +131,7 @@ impl std::fmt::Debug for ContainerData {
 }
 
 pub struct CreateContainerOptions<'a> {
+    /// The WebAssembly module bytes to load into the container.
     pub bytes: &'a [u8],
     pub resource_limit: ContainerResourceLimit,
     pub meta: Option<HashMap<String, JsonMetaEntry>>,

@@ -26,6 +26,12 @@ impl ProjectConfigFile {
         Ok(())
     }
 
+    /// Creates a default ProjectConfigFile with the app "anonymous" and default values for other
+    /// fields.
+    pub fn default_anonymous() -> Self {
+        Self::default_for("anonymous")
+    }
+
     /// Creates a default ProjectConfigFile with the given name and default values for other fields.
     pub fn default_for(name: impl AsRef<str>) -> ProjectConfigFile {
         ProjectConfigFile {

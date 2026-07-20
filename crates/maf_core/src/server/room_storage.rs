@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use anyhow::Context;
 use maf_schemas::apps::{
     AppNameAndOrgSlug, MetaEntryMap, RoomCreationStrategy, RoomId, RoomKey, RoomKeyHash,
 };
@@ -7,6 +8,7 @@ use tokio::sync::RwLock;
 
 use crate::ContainerResourceLimit;
 use crate::server::app::App;
+use crate::server::room::UpgradeableRoomHostImpl;
 use crate::server::{CreateRoomCoreOptions, RoomCore, RoomHostImpl};
 
 /// A struct representing all rooms on the server, allowing for lookup and management of rooms.
@@ -20,9 +22,14 @@ use crate::server::{CreateRoomCoreOptions, RoomCore, RoomHostImpl};
 /// - `api_created_rooms`
 /// - `keys_to_rooms`
 /// - `app_to_rooms`
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct RoomsStorage<R: RoomHostImpl> {
-    host: R,
+    /// A handle to access host APIs.
+    ///
+    /// This is an Option because the host may not be available when the storage is created, but
+    /// will be set later when the host is available (the host needs the storage to be created
+    /// first). See [`RoomsStorage::set_host`] and [`RoomsStorage::host`].
+    host: R::WeakRef,
 
     /// All rooms on the server. Mapped by their unique [`RoomId`].
     rooms: RwLock<HashMap<RoomId, RoomCore<R>>>,
@@ -62,6 +69,23 @@ pub struct CreateRoomOptions<'a> {
 }
 
 impl<R: RoomHostImpl> RoomsStorage<R> {
+    pub fn new(host: R::WeakRef) -> Self {
+        Self {
+            host,
+            rooms: RwLock::new(HashMap::new()),
+            auto_created_rooms: RwLock::new(HashMap::new()),
+            api_created_rooms: RwLock::new(HashMap::new()),
+            keys_to_rooms: RwLock::new(HashMap::new()),
+            app_to_rooms: RwLock::new(HashMap::new()),
+        }
+    }
+
+    /// Gets a strong reference to the host, if it is still available. Returns an error if the host
+    /// is no longer available (i.e. the weak reference has been dropped).
+    pub fn host(&self) -> anyhow::Result<R> {
+        self.host.upgrade().context("host is no longer available")
+    }
+
     /// Gets all rooms associated with the given app.
     pub async fn get_rooms_for_app(&self, app: &App) -> Vec<RoomCore<R>> {
         match self
@@ -120,10 +144,11 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
 
         // The bundle contains the app's code and resources that will be used to run the room's
         // container.
-        let bundle = self.host.load_bundle_for_app(options.app).await?;
+        let host = self.host()?;
+        let bundle = host.load_bundle_for_app(options.app).await?;
 
         let (room_core, mut container) = RoomCore::new(
-            self.host.clone(),
+            host,
             CreateRoomCoreOptions {
                 bundle,
                 meta: options.meta,
