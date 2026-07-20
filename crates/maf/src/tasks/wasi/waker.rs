@@ -1,8 +1,8 @@
 use std::rc::Rc;
 use std::task::{RawWaker, RawWakerVTable, Waker};
 
-use super::task::TaskId;
 use super::Runtime;
+use super::task::TaskId;
 
 struct WakerData {
     runtime: Runtime,
@@ -11,7 +11,7 @@ struct WakerData {
 
 impl WakerData {
     pub unsafe fn from_raw(raw: *const ()) -> Rc<Self> {
-        Rc::from_raw(raw as *const Self)
+        unsafe { Rc::from_raw(raw as *const Self) }
     }
 }
 
@@ -34,7 +34,7 @@ pub(super) fn create_waker(runtime: Runtime, task_id: TaskId) -> Waker {
 }
 
 unsafe fn clone_callback(ptr: *const ()) -> RawWaker {
-    let rc = WakerData::from_raw(ptr);
+    let rc = unsafe { WakerData::from_raw(ptr) };
     let clone = Rc::clone(&rc);
 
     std::mem::forget(rc);
@@ -50,7 +50,7 @@ unsafe fn clone_callback(ptr: *const ()) -> RawWaker {
 }
 
 unsafe fn wake_callback(ptr: *const ()) {
-    let rc = WakerData::from_raw(ptr);
+    let rc = unsafe { WakerData::from_raw(ptr) };
 
     rc.runtime
         .resume_task(rc.task_id)
@@ -60,7 +60,7 @@ unsafe fn wake_callback(ptr: *const ()) {
 }
 
 unsafe fn wake_by_ref_callback(ptr: *const ()) {
-    let rc = WakerData::from_raw(ptr);
+    let rc = unsafe { WakerData::from_raw(ptr) };
 
     rc.runtime
         .resume_task(rc.task_id)
@@ -70,5 +70,5 @@ unsafe fn wake_by_ref_callback(ptr: *const ()) {
 }
 
 unsafe fn drop_callback(ptr: *const ()) {
-    drop(WakerData::from_raw(ptr));
+    drop(unsafe { WakerData::from_raw(ptr) });
 }
