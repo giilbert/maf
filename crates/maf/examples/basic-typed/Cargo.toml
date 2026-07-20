@@ -1,7 +1,7 @@
 [package]
 name = "example-basic-typed"
 version = "0.0.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 maf = { path = "../..", features = ["typed"] }
