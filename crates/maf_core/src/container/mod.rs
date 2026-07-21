@@ -284,8 +284,9 @@ impl Container {
 
         tokio::spawn(async move {
             while let Some(line) = output.recv().await {
-                tracing::info!(
-                    "{container_id} > {}",
+                tracing::debug!(
+                    container_id = ?container_id,
+                    "{}",
                     serde_json::to_string(&line).unwrap_or_else(|_| line.clone())
                 );
             }

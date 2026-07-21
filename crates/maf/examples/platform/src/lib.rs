@@ -71,9 +71,12 @@ fn on_connect(user: User) {
 }
 
 fn build() -> App {
+    println!("hello!");
+
     App::builder()
         .on_connect(on_connect)
         .store::<CounterStore>()
+        .store::<ShouldDoubleStore>()
         .rpc("increment_counter", increment_counter)
         .select(
             "counter_times_two",

@@ -1,7 +1,7 @@
 use core::panic;
 use std::any::{Any, TypeId};
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 use mea::rwlock::{
     MappedRwLockReadGuard, OwnedMappedRwLockReadGuard, OwnedRwLockReadGuard, OwnedRwLockWriteGuard,
@@ -295,15 +295,14 @@ impl<T: StoreData> Store<T> {
     /// [`crate::AppBuilder::store`]. If the store is not found, this function will panic.
     pub async fn new(app: App) -> Self {
         let id = StoreId::of::<T>();
-        let inner = app
-            .inner
-            .state
-            .stores
-            .read()
-            .await
-            .get(&id)
-            .cloned()
-            .expect("store not found");
+        let inner = match app.inner.state.stores.read().await.get(&id).cloned() {
+            Some(store) => store,
+            None => panic!(
+                "store not found: Store<{}>: {:?}",
+                std::any::type_name::<T>(),
+                id
+            ),
+        };
 
         Store {
             app,

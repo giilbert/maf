@@ -178,6 +178,7 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
             },
         )
         .await?;
+        container.pass_output();
 
         // TODO: move container run logic into RoomCore?
         // TODO: error handling for container run errors. if the container fails to start, we should
