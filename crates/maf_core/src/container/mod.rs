@@ -13,6 +13,7 @@ use maf_schemas::typed::AppSchema;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time;
 use tokio_util::sync::CancellationToken;
+use tracing::Instrument;
 use uuid::Uuid;
 use wasmtime as wt;
 use wasmtime_wasi::{ResourceTable, WasiCtxView, WasiView};
@@ -278,19 +279,21 @@ impl Container {
     }
 
     /// Consumes the container's output channel and forwards all output lines to tracing logs.
-    pub fn pass_output(&mut self) {
+    pub fn pass_output_to_tracing(&mut self) {
         let mut output = self.output().expect("output channel should be available");
         let container_id = self.room_id;
 
-        tokio::spawn(async move {
-            while let Some(line) = output.recv().await {
-                tracing::debug!(
-                    container_id = ?container_id,
-                    "{}",
-                    serde_json::to_string(&line).unwrap_or_else(|_| line.clone())
-                );
+        tokio::spawn(
+            async move {
+                while let Some(line) = output.recv().await {
+                    tracing::trace!(
+                        "out: {}",
+                        serde_json::to_string(&line).unwrap_or_else(|_| line.clone())
+                    );
+                }
             }
-        });
+            .instrument(tracing::trace_span!("container_output", container_id = ?container_id)),
+        );
     }
 
     #[inline]

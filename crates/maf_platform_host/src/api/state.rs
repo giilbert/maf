@@ -347,6 +347,15 @@ impl RoomHostImpl for AppState {
             .context("failed to load app bundle")?
             .context("app bundle not found")
     }
+
+    async fn set_up_container_logging(
+        &self,
+        _name: &str,
+        container: &mut maf_core::Container,
+    ) -> anyhow::Result<()> {
+        container.pass_output_to_tracing();
+        Ok(())
+    }
 }
 
 impl UpgradeableRoomHostImpl<AppState> for WeakAppState {

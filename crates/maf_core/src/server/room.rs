@@ -86,6 +86,16 @@ pub trait RoomHostImpl: Debug + Clone + Send + Sync + 'static {
     /// Loads the bundle for the given app.
     fn load_bundle_for_app(&self, app: &App)
     -> impl Future<Output = anyhow::Result<Bundle>> + Send;
+
+    /// Sets up logging for the given container, forwarding logs to the server's logging system.
+    fn set_up_container_logging(
+        &self,
+        // A better name for this container, since the container ID is a UUID and is not very
+        // human-compatible. This name might not be unique, but it should be human-readable and
+        // useful for debugging (e.g. in the development server).
+        name: &str,
+        container: &mut Container,
+    ) -> impl Future<Output = anyhow::Result<()>> + Send;
 }
 
 pub trait UpgradeableRoomHostImpl<R>: Debug + Clone + Send + Sync + 'static {

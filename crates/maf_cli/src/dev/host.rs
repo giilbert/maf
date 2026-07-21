@@ -2,6 +2,7 @@ use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Weak};
 
 use anyhow::Context;
+use colored::Colorize;
 use maf_core::ContainerRuntime;
 use maf_core::server::{App, Bundle, RoomHostImpl, RoomsStorage, UpgradeableRoomHostImpl};
 use maf_schemas::apps::AppNameAndOrgSlug;
@@ -150,6 +151,31 @@ impl RoomHostImpl for DevServerHost {
 
     async fn load_bundle_for_app(&self, _app: &App) -> anyhow::Result<Bundle> {
         self.load_default_bundle().await
+    }
+
+    async fn set_up_container_logging(
+        &self,
+        name: &str,
+        container: &mut maf_core::Container,
+    ) -> anyhow::Result<()> {
+        let mut output = container.output().expect("container output not available");
+        let id = name.to_string();
+
+        tokio::spawn(async move {
+            let mut line_buffer = String::new();
+
+            while let Some(line) = output.recv().await {
+                line_buffer.push_str(&line);
+
+                // Drain the buffer until we have a full line to print.
+                while let Some(pos) = line_buffer.find('\n') {
+                    let line = line_buffer.drain(..=pos).collect::<String>();
+                    println!("{} {}", format!("[{id}]").dimmed(), line.trim_end());
+                }
+            }
+        });
+
+        Ok(())
     }
 }
 

@@ -178,7 +178,17 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
             },
         )
         .await?;
-        container.pass_output();
+
+        let better_name = match options.creation_strategy {
+            RoomCreationStrategy::AuthenticatedApiRequest => options
+                .room_key
+                .clone()
+                .unwrap_or_else(|| room_core.id().to_string()),
+            RoomCreationStrategy::AutoCreate => "default".to_string(),
+        };
+        self.host()?
+            .set_up_container_logging(&better_name, &mut container)
+            .await?;
 
         // TODO: move container run logic into RoomCore?
         // TODO: error handling for container run errors. if the container fails to start, we should
