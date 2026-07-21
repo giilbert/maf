@@ -49,7 +49,7 @@ async fn get_users(
 ) -> Result<Json<Vec<UserWithOrgsAdminView>>, ErrorResponse> {
     let users = user::Entity::find()
         .find_with_related(org::Entity)
-        .all(&state.db)
+        .all(state.db())
         .await?
         .into_iter()
         .map(|(user_model, org_models)| UserWithOrgsAdminView {
@@ -89,7 +89,7 @@ async fn create_user(
     }
 
     state
-        .db
+        .db()
         .transaction::<_, _, TxnError>(|tx| {
             Box::pin(async move {
                 let new_user = user::ActiveModel {
@@ -140,7 +140,7 @@ async fn delete_user(
     axum::extract::Path(user_id): axum::extract::Path<Uuid>,
 ) -> Result<Json<DeleteUserAdminView>, ErrorResponse> {
     let user_model = user::Entity::find_by_id(user_id)
-        .one(&state.db)
+        .one(state.db())
         .await?
         .ok_or_else(|| ErrorResponse::not_found(Some("User not found.")))?;
 
@@ -152,7 +152,7 @@ async fn delete_user(
     }
 
     state
-        .db
+        .db()
         .transaction::<_, _, TxnError>(|tx| {
             Box::pin(async move {
                 let mut deleted_user = user::Entity::delete_by_id(user_id)

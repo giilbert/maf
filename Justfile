@@ -2,6 +2,9 @@
 default:
     @just --list
 
+_start-db:
+    docker compose up -d
+
 # deploy the platform host to fly.io without high availability
 deploy:
     fly deploy --ha=false -c scripts/fly.toml
@@ -11,12 +14,11 @@ docker-build:
     docker build -f scripts/fly.dockerfile -t maf-server:latest .
 
 # start the platform server in development mode
-dev-platform:
-    docker compose up -d
-    RUST_LOG=info,maf_core=trace cargo run --bin maf_platform_host
+dev-platform: _start-db
+    RUST_LOG=info,maf_platform_host=debug,maf_core=trace cargo run --bin maf_platform_host
 
 # apply the schema migrations
-migrate:
+migrate: _start-db
     cargo run --package migrations up --verbose
 
 # build and run maf_cli in development mode

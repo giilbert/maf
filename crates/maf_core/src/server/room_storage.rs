@@ -4,7 +4,7 @@ use anyhow::Context;
 use maf_schemas::apps::{
     AppNameAndOrgSlug, MetaEntryMap, RoomCreationStrategy, RoomId, RoomKey, RoomKeyHash,
 };
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, RwLockReadGuard};
 
 use crate::ContainerResourceLimit;
 use crate::server::app::App;
@@ -84,6 +84,25 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
     /// is no longer available (i.e. the weak reference has been dropped).
     pub fn host(&self) -> anyhow::Result<R> {
         self.host.upgrade().context("host is no longer available")
+    }
+
+    /// Getter for the `rooms` map. This is used for testing and debugging purposes.
+    pub async fn rooms_map(&self) -> RwLockReadGuard<'_, HashMap<RoomId, RoomCore<R>>> {
+        self.rooms.read().await
+    }
+
+    /// Getter for the `auto_created_rooms` map. This is used for testing and debugging purposes.
+    pub async fn auto_created_rooms_map(
+        &self,
+    ) -> RwLockReadGuard<'_, HashMap<AppNameAndOrgSlug, RoomId>> {
+        self.auto_created_rooms.read().await
+    }
+
+    /// Getter for the `api_created_rooms` map. This is used for testing and debugging purposes.
+    pub async fn api_created_rooms_map(
+        &self,
+    ) -> RwLockReadGuard<'_, HashMap<AppNameAndOrgSlug, HashSet<RoomId>>> {
+        self.api_created_rooms.read().await
     }
 
     /// Gets all rooms associated with the given app.
@@ -254,6 +273,9 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
         Some(room)
     }
 
+    /// Gets the room that was automatically created for the given app, if it exists. Returns `None`
+    /// if the app does not have an automatically created room or if the room was removed from
+    /// storage.
     pub async fn get_autocreated_room(&self, app: &AppNameAndOrgSlug) -> Option<RoomCore<R>> {
         let rooms = self.rooms.read().await;
         let auto_created_rooms = self.auto_created_rooms.read().await;

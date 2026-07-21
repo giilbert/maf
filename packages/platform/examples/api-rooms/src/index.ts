@@ -16,7 +16,7 @@ const client = new MafClient({
   // Uncomment to use local platform server
   // server: {
   //   type: "platform",
-  //   app: "gilbert/example-platform",
+  //   app: "demo/example-platform",
   //   url: "http://localhost:1147",
   // },
 });
@@ -144,16 +144,16 @@ loadRoomList().catch((e) => {
 // Weird UI stuff!!!
 
 const startRoomButton = document.getElementById(
-  "start-room"
+  "start-room",
 ) as HTMLButtonElement;
 const joinRoomForm = document.getElementById(
-  "join-room-form"
+  "join-room-form",
 ) as HTMLFormElement;
 const joinRoomInput = document.getElementById(
-  "join-room-id"
+  "join-room-id",
 ) as HTMLInputElement;
 const joinRoomButton = document.getElementById(
-  "join-room"
+  "join-room",
 ) as HTMLButtonElement;
 
 startRoomButton.onclick = () => {

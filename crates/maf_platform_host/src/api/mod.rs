@@ -1,6 +1,5 @@
 mod admin;
 mod auth;
-mod rooms;
 mod state;
 mod user_app;
 
@@ -15,7 +14,10 @@ pub use state::{AppState, Environment};
 pub async fn create_app() -> anyhow::Result<(AppState, Router)> {
     let state = AppState::new().await?;
 
+    let platform_api_router = maf_core::server::create_router(&state);
+
     let router = Router::<AppState>::new()
+        .merge(platform_api_router)
         .route("/", get(|| async { "Hello, World!" }))
         .nest("/api/v1", create_api_v1_router(state.clone()))
         .layer(middleware::from_fn_with_state(

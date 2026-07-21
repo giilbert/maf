@@ -48,10 +48,9 @@ async fn try_main() -> anyhow::Result<()> {
             }
         });
 
-    let state_clone = state.clone();
     tracing::info!("Server is listening on {}", address);
 
-    if state.environment == Environment::Development {
+    if state.environment() == Environment::Development {
         let dev_console = dev_console::DevConsole::new(state.clone());
         tokio::spawn(async move {
             if let Err(e) = dev_console.run().await {
@@ -68,7 +67,7 @@ async fn try_main() -> anyhow::Result<()> {
             .service(app.into_service())
             .into_make_service(),
     )
-    .with_graceful_shutdown(async move { state_clone.cancel_server.cancelled().await })
+    .with_graceful_shutdown(async move { state.cancel_token().cancelled().await })
     .await?;
 
     tracing::info!("Good night!");

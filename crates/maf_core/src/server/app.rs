@@ -1,8 +1,11 @@
+use std::sync::Arc;
+
 use axum::extract::{FromRequestParts, Path};
 use axum::http::request::Parts;
 use maf_schemas::ErrorResponse;
 use maf_schemas::apps::{AppNameAndOrgSlug, RoomKey, RoomKeyHash};
 use maf_schemas::project_config::ProjectConfigFile;
+use uuid::Uuid;
 
 use crate::server::RoomHostImpl;
 use crate::server::types::AppOrgPath;
@@ -18,11 +21,17 @@ use crate::server::types::AppOrgPath;
 /// request path. If the app does not exist, the extractor will return a 404 error response.
 ///
 /// TODO: make sure this isn't getting loaded multiple times per request
+#[derive(Debug, Clone)]
+pub struct App(Arc<AppInner>);
+
 #[derive(Debug)]
-pub struct App {
+struct AppInner {
+    id: Uuid,
     name: String,
     org: String,
     config: ProjectConfigFile,
+    api_client_id: String,
+    api_secret: String,
 }
 
 impl App {
@@ -34,7 +43,8 @@ impl App {
         org: impl AsRef<str>,
         serialized: maf_schemas::apps::App,
     ) -> Result<Self, toml::de::Error> {
-        Ok(Self {
+        Ok(Self(Arc::new(AppInner {
+            id: serialized.id,
             name: name.as_ref().to_string(),
             org: org.as_ref().to_string(),
             config: serialized
@@ -42,23 +52,36 @@ impl App {
                 .map(|config| toml::from_str(&config))
                 .transpose()?
                 .unwrap_or_else(|| ProjectConfigFile::default_for(name)),
-        })
+            api_client_id: serialized.api_client_id,
+            api_secret: serialized.api_secret,
+        })))
     }
 
     /// Getter for the app's config, which is a parsed representation of the app's `config` field in
     /// the serialized representation of an app.
     pub fn config(&self) -> &ProjectConfigFile {
-        &self.config
+        &self.0.config
+    }
+
+    /// Getter for the app's ID.
+    pub fn id(&self) -> Uuid {
+        self.0.id
     }
 
     /// Getter for the app's name.
     pub fn name(&self) -> &str {
-        &self.name
+        &self.0.name
     }
 
     /// Getter for the app's organization.
     pub fn org(&self) -> &str {
-        &self.org
+        &self.0.org
+    }
+
+    /// Checks if the given API credentials match the app's stored credentials. This is used to
+    /// authenticate service accounts that are trying to access the app's resources.
+    pub fn validate_api_credentials(&self, id: &str, secret: &str) -> bool {
+        self.0.api_client_id == id && self.0.api_secret == secret
     }
 
     /// Returns an [`AppNameAndOrgSlug`] for this app, which is used in various places as a unique
@@ -66,8 +89,8 @@ impl App {
     pub fn app_name_and_org_slug(&self) -> AppNameAndOrgSlug {
         // XXX: less clones
         AppNameAndOrgSlug {
-            app: self.name.clone(),
-            org: self.org.clone(),
+            app: self.0.name.clone(),
+            org: self.0.org.clone(),
         }
     }
 
@@ -82,7 +105,7 @@ impl App {
     }
 
     pub fn parse_room_key(&self, room_key: &str) -> Result<RoomKey, ErrorResponse> {
-        RoomKey::new(room_key, self.config.rooms).ok_or_else(|| {
+        RoomKey::new(room_key, self.0.config.rooms).ok_or_else(|| {
             ErrorResponse::bad_request(Some(
                 "invalid room key for the app's room creation strategy",
             ))

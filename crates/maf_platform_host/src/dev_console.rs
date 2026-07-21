@@ -1,11 +1,14 @@
 use std::collections::BTreeMap;
+use std::sync::atomic::Ordering;
 
 use colored::Colorize;
 use fmtsize::{Conventional, FmtSize as _};
-use maf_schemas::apps::{JsonMetaEntry, MetaVisibility};
+use maf_core::server::RoomHostImpl;
+use maf_schemas::apps::{JsonMetaEntry, MetaVisibility, RoomKey};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 
 use crate::api::AppState;
+use crate::storage::repos::user_repo;
 
 pub struct DevConsole {
     state: AppState,
@@ -66,14 +69,12 @@ impl DevConsole {
 
     async fn handle_state_command(&self) {
         dev_print!("Current application state:");
-        dev_print!("{}: {:?}", "Environment".bold(), self.state.environment);
+        dev_print!("{}: {:?}", "Environment".bold(), self.state.environment());
 
         let last_activity_display = chrono::Utc::now()
             .signed_duration_since(
                 chrono::DateTime::<chrono::Utc>::from_timestamp(
-                    self.state
-                        .last_activity
-                        .load(std::sync::atomic::Ordering::Relaxed) as i64,
+                    self.state.last_activity().try_into().unwrap_or(i64::MAX),
                     0,
                 )
                 .expect("time broke"),
@@ -83,12 +84,12 @@ impl DevConsole {
         dev_print!(
             "{}: {:?} ({} second{} ago)",
             "Last activity".bold(),
-            self.state.last_activity,
+            self.state.last_activity(),
             last_activity_display,
             if last_activity_display == 1 { "" } else { "s" }
         );
 
-        let rooms = self.state.rooms.inner.read().await;
+        let rooms = self.state.room_storage().rooms_map().await;
         dev_print!(
             "{}: {}",
             "Rooms".bold(),
@@ -103,32 +104,29 @@ impl DevConsole {
             dev_print!(
                 "- {} {} {} / {}",
                 id,
-                format!("[key {}]", room.meta().key).dimmed(),
                 format!(
-                    "({}/{})",
-                    room.meta().app_info.org,
-                    room.meta().app_info.app
+                    "[key {}]",
+                    room.keys()
+                        .iter()
+                        .map(|key| match key {
+                            RoomKey::Custom(s) => s.to_string(),
+                            RoomKey::Default => "default".to_string(),
+                        })
+                        .collect::<Vec<String>>()
+                        .join(" / ")
                 )
                 .dimmed(),
+                format!("({}/{})", room.app().org, room.app().app).dimmed(),
                 format!(
                     "{} reserved ram | {} wasm table entries",
-                    (room
-                        .inner()
-                        .resource_usage()
-                        .memory_usage
-                        .load(std::sync::atomic::Ordering::Relaxed) as u64)
+                    (room.resource_usage().memory_usage.load(Ordering::Relaxed) as u64)
                         .fmt_size(Conventional),
-                    (room
-                        .inner()
-                        .resource_usage()
-                        .table_usage
-                        .load(std::sync::atomic::Ordering::Relaxed) as u64)
+                    (room.resource_usage().table_usage.load(Ordering::Relaxed) as u64)
                 )
             );
             dev_print!(
                 "  - Meta: {}",
-                room.inner()
-                    .meta_storage()
+                room.meta_storage()
                     .list::<BTreeMap<String, JsonMetaEntry>>(MetaVisibility::Private)
                     .await
                     .iter()
@@ -139,19 +137,20 @@ impl DevConsole {
             );
         }
 
-        for (app, room_id) in self.state.rooms.auto_created_rooms.read().await.iter() {
+        for (app, room_id) in self
+            .state
+            .room_storage()
+            .auto_created_rooms_map()
+            .await
+            .iter()
+        {
             match rooms.get(room_id) {
                 Some(room) => {
                     dev_print!(
                         "{} room {} {} is autocreated",
                         "+".bold().blue(),
                         room_id,
-                        format!(
-                            "({}/{})",
-                            room.meta().app_info.org,
-                            room.meta().app_info.app
-                        )
-                        .dimmed()
+                        format!("({}/{})", room.app().org, room.app().app).dimmed()
                     );
                 }
                 None => {
@@ -165,7 +164,13 @@ impl DevConsole {
             }
         }
 
-        for (app, room_ids) in self.state.rooms.api_created_rooms.read().await.iter() {
+        for (app, room_ids) in self
+            .state
+            .room_storage()
+            .api_created_rooms_map()
+            .await
+            .iter()
+        {
             if room_ids.is_empty() {
                 continue;
             }
@@ -195,8 +200,7 @@ impl DevConsole {
     }
 
     async fn handle_users_command(&self) -> anyhow::Result<()> {
-        let users =
-            crate::storage::repos::user_repo::internal_get_all_users(&self.state.db).await?;
+        let users = user_repo::internal_get_all_users(self.state.db()).await?;
 
         dev_print!("Users in the database:");
         for user in users {

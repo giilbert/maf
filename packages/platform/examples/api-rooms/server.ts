@@ -9,7 +9,7 @@ const server = new MafServiceClient({
   // Uncomment to use local platform server
   // server: {
   //   type: "platform",
-  //   app: "gilbert/example-platform",
+  //   app: "demo/example-platform",
   //   url: "http://localhost:1147",
   // },
 
@@ -66,7 +66,7 @@ app
     if (!room) {
       return c.json(
         { type: "error", message: `Room with ID ${roomId} not found` },
-        404
+        404,
       );
     }
 

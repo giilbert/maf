@@ -70,14 +70,14 @@ async fn create_user_app(
     }
 
     // TODO: configure organizations
-    let org = crate::storage::repos::org_repo::get_default_org_of_user(&state.db, user.id())
+    let org = crate::storage::repos::org_repo::get_default_org_of_user(state.db(), user.id())
         .await?
         .ok_or_else(|| ErrorResponse::not_found(Some("No default org found.")))?;
 
     let (api_client_id, api_secret) = app::generate_api_client_id_and_secret();
 
     let app = app_repo::create_app(
-        &state.db,
+        state.db(),
         app::ActiveModel {
             id: Set(Uuid::new_v4()),
             name: Set(user_app.name.clone()),
@@ -104,11 +104,11 @@ async fn get_user_apps(
     State(state): State<AppState>,
     user: AuthedUser,
 ) -> Result<Json<Vec<app::Model>>, ErrorResponse> {
-    let org = org_repo::get_default_org_of_user(&state.db, user.id())
+    let org = org_repo::get_default_org_of_user(state.db(), user.id())
         .await?
         .ok_or_else(|| ErrorResponse::not_found(Some("No default org found.")))?;
 
-    let apps = app_repo::get_apps_by_org_id(&state.db, org.id).await?;
+    let apps = app_repo::get_apps_by_org_id(state.db(), org.id).await?;
 
     Ok(Json(apps))
 }
@@ -119,11 +119,11 @@ async fn upload_app_bundle(
     Path(app_name): Path<String>,
     body: Body,
 ) -> Result<(), ErrorResponse> {
-    let org = org_repo::get_default_org_of_user(&state.db, user.id())
+    let org = org_repo::get_default_org_of_user(state.db(), user.id())
         .await?
         .ok_or_else(|| ErrorResponse::not_found(Some("No default org found.")))?;
 
-    let app = match app_repo::get_app_by_name_and_org_id(&state.db, &app_name, org.id).await? {
+    let app = match app_repo::get_app_by_name_and_org_id(state.db(), &app_name, org.id).await? {
         Some(app) => app,
         None => return Err(ErrorResponse::not_found(Some("App not found."))),
     };
@@ -135,7 +135,7 @@ async fn upload_app_bundle(
 
     let body = body.into_data_stream();
     state
-        .bundle_storage
+        .bundle_storage()
         .upload_bundle(app_config, app.id, body)
         .await
         .map_err(|e| e.error_response())?;
@@ -152,11 +152,11 @@ async fn update_app(
     Path(app_name): Path<String>,
     Json(updated_app): Json<UpdateUserAppRequest>,
 ) -> Result<Json<app::Model>, ErrorResponse> {
-    let org = org_repo::get_default_org_of_user(&state.db, user.id())
+    let org = org_repo::get_default_org_of_user(state.db(), user.id())
         .await?
         .ok_or_else(|| ErrorResponse::not_found(Some("No default org found.")))?;
 
-    let app = match app_repo::get_app_by_name_and_org_id(&state.db, &app_name, org.id).await? {
+    let app = match app_repo::get_app_by_name_and_org_id(state.db(), &app_name, org.id).await? {
         Some(app) => app,
         None => return Err(ErrorResponse::not_found(Some("App not found."))),
     };
@@ -186,7 +186,7 @@ async fn update_app(
         app_model.config = Set(Some(config));
     }
 
-    let updated_app = app_model.update(&state.db).await?;
+    let updated_app = app_model.update(state.db()).await?;
 
     Ok(Json(updated_app))
 }
@@ -196,12 +196,12 @@ async fn get_app(
     user: AuthedUser,
     Path(app_name): Path<String>,
 ) -> Result<Json<app::Model>, ErrorResponse> {
-    let org = org_repo::get_default_org_of_user(&state.db, user.id())
+    let org = org_repo::get_default_org_of_user(state.db(), user.id())
         .await?
         .ok_or_else(|| ErrorResponse::not_found(Some("No default org found.")))?;
 
     Ok(Json(
-        app_repo::get_app_by_name_and_org_id(&state.db, &app_name, org.id)
+        app_repo::get_app_by_name_and_org_id(state.db(), &app_name, org.id)
             .await?
             .ok_or_else(|| ErrorResponse::not_found(Some("App not found.")))?,
     ))
@@ -212,17 +212,17 @@ async fn delete_app(
     user: AuthedUser,
     Path(app_name): Path<String>,
 ) -> Result<Json<app::Model>, ErrorResponse> {
-    let org = org_repo::get_default_org_of_user(&state.db, user.id())
+    let org = org_repo::get_default_org_of_user(state.db(), user.id())
         .await?
         .ok_or_else(|| ErrorResponse::not_found(Some("No default org found.")))?;
 
-    let app = match app_repo::get_app_by_name_and_org_id(&state.db, &app_name, org.id).await? {
+    let app = match app_repo::get_app_by_name_and_org_id(state.db(), &app_name, org.id).await? {
         Some(app) => app,
         None => return Err(ErrorResponse::not_found(Some("App not found."))),
     };
 
-    app.clone().delete(&state.db).await?;
-    match state.bundle_storage.delete_app_bundle(app.id).await {
+    app.clone().delete(state.db()).await?;
+    match state.bundle_storage().delete_app_bundle(app.id).await {
         Ok(_) | Err(BundleError::FileNotFound) => (),
         Err(e) => return Err(ErrorResponse::from(e)),
     };

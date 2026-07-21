@@ -102,8 +102,9 @@ impl BundleStorage {
             .load_bundle_from_zip_reader(
                 app_config,
                 BufReader::new(file),
-                // DO validate that the WASM file is present
-                true,
+                // Validate that the WASM file is present without reading the potentially large WASM
+                // module data.
+                false,
             )
             .await
         {
@@ -112,14 +113,21 @@ impl BundleStorage {
         }
     }
 
-    /// Loads a bundle from a zip file. If `should_validate_wasm` is true, the zip file will be
-    /// parsed and the WASM module data will be validated. This can be used to validate the zip file
-    /// and extract metadata without reading the potentially large WASM module data.
+    /// Loads a bundle from a zip file. If `should_return_wasm` is true, the zip file will be parsed
+    /// and the WASM module data will be validated and returned. This can be used to validate the
+    /// zip file and extract metadata without reading the potentially large WASM module data.
+    ///
+    /// Returns:
+    /// - `Ok(None)` if the zip file is valid and contains the expected contents, but the WASM
+    ///   module data is not returned (`should_return_wasm` is false).
+    /// - `Ok(Some(Bundle))` if the zip file is valid and contains the expected contents, and the
+    ///   WASM module data is returned (`should_return_wasm` is true).
+    /// - `Err(BundleError)` if the zip file is invalid or does not contain the expected contents.
     async fn load_bundle_from_zip_reader(
         &self,
         app_config: ProjectConfigFile,
         mut zip_reader: impl AsyncBufRead + AsyncSeek + Unpin,
-        should_validate_wasm: bool,
+        should_return_wasm: bool,
     ) -> Result<Option<Bundle>, BundleError> {
         let mut zip = ZipFileReader::with_tokio(&mut zip_reader).await?;
 
@@ -133,7 +141,7 @@ impl BundleStorage {
             let entry = entry_reader.entry();
 
             tracing::debug!(
-                "Found entry: {} (size: {})",
+                "found entry: {} (size: {})",
                 entry.filename().as_str()?,
                 entry.compressed_size()
             );
@@ -149,7 +157,7 @@ impl BundleStorage {
                     return Err(BundleError::FileTooLarge);
                 }
 
-                if !should_validate_wasm {
+                if !should_return_wasm {
                     return Ok(None);
                 }
 
@@ -203,9 +211,9 @@ impl BundleStorage {
             }
         })?);
 
-        self.load_bundle_from_zip_reader(app_config, &mut file, false)
+        self.load_bundle_from_zip_reader(app_config, &mut file, true)
             .await
-            .map(|bundle| bundle.expect("data should be present"))
+            .map(|bundle| bundle.ok_or(BundleError::FileNotFound))?
     }
 
     pub async fn load_test_app(&self) -> anyhow::Result<Bundle> {
