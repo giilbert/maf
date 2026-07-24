@@ -80,6 +80,16 @@ where
     }
 }
 
+impl AppNameAndOrgSlug {
+    /// Creates a new [`RoomKeyAndApp`] with the given room key.
+    pub fn with_room_key(&self, key: RoomKey) -> RoomKeyAndApp {
+        RoomKeyAndApp {
+            app_id: self.clone(),
+            key,
+        }
+    }
+}
+
 /// A user-specified identifier for a room, used to look up rooms by a string.
 ///
 /// [`RoomKey::Default`] is used for rooms that are created with
@@ -144,8 +154,8 @@ impl<'de> Deserialize<'de> for RoomKey {
 ///
 /// TODO: use Cow<'a, str> or some kind of immutable string
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct RoomKeyHash {
-    pub app: AppNameAndOrgSlug,
+pub struct RoomKeyAndApp {
+    pub app_id: AppNameAndOrgSlug,
     pub key: RoomKey,
 }
 

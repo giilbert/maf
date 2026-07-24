@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::extract::{FromRequestParts, Path};
 use axum::http::request::Parts;
 use maf_schemas::ErrorResponse;
-use maf_schemas::apps::{AppNameAndOrgSlug, RoomKey, RoomKeyHash};
+use maf_schemas::apps::{AppNameAndOrgSlug, RoomKey, RoomKeyAndApp};
 use maf_schemas::project_config::ProjectConfigFile;
 use uuid::Uuid;
 
@@ -96,10 +96,10 @@ impl App {
 
     /// Returns a [`RoomKeyHash`] for the given room key, which can be used to look up a room by its
     /// key in the [`crate::server::room_storage::RoomsStorage`].
-    pub fn room_key_hash(&self, room_key: RoomKey) -> RoomKeyHash {
+    pub fn room_key_hash(&self, room_key: RoomKey) -> RoomKeyAndApp {
         // XXX: less clones
-        RoomKeyHash {
-            app: self.app_name_and_org_slug(),
+        RoomKeyAndApp {
+            app_id: self.app_name_and_org_slug(),
             key: room_key,
         }
     }
