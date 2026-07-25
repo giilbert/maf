@@ -278,11 +278,13 @@ pub type MetaEntryMap = HashMap<String, JsonMetaEntry>;
 
 /// Used by:
 /// - GET `/@/{org_slug}/{app_name}/{room_key}/connect` route to parse query parameters.
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct ConnectQueryParams {
     /// A JWT token for authenticating the user connecting to the room. This token is only needed
     /// if the auth.mode in config for the room requires it.
     pub token: Option<String>,
+    /// A user-specified auth data (not a JWT)
+    pub auth: Option<String>,
 }
 
 #[derive(Debug, serde::Deserialize)]

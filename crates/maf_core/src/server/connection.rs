@@ -271,28 +271,37 @@ pub fn get_auth_data<R: RoomHostImpl>(
     app: &App,
     room: &RoomCore<R>,
 ) -> Result<Option<serde_json::Value>, ErrorResponse> {
-    match &query_params.token {
-        Some(token) => {
-            // If the mode is JWT, we need to decode and verify the token
-            if let Some(AuthMode::Jwt) = app.config().auth.as_ref().map(|a| &a.mode) {
-                let decoded = room.decode_token(token).map_err(|e| {
-                    ErrorResponse::unauthorized(Some(&format!("invalid token: {}", e)))
-                })?;
+    tracing::debug!(
+        query_params = ?query_params,
+        "extracting auth data from query parameters"
+    );
+    if let Some(token) = &query_params.token {
+        // If the mode is JWT, we need to decode and verify the token
+        if let Some(AuthMode::Jwt) = app.config().auth.as_ref().map(|a| &a.mode) {
+            let decoded = room
+                .decode_token(token)
+                .map_err(|e| ErrorResponse::unauthorized(Some(&format!("invalid token: {}", e))))?;
 
-                Ok(Some(decoded))
-            } else {
-                // If the auth mode is not JWT, first base64 decode the token and then parse as JSON
-                let decoded = base64::engine::general_purpose::STANDARD
-                    .decode(token)
-                    .map_err(|e| {
-                        ErrorResponse::bad_request(Some(&format!("failed to decode token: {}", e)))
-                    })?;
-                let decoded: serde_json::Value = serde_json::from_slice(&decoded).map_err(|e| {
-                    ErrorResponse::bad_request(Some(&format!("failed to parse token: {}", e)))
-                })?;
+            return Ok(Some(decoded));
+        }
+    };
 
-                Ok(Some(decoded))
-            }
+    // If the auth mode is not JWT, try to use the user-specified auth data from the query
+    // parameters.
+    match &query_params.auth {
+        Some(auth_data) => {
+            let decoded = base64::engine::general_purpose::STANDARD
+                .decode(auth_data)
+                .map_err(|e| {
+                    ErrorResponse::bad_request(Some(&format!("failed to decode token: {}", e)))
+                })?;
+            let decoded: serde_json::Value = serde_json::from_slice(&decoded).map_err(|e| {
+                ErrorResponse::bad_request(Some(&format!("failed to parse token: {}", e)))
+            })?;
+
+            tracing::debug!("decoded auth data: {:?}", decoded);
+
+            Ok(Some(decoded))
         }
         None => Ok(None),
     }
