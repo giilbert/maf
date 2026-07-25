@@ -25,12 +25,22 @@ room. When a frontend is loaded, it connects to a specific room on the server,
 and all interactions (e.g., store updates, channel messages) are scoped to that
 room.
 
-## Sharding
+## Room Keys
+
+When creating a room, you can assign it room keys, which are string identifiers
+that can be used to reference the room. Room keys are useful for allowing
+clients to connect to a room without knowing its ID (UUID), and for developers
+to reference rooms in their code without storing the IDs MAF generates for them.
+
+A room can have multiple room keys, but room keys must be unique across all
+rooms per app. The auto-generated room ID is always a key for the room.
+
+## (WIP) Sharding
 
 MAF Apps have to run on real servers and unfortunately, real apps have to deal
 with real server limitations. **A key limitation is that a single server can
-only handle a limited number of concurrent connections. To scale beyond that
-limit, you need to run multiple server instances.**
+only handle a limited number of concurrent connections and computation. To scale
+beyond that limit, you need to run multiple server instances.**
 
 Rooms provide a natural way to shard your MAF app across multiple server
 instances. You can assign different rooms to different server instances,
@@ -42,6 +52,6 @@ When deploying on MAF Platform, this is handled automatically for you. MAF
 Platform will automatically create and manage multiple server instances as
 needed, distributing rooms across them to handle the load.
 
-If there is a need for rooms to communicate with each other (e.g., sending a
-message from one room to another or sharing data between rooms), you can use
-MAF's distributed features like ✨ coming soon ✨.
+MAF also provides primitives to allow users in a single room to be split across
+multiple server instances. This is useful for rooms that have a large number of
+users and need to be sharded across multiple servers to handle the load.
