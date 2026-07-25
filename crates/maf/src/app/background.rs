@@ -1,9 +1,10 @@
-use super::local::LocalStateError;
 use super::App;
+use super::local::LocalStateError;
 use crate::callable::{BoxedCallable, CallableFetch};
 
 pub type BackgroundFn = BoxedCallable<BackgroundFnContext, (), BackgroundFnError>;
 
+#[derive(Clone)]
 pub struct BackgroundFnContext {
     pub app: App,
 }

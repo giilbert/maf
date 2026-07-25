@@ -23,3 +23,13 @@ pub enum ListenError {
     #[error("already listening")]
     AlreadyListening,
 }
+
+#[derive(Debug, thiserror::Error)]
+pub enum AddKeyError {
+    #[error("invalid key")]
+    InvalidKey,
+    #[error("maximum number of keys reached")]
+    MaxKeysReached,
+    #[error("an unknown error occurred")]
+    Other,
+}

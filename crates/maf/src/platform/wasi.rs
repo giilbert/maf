@@ -3,7 +3,9 @@ use uuid::Uuid;
 
 use crate::app::hooks::{self, HookBody, HookRequestError, HookRequestInit};
 use crate::bindings::bindgen;
-use crate::platform::{ListenError, Platform, PlatformHookRequest, PlatformUser, SendError};
+use crate::platform::{
+    AddKeyError, ListenError, Platform, PlatformHookRequest, PlatformUser, SendError,
+};
 use crate::tasks;
 use crate::user::{UserMeta, UserNextMessageError};
 
@@ -60,6 +62,10 @@ impl Platform for WasiPlatform {
             .into_iter()
             .map(|(k, v)| (k, v.into()))
             .collect()
+    }
+
+    fn add_key(&self, key: String) -> Result<(), super::AddKeyError> {
+        bindgen::add_key(&key).map_err(Into::into)
     }
 }
 
@@ -252,6 +258,26 @@ mod conversion_impls {
             bindgen::MetaEntry {
                 visibility: value.visibility.into(),
                 value: value.value,
+            }
+        }
+    }
+
+    impl From<bindgen::AddKeyError> for super::AddKeyError {
+        fn from(value: bindgen::AddKeyError) -> Self {
+            match value {
+                bindgen::AddKeyError::InvalidKey => super::AddKeyError::InvalidKey,
+                bindgen::AddKeyError::MaxKeysReached => super::AddKeyError::MaxKeysReached,
+                bindgen::AddKeyError::Other => super::AddKeyError::Other,
+            }
+        }
+    }
+
+    impl From<super::AddKeyError> for bindgen::AddKeyError {
+        fn from(value: super::AddKeyError) -> Self {
+            match value {
+                super::AddKeyError::InvalidKey => bindgen::AddKeyError::InvalidKey,
+                super::AddKeyError::MaxKeysReached => bindgen::AddKeyError::MaxKeysReached,
+                super::AddKeyError::Other => bindgen::AddKeyError::Other,
             }
         }
     }

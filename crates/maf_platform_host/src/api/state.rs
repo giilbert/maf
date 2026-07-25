@@ -48,7 +48,7 @@ struct AppStateInner {
     /// Manages the live room state for the server. This is used in [`RoomHostImpl`].
     rooms: RoomsStorage<AppState>,
     /// Runs WebAssembly modules for rooms on the server. This is used in [`RoomHostImpl`].
-    container_runtime: ContainerRuntime,
+    container_runtime: ContainerRuntime<AppState>,
 
     /// Whether the server is running in development or production mode.
     environment: Environment,
@@ -62,7 +62,6 @@ struct AppStateInner {
 impl AppState {
     pub async fn new() -> anyhow::Result<Self> {
         let last_activity = Box::leak(Box::new(AtomicU64::new(utils::now_as_secs())));
-        let container_runtime = ContainerRuntime::init(last_activity)?;
 
         let database_url = dotenvy::var("DATABASE_URL")
             .map_err(|_| anyhow::anyhow!("DATABASE_URL environment variable not found"))?;
@@ -88,7 +87,11 @@ impl AppState {
 
         let state = Self(Arc::new_cyclic(|weak| {
             let weak_state = WeakAppState(weak.clone());
-            let rooms = RoomsStorage::new(weak_state);
+
+            let rooms = RoomsStorage::new(weak_state.clone());
+            let container_runtime = ContainerRuntime::init(weak_state.clone(), last_activity)
+                // We can't use anyhow here because Arc::new_cyclic doesn't allow returning a Result
+                .expect("failed to initialize container runtime");
 
             AppStateInner {
                 db,
@@ -249,7 +252,7 @@ impl RoomHostImpl for AppState {
         WeakAppState(Arc::downgrade(&self.0))
     }
 
-    fn container_runtime(&self) -> &ContainerRuntime {
+    fn container_runtime(&self) -> &ContainerRuntime<Self> {
         &self.0.container_runtime
     }
 

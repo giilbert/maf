@@ -43,6 +43,10 @@ fn build() -> App {
         .store::<CounterStore>()
         .rpc("increment_counter", increment_counter)
         .hook("counter", counter_read_hook)
+        .init(|app: App| async move {
+            println!("app initialized!");
+            app.add_key("custom-key-123").expect("failed to add key");
+        })
         .background(|app: App| async move {
             println!("hello world!");
             let mut chan = app.channel::<String>("hello");

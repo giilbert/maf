@@ -10,7 +10,7 @@ use std::future::Future;
 use maf_schemas::apps;
 
 use crate::app::hooks;
-use crate::platform::{self, ListenError, SendError};
+use crate::platform::{self, AddKeyError, ListenError, SendError};
 use crate::user::{UserMeta, UserNextMessageError};
 
 /// Traits defining how a MAF app running should interact with the underlying platform (e.g. MAF
@@ -43,6 +43,8 @@ pub trait Platform {
     fn get_meta(&self, key: &str) -> Option<apps::MetaEntry>;
     fn delete_meta(&self, key: &str) -> Option<apps::MetaEntry>;
     fn list_meta(&self) -> Vec<(String, apps::MetaEntry)>;
+
+    fn add_key(&self, key: String) -> Result<(), AddKeyError>;
 }
 
 pub trait PlatformUser {
@@ -62,7 +64,7 @@ pub trait PlatformUser {
     /// If the user has disconnected, the future should resolve with
     /// `Err(UserNextMessageError::Listen(ListenError::Closed))`.
     fn next_message(&self)
-        -> impl Future<Output = Result<platform::Message, UserNextMessageError>>;
+    -> impl Future<Output = Result<platform::Message, UserNextMessageError>>;
 }
 
 pub trait PlatformHookRequest {

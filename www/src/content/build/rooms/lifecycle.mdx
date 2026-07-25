@@ -68,3 +68,35 @@ fn build() -> App {
 
 maf::register!(build);
 ```
+
+## The `init` Hook
+
+<RefGroup>
+  <Ref to="https://docs.rs/maf/latest/maf/app/struct.AppBuilder.html#method.init" />
+  <Ref to="https://docs.rs/maf/latest/maf/app/struct.App.html#method.add_key" />
+</RefGroup>
+
+This hook is called when a room is first created. It allows you to perform any
+initialization tasks, such as setting up initial state, loading data from a
+API, or configuring the room's settings. The `init` hook is called once when the
+room is created and is called before any clients are connected to the room.
+
+```rust
+use maf::prelude::*;
+
+fn generate_key() -> String { /* ... */ }
+
+fn init(app: App) {
+    // app.add_key() is a method that allows your room to get another room key
+    // at runtime.
+    app.add_key(generate_key()).expect("failed to add key");
+}
+
+fn build() -> App {
+    App::builder()
+        .init(init)
+        .build()
+}
+
+maf::register!(build);
+```

@@ -25,7 +25,7 @@ use crate::app::meta::{AnyMetaUpdater, MetaContext, MetaKey, MetaStorage};
 use crate::app::observe::{ObserveDepdendency, ObserveStore, ObserveTarget};
 use crate::callable::{BoxedCallable, IntoCallable};
 use crate::channel::UntypedChannelBroadcast;
-use crate::platform::{ListenError, Platform, TargetPlatform};
+use crate::platform::{AddKeyError, ListenError, Platform, TargetPlatform};
 use crate::rpc::{RpcError, RpcRequestContext, RpcRequestInit, RpcStore};
 use crate::store::{
     AnySelect, AnyStore, GetParamSelectDependencies, SelectContext, SelectDependencyType,
@@ -50,6 +50,7 @@ pub(crate) struct AppInner {
     pub(crate) store_dirty_rx: RwLock<mpsc::Receiver<StoreId>>,
     pub(crate) on_connect: Option<Arc<OnConnectDisconnectFn>>,
     pub(crate) on_disconnect: Option<Arc<OnConnectDisconnectFn>>,
+    pub(crate) init: Option<Arc<BackgroundFn>>,
     pub(crate) background: Option<Arc<BackgroundFn>>,
     pub(crate) selects: HashMap<SelectKey, AnySelect>,
     pub(crate) platform: Arc<TargetPlatform>,
@@ -76,6 +77,7 @@ pub struct AppBuilder {
     on_connect: Option<Arc<OnConnectDisconnectFn>>,
     on_disconnect: Option<Arc<OnConnectDisconnectFn>>,
     background: Option<Arc<BackgroundFn>>,
+    init: Option<Arc<BackgroundFn>>,
     rpc_functions: RpcStore,
     local_states: LocalStateStore,
     hooks: HookStore,
@@ -382,11 +384,22 @@ impl App {
     }
 
     async fn run_async(self) {
+        let background_ctx = BackgroundFnContext { app: self.clone() };
+
+        match self.inner.init.as_ref() {
+            Some(handler) => {
+                if let Err(e) = handler(background_ctx.clone()).await {
+                    println!("failed to run init function: {e}");
+                }
+            }
+            None => {}
+        }
+
         let background = self
             .inner
             .background
             .as_ref()
-            .map(|handler| tasks::spawn(handler(BackgroundFnContext { app: self.clone() })));
+            .map(|handler| tasks::spawn(handler(background_ctx)));
 
         let app = self.clone();
 
@@ -426,6 +439,13 @@ impl App {
 
     pub fn channel<T>(&self, name: impl ToString) -> Channel<T> {
         Channel::new(self.inner.state.clone(), name.to_string())
+    }
+
+    /// Adds a new room key to the current room. This key can be used by clients to connect to the
+    /// room. Each room has a limit of one additional key per room. If the limit is reached, this
+    /// method will return an error.
+    pub fn add_key(&self, key: impl AsRef<str>) -> Result<(), AddKeyError> {
+        self.inner.platform.add_key(key.as_ref().to_string())
     }
 }
 
@@ -596,6 +616,31 @@ impl AppBuilder {
         Handler: IntoCallable<BackgroundFnContext, Params, (), BackgroundFnError, (), IS_ASYNC>,
     {
         self.background = Some(handler.into_callable(()).into());
+        self
+    }
+
+    /// Register a task to run once when the app is initialized. This will be run before any
+    /// connections are accepted.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// use maf::prelude::*;
+    ///
+    /// async fn init(app: App) {
+    ///     println!("app initialized!");
+    ///     app.add_key("custom-key-123").expect("failed to add key");
+    /// }
+    ///
+    /// fn build() -> App {
+    ///     App::builder().init(init).build()
+    /// }
+    /// ```
+    pub fn init<Params, Handler, const IS_ASYNC: bool>(mut self, handler: Handler) -> Self
+    where
+        Handler: IntoCallable<BackgroundFnContext, Params, (), BackgroundFnError, (), IS_ASYNC>,
+    {
+        self.init = Some(handler.into_callable(()).into());
         self
     }
 
@@ -933,6 +978,7 @@ impl AppBuilder {
             on_connect: self.on_connect,
             on_disconnect: self.on_disconnect,
             background: self.background,
+            init: self.init,
             hooks: self.hooks,
             selects: self.selects,
             observe: self.observe,

@@ -30,7 +30,7 @@ struct DevServerHostInner {
     /// Manages the room state for the development server.
     rooms_storage: RoomsStorage<DevServerHost>,
     /// Runs WebAssembly modules for the development server.
-    container_runtime: ContainerRuntime,
+    container_runtime: ContainerRuntime<DevServerHost>,
 }
 
 impl DevServerHost {
@@ -38,12 +38,13 @@ impl DevServerHost {
         /// A static variable to track the last activity time of the development server. This is
         /// unused but [`ContainerRuntime`] wants it. TODO: make optional
         static APP_ACTIVITY: AtomicU64 = AtomicU64::new(0);
-        let container_runtime = ContainerRuntime::init(&APP_ACTIVITY)
-            .context("failed to initialize container runtime")?;
 
         let inner = Arc::new_cyclic(|host| {
             let weak = WeakDevServerHost(host.clone());
+
             let rooms_storage = RoomsStorage::new(weak.clone());
+            let container_runtime = ContainerRuntime::init(weak.clone(), &APP_ACTIVITY)
+                .expect("failed to initialize container runtime");
 
             DevServerHostInner {
                 mode: config.mode.clone(),
@@ -107,7 +108,7 @@ impl RoomHostImpl for DevServerHost {
         WeakDevServerHost(Arc::downgrade(&self.0))
     }
 
-    fn container_runtime(&self) -> &maf_core::ContainerRuntime {
+    fn container_runtime(&self) -> &maf_core::ContainerRuntime<Self> {
         &self.0.container_runtime
     }
 
@@ -175,6 +176,16 @@ impl RoomHostImpl for DevServerHost {
             }
         });
 
+        Ok(())
+    }
+
+    async fn timing_room_create(
+        &self,
+        _room_id: maf_schemas::apps::RoomId,
+        room_name: &str,
+        duration: std::time::Duration,
+    ) -> anyhow::Result<()> {
+        println!("[{room_name}] room created in {duration:.2?}");
         Ok(())
     }
 }

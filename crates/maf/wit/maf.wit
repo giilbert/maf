@@ -93,6 +93,14 @@ interface bindings {
     get-meta: func(key: string) -> option<meta-entry>;
     delete-meta: func(key: string) -> option<meta-entry>;
     list-meta: func() -> list<tuple<string, meta-entry>>;
+
+    variant add-key-error {
+        max-keys-reached,
+        invalid-key,
+        other
+    }
+
+    add-key: func(key: string) -> result<_, add-key-error>;
 }
 
 world imports {

@@ -1,7 +1,7 @@
 use maf_schemas::apps;
+use tokio::sync::Mutex;
 use tokio::sync::mpsc::error::TrySendError;
 use tokio::sync::mpsc::{self};
-use tokio::sync::Mutex;
 
 use crate::platform::{ListenError, Message, Platform, PlatformHookRequest, PlatformUser};
 use crate::user::UserMeta;
@@ -88,6 +88,10 @@ impl Platform for ActorPlatform {
 
     fn list_meta(&self) -> Vec<(String, apps::MetaEntry)> {
         todo!("ActorPlatform::list_meta is not implemented yet")
+    }
+
+    fn add_key(&self, _key: String) -> Result<(), super::AddKeyError> {
+        todo!("ActorPlatform::add_key is not implemented yet")
     }
 }
 

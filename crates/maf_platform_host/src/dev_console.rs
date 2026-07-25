@@ -107,6 +107,8 @@ impl DevConsole {
                 format!(
                     "[key {}]",
                     room.keys()
+                        .read()
+                        .await
                         .iter()
                         .map(|key| match key {
                             RoomKey::Custom(s) => s.to_string(),

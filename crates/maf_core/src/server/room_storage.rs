@@ -339,7 +339,7 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
             }
 
             // Add the room to the keys_to_rooms map for each of its keys.
-            for key in room_core.keys() {
+            for key in room_core.keys().read().await.iter() {
                 maps.keys_to_rooms.insert(
                     RoomKeyAndApp {
                         app_id: app_id.clone(),
@@ -395,5 +395,58 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
         maps.auto_created_rooms
             .get(app)
             .and_then(|room_id| maps.rooms.get(room_id).cloned())
+    }
+
+    /// Adds a new key to the room with the given ID. Returns an error if the room does not exist or
+    /// if the key conflicts with an existing key for the same app.
+    pub async fn add_key(&self, room_id: &RoomId, key: String) -> anyhow::Result<()> {
+        let mut maps = self.0.maps.write().await;
+
+        // Borrow checker bad
+        let (app_org, room_creation_strategy) = {
+            let room = maps
+                .rooms
+                .get_mut(room_id)
+                .ok_or_else(|| anyhow::anyhow!("room with ID {} does not exist", room_id))?;
+            (room.app().clone(), room.bundle().config().rooms)
+        };
+
+        if maps.keys_to_rooms.contains_key(&RoomKeyAndApp {
+            app_id: app_org.clone(),
+            key: RoomKey::Custom(key.clone()),
+        }) {
+            anyhow::bail!(
+                "room with key {} already exists for app {}",
+                key,
+                app_org.app
+            );
+        }
+
+        if room_creation_strategy == RoomCreationStrategy::AutoCreate {
+            anyhow::bail!(
+                "cannot add a custom key to a room that was auto-created for app {}",
+                app_org.app
+            );
+        }
+
+        maps.keys_to_rooms.insert(
+            RoomKeyAndApp {
+                app_id: app_org,
+                key: RoomKey::Custom(key.clone()),
+            },
+            *room_id,
+        );
+        self.get(room_id)
+            .await
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "room with ID {} does not exist after adding key, this should never happen",
+                    room_id
+                )
+            })?
+            .add_key(RoomKey::Custom(key))
+            .await?;
+
+        Ok(())
     }
 }

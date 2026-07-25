@@ -10,12 +10,13 @@ mod user;
 use anyhow::Context;
 use errors::ListenError;
 pub use hooks::{FutureHookRequest, HookRequest};
-use maf_schemas::apps::{JsonMetaEntry, MetaVisibility};
+use maf_schemas::apps::{JsonMetaEntry, MAX_ROOM_KEY_LENGTH, MetaVisibility};
 use maf_schemas::typed::AppSchema;
+use tokio::sync::oneshot;
 pub use user::{FutureMessageImpl, FutureUserImpl, UserImpl};
 use wasmtime::component::Resource;
 
-use crate::container::ContainerData;
+use crate::container::{ContainerData, MAX_ADDITIONAL_KEYS};
 
 mod generated {
     wasmtime::component::bindgen!({
@@ -58,6 +59,7 @@ fn serialize_meta_entry(
 impl bindings::Host for ContainerData {
     async fn listen_user(&mut self) -> Result<Resource<FutureUserImpl>, ListenError> {
         let res = FutureUserImpl::new(self)?;
+        self.readied.cancel();
         Ok(self.resources.push(res)?)
     }
 
@@ -127,6 +129,30 @@ impl bindings::Host for ContainerData {
             })
             .collect::<Result<Vec<(String, bindings::MetaEntry)>, serde_json::Error>>()
             .map_err(|e| anyhow::anyhow!(e))
+    }
+
+    async fn add_key(&mut self, key: String) -> anyhow::Result<Result<(), bindings::AddKeyError>> {
+        if self.num_additional_keys >= MAX_ADDITIONAL_KEYS {
+            return Ok(Err(bindings::AddKeyError::MaxKeysReached));
+        }
+
+        if key.is_empty() || key.len() > MAX_ROOM_KEY_LENGTH {
+            return Ok(Err(bindings::AddKeyError::InvalidKey));
+        }
+
+        let (tx, rx) = oneshot::channel();
+        self.num_additional_keys += 1;
+        match self.additional_keys_tx.send((key, tx)).await {
+            Ok(_) => {}
+            Err(_) => {
+                return Ok(Err(bindings::AddKeyError::Other));
+            }
+        };
+
+        match rx.await {
+            Ok(result) => Ok(result),
+            Err(_) => Ok(Err(bindings::AddKeyError::Other)),
+        }
     }
 
     fn convert_listen_error(&mut self, err: ListenError) -> anyhow::Result<bindings::ListenError> {

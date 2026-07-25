@@ -5,7 +5,6 @@ export type MafStoresList = {
   "count": {
     name: "count";
     select: number | null;
-  };
 };
 
 // prettier-ignore

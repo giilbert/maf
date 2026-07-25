@@ -11,6 +11,7 @@
 
 use std::fmt::Debug;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Context;
 use biscuit::jwa::SignatureAlgorithm;
@@ -20,7 +21,7 @@ use maf_schemas::apps::{
     AppNameAndOrgSlug, MetaEntryMap, MetaVisibility, RoomCreationStrategy, RoomId, RoomKey,
     generate_room_secret,
 };
-use tokio::sync::oneshot;
+use tokio::sync::{RwLock, oneshot};
 use uuid::Uuid;
 
 use super::Bundle;
@@ -52,7 +53,7 @@ pub trait RoomHostImpl: Debug + Clone + Send + Sync + 'static {
 
     /// Returns a reference to the container runtime that should be used to create the room's
     /// container.
-    fn container_runtime(&self) -> &ContainerRuntime;
+    fn container_runtime(&self) -> &ContainerRuntime<Self>;
 
     /// Returns a reference to the [`RoomsStorage`], managing all rooms on the server.
     fn room_storage(&self) -> &RoomsStorage<Self>;
@@ -97,6 +98,19 @@ pub trait RoomHostImpl: Debug + Clone + Send + Sync + 'static {
         name: &str,
         container: &mut Container,
     ) -> impl Future<Output = anyhow::Result<()>> + Send;
+
+    // Metrics stuff below!
+
+    /// Records the time it took to initialize a room, from the time [`RoomCore::new`] is called to
+    /// the time the room's container is ready to accept connections and other events.
+    fn timing_room_create(
+        &self,
+        _room_id: RoomId,
+        _room_name: &str,
+        _duration: Duration,
+    ) -> impl Future<Output = anyhow::Result<()>> + Send {
+        async { Ok(()) }
+    }
 }
 
 pub trait UpgradeableRoomHostImpl<R>: Debug + Clone + Send + Sync + 'static {
@@ -123,7 +137,7 @@ struct RoomCoreInner<R: RoomHostImpl> {
     app: AppNameAndOrgSlug,
     /// The keys associated with the room. The first key is always the default key generated from
     /// the room ID. Additional keys can be [`RoomKey::Default`] or [`RoomKey::Custom`].
-    keys: Vec<RoomKey>,
+    keys: RwLock<Vec<RoomKey>>,
     /// A secret associated with the room, used for signing JWTs for authentication.
     secret: String,
     /// A handle to the room's container, which can be used to interact with the running instance of
@@ -148,7 +162,11 @@ pub struct CreateRoomCoreOptions {
 }
 
 impl<R: RoomHostImpl> RoomCore<R> {
+    /// Creates a new room with the given options, and run the room's container in the background.
+    /// This returns when the room is created and **initialized** (be ready to accept incoming
+    /// connections).
     pub async fn new(host: R, options: CreateRoomCoreOptions) -> anyhow::Result<Self> {
+        let start = std::time::Instant::now();
         let room_id = Uuid::new_v4();
         let secret = generate_room_secret();
         let mut container = Container::load_from_binary(
@@ -175,7 +193,7 @@ impl<R: RoomHostImpl> RoomCore<R> {
                 container: container.handle(),
                 bundle: options.bundle,
                 app: options.app,
-                keys,
+                keys: RwLock::new(keys),
             }),
         };
 
@@ -192,11 +210,22 @@ impl<R: RoomHostImpl> RoomCore<R> {
             RoomCreationStrategy::AutoCreate => "default".to_string(),
         };
 
-        let room_clone = room.clone();
         host.set_up_container_logging(&logging_name, &mut container)
             .await?;
 
-        tokio::spawn(async move { room_clone.run(host.weak(), container).await });
+        let room_clone = room.clone();
+        let weak_host = host.weak();
+        tokio::spawn(async move { room_clone.run(weak_host, container).await });
+
+        // TODO: let users specify a timeout
+        const ROOM_INIT_TIMEOUT: Duration = Duration::from_secs(15);
+        room.ready(ROOM_INIT_TIMEOUT)
+            .await
+            .context("room did not become ready within the timeout")?;
+
+        host.timing_room_create(room.id(), &logging_name, start.elapsed())
+            .await
+            .context("failed to record room creation timing")?;
 
         Ok(room)
     }
@@ -210,6 +239,11 @@ impl<R: RoomHostImpl> RoomCore<R> {
         }
 
         self.destroy(host).await;
+    }
+
+    /// See [`ContainerHandle::ready`].
+    pub async fn ready(&self, timeout: Duration) -> anyhow::Result<Duration> {
+        self.container().ready(timeout).await
     }
 
     /// Returns the unique identifier of the room.
@@ -239,7 +273,7 @@ impl<R: RoomHostImpl> RoomCore<R> {
 
     /// Returns the keys associated with the room. The first key is always the default key generated
     /// from the room ID. Additional keys can be [`RoomKey::Default`] or [`RoomKey::Custom`].
-    pub fn keys(&self) -> &[RoomKey] {
+    pub fn keys(&self) -> &RwLock<Vec<RoomKey>> {
         &self.inner.keys
     }
 
@@ -268,6 +302,12 @@ impl<R: RoomHostImpl> RoomCore<R> {
             Err(_) => anyhow::bail!("failed to add connection to room {}", self.id()),
         }
 
+        Ok(())
+    }
+
+    /// Adds a new key to the room at runtime.
+    pub async fn add_key(&mut self, key: RoomKey) -> anyhow::Result<()> {
+        self.inner.keys.write().await.push(key.clone());
         Ok(())
     }
 
@@ -335,7 +375,7 @@ impl<R: RoomHostImpl> RoomCore<R> {
     pub async fn service_room_info(&self) -> maf_schemas::apps::ServiceRoomInfo {
         maf_schemas::apps::ServiceRoomInfo {
             id: self.id(),
-            keys: self.keys().to_vec(),
+            keys: self.keys().read().await.to_vec(),
             meta: self
                 .meta_storage()
                 .list_values(MetaVisibility::Private)

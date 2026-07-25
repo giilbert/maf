@@ -5,7 +5,7 @@ pub mod meta;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use io::ContainerStdoutFactory;
 use maf_schemas::apps::JsonMetaEntry;
@@ -28,8 +28,10 @@ use crate::container::limits::ContainerResourceLimiter;
 use crate::container::meta::MetaStorage;
 use crate::interface::BoxedConnection;
 use crate::runtime::wasi::Bindings;
+use crate::server::RoomHostImpl;
+use crate::utils;
 use crate::wasi::HookRequest;
-use crate::{ContainerRuntime, utils};
+use crate::wasi::bindings::AddKeyError;
 
 /// An instance of user-written WASI code running in a sandboxed environment.
 ///
@@ -67,7 +69,6 @@ impl std::fmt::Debug for Container {
 #[derive(Debug, Clone)]
 pub struct ContainerHandle {
     pub room_id: Uuid,
-    pub runtime: ContainerRuntime,
     pub resources: Arc<ContainerResourceStats>,
     pub meta: MetaStorage,
     last_activity: Arc<AtomicU64>,
@@ -83,6 +84,10 @@ pub struct ContainerHandle {
     /// resources. See the comment for `cancel_token` for more details and [`ContainerHandle::stop`]
     /// for usage.
     finished: CancellationToken,
+    /// A token that is triggered when the container is ready to receive connections and other
+    /// events. More specifically, this is when the container has submitted its first "wait for next
+    /// connection" request to the host runtime.
+    readied: CancellationToken,
 }
 
 impl ContainerHandle {
@@ -122,6 +127,9 @@ impl ContainerResourceLimit {
     }
 }
 
+/// The maximum number of additional room keys that can be added via MAF WASI bindings.
+pub const MAX_ADDITIONAL_KEYS: u8 = 1;
+
 #[derive(Debug, Default)]
 pub struct ContainerResourceStats {
     pub memory_usage: AtomicUsize,
@@ -137,15 +145,26 @@ pub struct ContainerData {
     pub resources: wasmtime_wasi::ResourceTable,
     pub wasi_ctx: wasmtime_wasi::WasiCtx,
     pub wasi_http_ctx: wasmtime_wasi_http::WasiHttpCtx,
+
     pub connection_tx: mpsc::Sender<BoxedConnection>,
     pub hook_request_tx: mpsc::Sender<HookRequest>,
+    pub additional_keys_tx: mpsc::Sender<(String, oneshot::Sender<Result<(), AddKeyError>>)>,
+
     pub connection_rx: Option<mpsc::Receiver<BoxedConnection>>,
     pub hook_request_rx: Option<mpsc::Receiver<HookRequest>>,
+    pub additional_keys_rx:
+        Option<mpsc::Receiver<(String, oneshot::Sender<Result<(), AddKeyError>>)>>,
     pub http_hooks: WasiHttpHooksData,
 
     pub app_schema_tx: Option<oneshot::Sender<AppSchema>>,
     pub app_schema_rx: Option<oneshot::Receiver<AppSchema>>,
+    pub readied: CancellationToken,
+    pub cancel_token: CancellationToken,
+    /// The number of additional room keys that have been added to the room associated since this
+    /// container was created. This is limited by [`MAX_ADDITIONAL_KEYS`].
+    pub num_additional_keys: u8,
 
+    pub room_id: Uuid,
     pub(crate) meta: MetaStorage,
     pub(crate) last_activity: Arc<AtomicU64>,
     pub(crate) app_activity: &'static AtomicU64,
@@ -169,15 +188,16 @@ pub struct CreateContainerOptions<'a> {
 }
 
 impl Container {
-    pub async fn load_from_binary(
-        runtime: &super::ContainerRuntime,
-        id: Uuid,
+    pub async fn load_from_binary<R: RoomHostImpl>(
+        runtime: &super::ContainerRuntime<R>,
+        room_id: Uuid,
         options: CreateContainerOptions<'_>,
     ) -> anyhow::Result<Self> {
         let component = wt::component::Component::new(&runtime.engine, options.bytes)?;
 
         let (connection_tx, connection_rx) = mpsc::channel(10);
         let (output_tx, output_rx) = mpsc::channel(100);
+        let (add_additional_keys_tx, add_additional_keys_rx) = mpsc::channel(1);
         let (hook_request_tx, hook_request_rx) = mpsc::channel(1000);
         let (app_schema_tx, app_schema_rx) = oneshot::channel();
 
@@ -186,9 +206,14 @@ impl Container {
         let cancel_token = CancellationToken::new();
         let finished_token = CancellationToken::new();
         let last_activity = Arc::new(AtomicU64::new(utils::now_as_secs()));
+        let resources = wasmtime_wasi::ResourceTable::default();
+        let stdout = ContainerStdoutFactory::new(output_tx.clone());
+        let wasi_ctx = wasmtime_wasi::WasiCtx::builder().stdout(stdout).build();
+        let wasi_http_ctx = wasmtime_wasi_http::WasiHttpCtx::new();
+        let readied = CancellationToken::new();
+
         let shared = ContainerHandle {
-            room_id: id,
-            runtime: runtime.clone(),
+            room_id,
             resources: resource_stats.clone(),
             connection_tx: connection_tx.clone(),
             hook_request_tx: hook_request_tx.clone(),
@@ -196,47 +221,52 @@ impl Container {
             finished: finished_token.clone(),
             meta: meta.clone(),
             last_activity: last_activity.clone(),
+            readied: readied.clone(),
         };
-
-        let resources = wasmtime_wasi::ResourceTable::default();
-        let stdout = ContainerStdoutFactory::new(output_tx.clone());
-        let wasi_ctx = wasmtime_wasi::WasiCtx::builder().stdout(stdout).build();
-        let wasi_http_ctx = wasmtime_wasi_http::WasiHttpCtx::new();
 
         let mut store = wt::Store::new(
             &runtime.engine,
+            // XXX: reorganize
             ContainerData {
                 resources,
                 wasi_ctx,
                 wasi_http_ctx,
                 connection_tx,
                 hook_request_tx,
+                additional_keys_tx: add_additional_keys_tx.clone(),
                 connection_rx: Some(connection_rx),
                 hook_request_rx: Some(hook_request_rx),
                 app_schema_rx: Some(app_schema_rx),
                 app_schema_tx: Some(app_schema_tx),
+                readied: readied.clone(),
+                cancel_token: cancel_token.clone(),
+                additional_keys_rx: Some(add_additional_keys_rx),
                 http_hooks: WasiHttpHooksData {
-                    id,
+                    id: room_id,
                     secret: options.secret,
                 },
                 meta,
                 last_activity,
                 app_activity: runtime.app_activity,
                 limiter: ContainerResourceLimiter {
-                    room_id: id,
+                    room_id,
                     stats: resource_stats.clone(),
                     limits: options.resource_limit,
                 },
+                num_additional_keys: 0,
+                room_id,
             },
         );
 
         store.limiter_async(|data| &mut data.limiter);
         store.epoch_deadline_async_yield_and_update(1);
 
+        runtime.handle_additional_keys(store.data_mut())?;
+
         let instance = Bindings::instantiate_async(&mut store, &component, &runtime.linker).await?;
 
         Ok(Self {
-            room_id: id,
+            room_id,
             instance,
             store,
             output: Some(output_rx),
@@ -267,6 +297,11 @@ impl Container {
         });
     }
 
+    /// Run the container until it finishes executing or is cancelled.
+    ///
+    /// This method is meant to run in the background with other tasks, such as inserting the
+    /// container into tracking structures and listening for connections. This means that we need a
+    /// way to wait for the container to become ready: [`Container::ready`].
     pub async fn run_container(&mut self) -> anyhow::Result<()> {
         tokio::select! {
             result = self.instance.call_run(&mut self.store) => {
@@ -379,6 +414,23 @@ impl ContainerHandle {
 
     pub async fn wait_for_finish(&self) {
         self.finished.cancelled().await;
+    }
+
+    /// Returns the time it took the container to become ready to receive connections and other
+    /// events. Timeouts after the provided duration.
+    pub async fn ready(&self, timeout: Duration) -> anyhow::Result<Duration> {
+        let start = Instant::now();
+
+        match tokio::time::timeout(timeout, self.readied.cancelled()).await {
+            Ok(()) => Ok(start.elapsed()),
+            Err(_) => {
+                anyhow::bail!(
+                    "container {} did not become ready within the specified timeout of {:?}",
+                    self.room_id,
+                    timeout
+                )
+            }
+        }
     }
 }
 
