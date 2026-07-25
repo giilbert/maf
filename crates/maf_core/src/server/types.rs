@@ -5,13 +5,15 @@ use serde::Deserialize;
 
 /// Used to deserialize the path parameters for paths like `/@/{org_slug}/{app_name}/{room_key}`.
 #[derive(Debug, Clone, Deserialize)]
-pub struct AppRoomPath {
+#[allow(unused)]
+pub(crate) struct AppRoomPath {
     #[serde(flatten)]
     pub app_id: AppOrgPath,
     pub room_key: String,
 }
 
 impl AppRoomPath {
+    #[allow(unused)]
     pub fn app_org(&self) -> AppNameAndOrgSlug {
         self.app_id.app_org()
     }

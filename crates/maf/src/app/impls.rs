@@ -8,9 +8,9 @@ use maf_schemas::packet::{
 };
 use serde::Serialize;
 use serde_json::Value;
+use tokio::sync::RwLock;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::{self};
-use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use super::background::{BackgroundFn, BackgroundFnError};
@@ -405,10 +405,10 @@ impl App {
             .await
             .expect("failed to handle connections");
 
-        if let Some(background) = background {
-            if let Err(e) = background.await {
-                println!("background task failed: {e}");
-            }
+        if let Some(background) = background
+            && let Err(e) = background.await
+        {
+            println!("background task failed: {e}");
         }
 
         println!("run_async finished")
@@ -449,13 +449,13 @@ impl AppBuilder {
     pub fn on_connect<Params, Handler, const IS_ASYNC: bool>(mut self, handler: Handler) -> Self
     where
         Handler: IntoCallable<
-            OnConnectDiconnectContext,
-            Params,
-            (),
-            OnConnectDisconnectError,
-            (),
-            IS_ASYNC,
-        >,
+                OnConnectDiconnectContext,
+                Params,
+                (),
+                OnConnectDisconnectError,
+                (),
+                IS_ASYNC,
+            >,
     {
         self.on_connect = Some(handler.into_callable(()).into());
         self
@@ -480,13 +480,13 @@ impl AppBuilder {
     pub fn on_disconnect<Params, Handler, const IS_ASYNC: bool>(mut self, handler: Handler) -> Self
     where
         Handler: IntoCallable<
-            OnConnectDiconnectContext,
-            Params,
-            (),
-            OnConnectDisconnectError,
-            (),
-            IS_ASYNC,
-        >,
+                OnConnectDiconnectContext,
+                Params,
+                (),
+                OnConnectDisconnectError,
+                (),
+                IS_ASYNC,
+            >,
     {
         self.on_disconnect = Some(handler.into_callable(()).into());
         self
