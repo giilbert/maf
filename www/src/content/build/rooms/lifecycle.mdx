@@ -1,0 +1,70 @@
+---
+title: Lifecycle
+category: Build Your App
+parent: build/rooms
+---
+
+# Lifecycle
+
+MAF offers a set of lifecycle hooks that allow you to run code at specific
+points in the lifecycle of a room. These hooks can be used to perform tasks such
+as initialization, loading data, cleaning up resources, and more.
+
+## The `background` Hook
+
+<RefGroup>
+  <Ref to="https://docs.rs/maf/latest/maf/app/struct.AppBuilder.html#method.background" />
+  <Ref to="https://docs.rs/maf/latest/maf/tasks/fn.sleep.html" />
+</RefGroup>
+
+Allows you to run code in the background, outside of being triggered by a
+client or some other event. This is useful for tasks that need to run
+continuously or on a schedule, such as polling an external API, performing
+background computations, or sending periodic updates to clients.
+
+```rust
+use maf::prelude::*;
+
+struct Timer {
+    counter: u32,
+}
+
+impl StoreData for Timer {
+    type Select<'this> = u32;
+
+    fn init() -> Self {
+        Timer { counter: 0 }
+    }
+
+    fn name() -> impl AsRef<str> + Send {
+        "timer"
+    }
+
+    fn select(&self, _user: &User) -> Self::Select<'_> {
+        self.counter
+    }
+}
+
+// A simple background task that increments the counter in the Timer store every
+// second. Note that the background task can take any parameters you want, and
+// MAF will automatically inject the appropriate values when the task is run.
+async fn increment_counter(store: Store<Timer>) {
+    loop {
+        tasks::sleep(std::time::Duration::from_secs(1)).await;
+
+        store.write().await.counter += 1;
+        println!("incremented counter!");
+    }
+}
+
+// In your MAF app's main function, you can use the `background` hook to run a
+// background task that increments the timer every second.
+fn build() -> App {
+    App::builder()
+        .store::<Timer>()
+        .background(increment_counter)
+        .build()
+}
+
+maf::register!(build);
+```

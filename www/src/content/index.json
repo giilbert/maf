@@ -17,7 +17,7 @@
       "build/local",
       "build/meta",
       "build/rooms",
-      "build/rooms/authentication",
+      "build/rooms/lifecycle",
       "build/type-generation"
     ]
   },
