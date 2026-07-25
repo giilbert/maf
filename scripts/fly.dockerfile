@@ -1,7 +1,7 @@
 # This Dockerfile should be built from the root of the repository.
 # `just docker-build` or `docker build -f scripts/fly.dockerfile -t maf-server:latest .`
 
-FROM rust:1.91-slim-bookworm AS builder
+FROM rust:1.97.1-slim-bookworm AS builder
 
 WORKDIR /app
 
@@ -11,13 +11,13 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 ADD Cargo.lock ./
-ADD crates/maf_platform ./crates/maf_platform_host
+ADD crates/maf_core ./crates/maf_core
 ADD crates/maf_platform_host ./crates/maf_platform_host
 ADD crates/maf_schemas ./crates/maf_schemas
 ADD crates/maf/wit ./crates/maf/wit
 
 # Create Cargo.toml with correct workspaces
-RUN echo '[workspace]\nmembers = ["crates/maf_platform_host", "crates/maf_schemas", "crates/maf_platform_host/migrations", "crates/maf_platform"]\nresolver="2"' > Cargo.toml
+RUN echo '[workspace]\nmembers = ["crates/maf_platform_host", "crates/maf_schemas", "crates/maf_platform_host/migrations", "crates/maf_core"]\nresolver="3"' > Cargo.toml
 # Build maf_platform_host with caching on target and cargo registry (packages)
 RUN \
     --mount=type=cache,target=/app/target \
