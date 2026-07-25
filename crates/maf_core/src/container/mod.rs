@@ -45,7 +45,7 @@ pub struct Container {
     /// purposes.
     room_id: Uuid,
     pub store: wt::Store<ContainerData>,
-    pub cancel_token: CancellationToken,
+    cancel_token: CancellationToken,
     instance: Bindings,
     output: Option<mpsc::Receiver<String>>,
     shared: ContainerHandle,
@@ -68,11 +68,40 @@ impl std::fmt::Debug for Container {
 pub struct ContainerHandle {
     pub room_id: Uuid,
     pub runtime: ContainerRuntime,
-    pub cancel_token: CancellationToken,
     pub resources: Arc<ContainerResourceStats>,
     pub meta: MetaStorage,
+    last_activity: Arc<AtomicU64>,
     connection_tx: mpsc::Sender<BoxedConnection>,
     hook_request_tx: mpsc::Sender<HookRequest>,
+    /// A cancellation token that can be used to signal the container to stop executing.
+    ///
+    /// This does not immediately stop the container, but signals it to stop at the next
+    /// opportunity. Once the container has actually stopped, the `finished` token will be
+    /// triggered. Once a cancellation token is triggered
+    cancel_token: CancellationToken,
+    /// A token that is triggered when the container has finished executing and cleaned up its
+    /// resources. See the comment for `cancel_token` for more details and [`ContainerHandle::stop`]
+    /// for usage.
+    finished: CancellationToken,
+}
+
+impl ContainerHandle {
+    /// Stop executing container code and clean up resources associated with the container.
+    ///
+    /// This is not the same as just calling `cancel_token.cancel()`, which only signals the
+    /// container to stop. This method will wait for the container to actually stop and clean up its
+    /// resources, such as closing connections and releasing memory.
+    ///
+    /// TODO: graceful/user-defined shutdown?
+    pub fn stop(&self) {
+        self.cancel_token.cancel();
+    }
+
+    /// Updates the last activity timestamp for the container to the current time.
+    pub fn mark_activity(&self) {
+        self.last_activity
+            .store(utils::now_as_secs(), Ordering::SeqCst);
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -155,14 +184,18 @@ impl Container {
         let meta = MetaStorage::new(options.meta);
         let resource_stats = Arc::<ContainerResourceStats>::default();
         let cancel_token = CancellationToken::new();
+        let finished_token = CancellationToken::new();
+        let last_activity = Arc::new(AtomicU64::new(utils::now_as_secs()));
         let shared = ContainerHandle {
             room_id: id,
             runtime: runtime.clone(),
-            cancel_token: cancel_token.clone(),
             resources: resource_stats.clone(),
             connection_tx: connection_tx.clone(),
             hook_request_tx: hook_request_tx.clone(),
+            cancel_token: cancel_token.clone(),
+            finished: finished_token.clone(),
             meta: meta.clone(),
+            last_activity: last_activity.clone(),
         };
 
         let resources = wasmtime_wasi::ResourceTable::default();
@@ -187,7 +220,7 @@ impl Container {
                     secret: options.secret,
                 },
                 meta,
-                last_activity: Arc::new(AtomicU64::new(utils::now_as_secs())),
+                last_activity,
                 app_activity: runtime.app_activity,
                 limiter: ContainerResourceLimiter {
                     room_id: id,
@@ -216,6 +249,7 @@ impl Container {
         // Spawn a task to monitor inactivity and stop the container
         let last_activity = self.store.data().last_activity.clone();
         let token_clone = self.cancel_token.clone();
+
         tokio::spawn(async move {
             loop {
                 const CHECK_INTERVAL: u64 = 5; // seconds
@@ -233,16 +267,18 @@ impl Container {
         });
     }
 
-    pub async fn run(&mut self) -> anyhow::Result<()> {
+    pub async fn run_container(&mut self) -> anyhow::Result<()> {
         tokio::select! {
             result = self.instance.call_run(&mut self.store) => {
                 let inner_result = result?;
                 return inner_result.map_err(|_| anyhow::anyhow!("unknown container error"));
             }
             _ = self.cancel_token.cancelled() => {
-                tracing::info!("container stopped due to inactivity");
+                tracing::debug!("container cancelled");
             }
         }
+
+        self.do_cleanup().await;
 
         Ok(())
     }
@@ -252,15 +288,33 @@ impl Container {
     /// This is useful for checking if the container can create the app without errors and report
     /// data for type generation.
     pub async fn dry_run(&mut self) -> anyhow::Result<()> {
-        tokio::time::timeout(Duration::from_millis(100), async move {
-            self.instance.call_dry_run(&mut self.store).await
-        })
-        .await
-        .map_err(|_| anyhow::anyhow!("container dry-run timed out"))?
-        .map_err(|e| anyhow::anyhow!("container error: {e:?}"))?
-        .map_err(|_| anyhow::anyhow!("unknown container error"))?;
+        tokio::select! {
+            result = self.instance.call_dry_run(&mut self.store) => {
+                let inner_result = result?;
+                return inner_result.map_err(|_| anyhow::anyhow!("unknown container error"));
+            }
+            _ = self.cancel_token.cancelled() => {
+                tracing::debug!("container cancelled");
+            }
+            _ = time::sleep(Duration::from_secs(10)) => {
+                tracing::error!("container dry-run timed out");
+                return Err(anyhow::anyhow!("container dry-run timed out"));
+            }
+        }
+
+        self.do_cleanup().await;
 
         Ok(())
+    }
+
+    async fn do_cleanup(&mut self) {
+        // Drop the output channel to signal that ensure that an output channel cannot be created
+        // after the container has been stopped.
+        drop(self.output.take());
+
+        // We are finished! This marks that the container has finished executing and cleaned up its
+        // resources, in case any other tasks are waiting for it to finish.
+        self.shared.finished.cancel();
     }
 
     pub async fn recv_app_schema(&mut self) -> anyhow::Result<AppSchema> {
@@ -321,6 +375,10 @@ impl ContainerHandle {
             .send(request)
             .await
             .map_err(|_| anyhow::anyhow!("failed to send hook request to room {}", self.room_id))
+    }
+
+    pub async fn wait_for_finish(&self) {
+        self.finished.cancelled().await;
     }
 }
 

@@ -19,13 +19,18 @@ use crate::server::{CreateRoomCoreOptions, RoomCore, RoomHostImpl};
 ///
 /// In order to avoid deadlocks, the locks in this struct should always be acquired/released in the
 /// order they are declared in this struct:
-/// - `rooms`
-/// - `auto_created_rooms`
-/// - `api_created_rooms`
-/// - `keys_to_rooms`
-/// - `app_to_rooms`
+/// - `maps`
 /// - `pending_room_creations`
-/// - `pending_room_deletions`
+///
+/// ## Room Crashes
+///
+/// A room may crash if its container does something illegal (e.g. segfaults, runs out of memory,
+/// panics, etc.). When a room crashes, it will be removed from the storage maps automatically and
+/// it will no longer be returned in lookups. There is a race condition where a room crashes but is
+/// still registered in the storage maps, so it is possible for that room to be returned when a
+/// client tries to connect. In this case, the connection will fail and the client should retry the
+/// connection. **In cases where the room crashes, there is no guarantee that the client will be
+/// able to connect to the room successfully.**
 #[derive(Debug, Clone)]
 pub struct RoomsStorage<R: RoomHostImpl>(Arc<RoomStorageInner<R>>);
 
@@ -38,25 +43,8 @@ struct RoomStorageInner<R: RoomHostImpl> {
     /// first). See [`RoomsStorage::set_host`] and [`RoomsStorage::host`].
     host: R::WeakRef,
 
-    /// All rooms on the server. Mapped by their unique [`RoomId`].
-    rooms: RwLock<HashMap<RoomId, RoomCore<R>>>,
-    /// Maps an app (identified by its name and org slug) to the room that was automatically created
-    /// for it, if it was created with the [`RoomCreationStrategy::AutoCreate`] strategy.
-    ///
-    /// See [`RoomCreationStrategy::AutoCreate`] for more details.
-    auto_created_rooms: RwLock<HashMap<AppNameAndOrgSlug, RoomId>>,
-    /// Maps an app (identified by its [`AppNameAndOrgSlug`] to the set of rooms that were
-    /// created for it through the MAF Platform API.
-    ///
-    /// See [`RoomCreationStrategy::AuthenticatedApiRequest`] for more details.
-    api_created_rooms: RwLock<HashMap<AppNameAndOrgSlug, HashSet<RoomId>>>,
-    /// Maps a app and a *room key* (a string identifier for a room that is chosen by the client)
-    /// to the ID of the room that was created for it with that key. **The ID of a room is always a
-    /// key to the room in this maps**.
-    keys_to_rooms: RwLock<HashMap<RoomKeyAndApp, RoomId>>,
-    /// Maps an app to the set of rooms that were created for it. Includes both rooms that were
-    /// created through the MAF Platform API and rooms that were automatically created for the app.
-    app_to_rooms: RwLock<HashMap<AppNameAndOrgSlug, HashSet<RoomId>>>,
+    maps: RwLock<RoomMaps<R>>,
+
     /// A map of (rooms keys, apps) to signals for rooms that are currently being created. This is
     /// used to prevent race conditions when creating rooms with the same key for the same app.
     ///
@@ -68,15 +56,42 @@ struct RoomStorageInner<R: RoomHostImpl> {
     ///
     /// Locks held on this mutex should be super short-lived as it is shared across everyone.
     pending_room_creations: Mutex<HashMap<RoomKeyAndApp, Arc<Notify>>>,
-    /// A set of rooms that are currently being deleted. This is used to prevent race conditions
-    /// when deleting rooms with the same key for the same app. This isn't a [`PendingRooms`]
-    /// because we don't need to track keys for deletions, only room IDs.
-    ///
-    /// Locks held on this mutex should be super short-lived as it is shared across everyone.
-    pending_room_deletions: Mutex<HashSet<RoomId>>,
 }
 
-/// Groups a set of room IDs and keys into a struct.
+#[derive(Debug)]
+struct RoomMaps<R: RoomHostImpl> {
+    /// All rooms on the server. Mapped by their unique [`RoomId`].
+    rooms: HashMap<RoomId, RoomCore<R>>,
+    /// Maps an app (identified by its name and org slug) to the room that was automatically created
+    /// for it, if it was created with the [`RoomCreationStrategy::AutoCreate`] strategy.
+    ///
+    /// See [`RoomCreationStrategy::AutoCreate`] for more details.
+    auto_created_rooms: HashMap<AppNameAndOrgSlug, RoomId>,
+    /// Maps an app (identified by its [`AppNameAndOrgSlug`] to the set of rooms that were
+    /// created for it through the MAF Platform API.
+    ///
+    /// See [`RoomCreationStrategy::AuthenticatedApiRequest`] for more details.
+    api_created_rooms: HashMap<AppNameAndOrgSlug, HashSet<RoomId>>,
+    /// Maps a app and a *room key* (a string identifier for a room that is chosen by the client)
+    /// to the ID of the room that was created for it with that key. **The ID of a room is always a
+    /// key to the room in this maps**.
+    keys_to_rooms: HashMap<RoomKeyAndApp, RoomId>,
+    /// Maps an app to the set of rooms that were created for it. Includes both rooms that were
+    /// created through the MAF Platform API and rooms that were automatically created for the app.
+    app_to_rooms: HashMap<AppNameAndOrgSlug, HashSet<RoomId>>,
+}
+
+impl<R: RoomHostImpl> RoomMaps<R> {
+    fn new() -> Self {
+        Self {
+            rooms: HashMap::new(),
+            auto_created_rooms: HashMap::new(),
+            api_created_rooms: HashMap::new(),
+            keys_to_rooms: HashMap::new(),
+            app_to_rooms: HashMap::new(),
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct CreateRoomOptions<'a> {
@@ -98,13 +113,8 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
     pub fn new(host: R::WeakRef) -> Self {
         Self(Arc::new(RoomStorageInner {
             host,
-            rooms: RwLock::new(HashMap::new()),
-            auto_created_rooms: RwLock::new(HashMap::new()),
-            api_created_rooms: RwLock::new(HashMap::new()),
-            keys_to_rooms: RwLock::new(HashMap::new()),
-            app_to_rooms: RwLock::new(HashMap::new()),
+            maps: RwLock::new(RoomMaps::new()),
             pending_room_creations: Mutex::new(HashMap::new()),
-            pending_room_deletions: Mutex::new(HashSet::new()),
         }))
     }
 
@@ -116,66 +126,61 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
 
     /// Getter for the `rooms` map. This is used for testing and debugging purposes.
     pub async fn rooms_map(&self) -> RwLockReadGuard<'_, HashMap<RoomId, RoomCore<R>>> {
-        self.0.rooms.read().await
+        RwLockReadGuard::map(self.0.maps.read().await, |maps| &maps.rooms)
     }
 
     /// Getter for the `auto_created_rooms` map. This is used for testing and debugging purposes.
     pub async fn auto_created_rooms_map(
         &self,
     ) -> RwLockReadGuard<'_, HashMap<AppNameAndOrgSlug, RoomId>> {
-        self.0.auto_created_rooms.read().await
+        RwLockReadGuard::map(self.0.maps.read().await, |maps| &maps.auto_created_rooms)
     }
 
     /// Getter for the `api_created_rooms` map. This is used for testing and debugging purposes.
     pub async fn api_created_rooms_map(
         &self,
     ) -> RwLockReadGuard<'_, HashMap<AppNameAndOrgSlug, HashSet<RoomId>>> {
-        self.0.api_created_rooms.read().await
+        RwLockReadGuard::map(self.0.maps.read().await, |maps| &maps.api_created_rooms)
     }
 
     /// Gets all rooms associated with the given app.
     pub async fn get_rooms_for_app(&self, app: &App) -> Vec<RoomCore<R>> {
-        match self
-            .0
-            .app_to_rooms
-            .read()
-            .await
+        let maps = self.0.maps.read().await;
+        maps.app_to_rooms
             .get(&app.app_name_and_org_slug())
-        {
-            Some(room_ids) => {
-                let rooms = self.0.rooms.read().await;
+            .map(|room_ids| {
                 room_ids
                     .iter()
-                    .filter_map(|id| rooms.get(id).cloned())
+                    .filter_map(|id| maps.rooms.get(id).cloned())
                     .collect()
-            }
-            None => {
-                // No rooms for this app, return an empty vector.
-                vec![]
-            }
-        }
+            })
+            .unwrap_or_default()
     }
 
     /// Gets a room by its ID. Returns `None` if no room with the given ID exists.
     pub async fn get(&self, room_id: &RoomId) -> Option<RoomCore<R>> {
-        let rooms = self.0.rooms.read().await;
-        rooms.get(room_id).cloned()
+        let maps = self.0.maps.read().await;
+        maps.rooms
+            .get(room_id)
+            .cloned()
+            .inspect(|r| r.container().mark_activity())
     }
 
     /// Gets a room by its room key (a string identifier for a room that is chosen by the developer)
     /// or its ID. Returns `None` if no room with the given key or ID exists.
     pub async fn get_by_key(&self, app: &App, room_key: RoomKey) -> Option<RoomCore<R>> {
-        let rooms = self.0.rooms.read().await;
-        let keys_to_rooms = self.0.keys_to_rooms.read().await;
+        let maps = self.0.maps.read().await;
+        let rooms = &maps.rooms;
 
-        keys_to_rooms
+        maps.keys_to_rooms
             .get(&app.room_key_hash(room_key))
             .and_then(|room_id| rooms.get(room_id).cloned())
+            .inspect(|r| r.container().mark_activity())
     }
 
     /// Creates a room with the given options.
     ///
-    /// ## Race Behavior
+    /// ## Race Behavior With Room Creation
     /// If the room creation strategy is [`RoomCreationStrategy::AutoCreate`] and two rooms need to
     /// be created for the same app at the same time (e.g. one call to this function is made while
     /// another call is still in progress), the second call will wait for the first call to finish
@@ -291,7 +296,7 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
         let host = self.host()?;
         let bundle = host.load_bundle_for_app(options.app).await?;
 
-        let (room_core, mut container) = RoomCore::new(
+        let room_core = RoomCore::new(
             host,
             CreateRoomCoreOptions {
                 bundle,
@@ -300,58 +305,33 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
                 // TODO: make this configurable based on the app's config
                 resource_limit: ContainerResourceLimit::small_defaults(),
                 extra_keys,
+                creation_strategy: options.creation_strategy,
             },
         )
         .await?;
 
-        let better_name = match options.creation_strategy {
-            RoomCreationStrategy::AuthenticatedApiRequest => options
-                .room_key
-                .clone()
-                .unwrap_or_else(|| room_core.id().to_string()),
-            RoomCreationStrategy::AutoCreate => "default".to_string(),
-        };
-        self.host()?
-            .set_up_container_logging(&better_name, &mut container)
-            .await?;
+        let app_id = room_core.app().clone();
 
-        // TODO: move container run logic into RoomCore?
-        // TODO: error handling for container run errors. if the container fails to start, we should
-        // remove the room from storage and return an error.
-        let id = room_core.id();
-        let app_id = options.app.app_name_and_org_slug();
-
-        tokio::spawn(async move {
-            if let Err(error) = container.run().await {
-                tracing::error!(?error, ?id, "room container run failed");
-            }
-        });
-
-        // Atomically update all maps to maintain consistency.
-        // Acquire all locks together to prevent windows where the room exists in some maps but not others.
-        // This ensures that if a room is in `rooms`, it will also be properly indexed in all other maps.
         {
-            let mut rooms = self.0.rooms.write().await;
-            let mut app_to_rooms = self.0.app_to_rooms.write().await;
-            let mut auto_created_rooms = self.0.auto_created_rooms.write().await;
-            let mut api_created_rooms = self.0.api_created_rooms.write().await;
-            let mut keys_to_rooms = self.0.keys_to_rooms.write().await;
+            let mut maps = self.0.maps.write().await;
 
             // Update metadata about the room in the storage maps.
-            rooms.insert(room_core.id(), room_core.clone());
+            maps.rooms.insert(room_core.id(), room_core.clone());
 
-            app_to_rooms
+            maps.app_to_rooms
                 .entry(app_id.clone())
                 .or_default()
                 .insert(room_core.id());
 
-            // Some mappings depend on the room creation strategy, so we need to handle them separately.
+            // Some mappings depend on the room creation strategy, so we need to handle them
+            // separately.
             match options.creation_strategy {
                 RoomCreationStrategy::AutoCreate => {
-                    auto_created_rooms.insert(app_id.clone(), room_core.id());
+                    maps.auto_created_rooms
+                        .insert(app_id.clone(), room_core.id());
                 }
                 RoomCreationStrategy::AuthenticatedApiRequest => {
-                    api_created_rooms
+                    maps.api_created_rooms
                         .entry(app_id.clone())
                         .or_default()
                         .insert(room_core.id());
@@ -360,7 +340,7 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
 
             // Add the room to the keys_to_rooms map for each of its keys.
             for key in room_core.keys() {
-                keys_to_rooms.insert(
+                maps.keys_to_rooms.insert(
                     RoomKeyAndApp {
                         app_id: app_id.clone(),
                         key: key.clone(),
@@ -378,35 +358,30 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
     ///
     /// FIXME: is there a race condition with autocreated rooms here?
     pub async fn remove(&self, room_id: &RoomId) -> Option<RoomCore<R>> {
-        let mut rooms = self.0.rooms.write().await;
-
-        let mut keys_to_rooms = self.0.keys_to_rooms.write().await;
-        let mut auto_created_rooms = self.0.auto_created_rooms.write().await;
-        let mut api_created_rooms = self.0.api_created_rooms.write().await;
-        let mut app_to_rooms = self.0.app_to_rooms.write().await;
+        let mut maps = self.0.maps.write().await;
 
         // Remove the room from the app_to_rooms map.
-        let room = match rooms.remove(room_id) {
+        let room = match maps.rooms.remove(room_id) {
             Some(room) => room,
             None => return None,
         };
 
         // Remove the room from the app_to_rooms map.
-        app_to_rooms
+        maps.app_to_rooms
             .entry(room.app().clone())
             .or_default()
             .remove(room_id);
 
         // Remove the room from the auto_created_rooms map if it was auto-created.
-        auto_created_rooms.remove(room.app());
+        maps.auto_created_rooms.retain(|_, v| v != room_id);
 
         // Remove the room from the api_created_rooms map if it was created through the API.
-        if let Some(api_created_room_ids) = api_created_rooms.get_mut(room.app()) {
+        if let Some(api_created_room_ids) = maps.api_created_rooms.get_mut(room.app()) {
             api_created_room_ids.remove(room_id);
         }
 
         // Remove the room from the keys_to_rooms map.
-        keys_to_rooms.retain(|_, v| v != room_id);
+        maps.keys_to_rooms.retain(|_, v| v != room_id);
 
         Some(room)
     }
@@ -415,11 +390,10 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
     /// if the app does not have an automatically created room or if the room was removed from
     /// storage.
     pub async fn get_autocreated_room(&self, app: &AppNameAndOrgSlug) -> Option<RoomCore<R>> {
-        let rooms = self.0.rooms.read().await;
-        let auto_created_rooms = self.0.auto_created_rooms.read().await;
+        let maps = self.0.maps.read().await;
 
-        auto_created_rooms
+        maps.auto_created_rooms
             .get(app)
-            .and_then(|room_id| rooms.get(room_id).cloned())
+            .and_then(|room_id| maps.rooms.get(room_id).cloned())
     }
 }

@@ -17,7 +17,8 @@ use biscuit::jwa::SignatureAlgorithm;
 use biscuit::jws::Secret;
 use biscuit::{ClaimsSet, JWT};
 use maf_schemas::apps::{
-    AppNameAndOrgSlug, MetaEntryMap, MetaVisibility, RoomId, RoomKey, generate_room_secret,
+    AppNameAndOrgSlug, MetaEntryMap, MetaVisibility, RoomCreationStrategy, RoomId, RoomKey,
+    generate_room_secret,
 };
 use tokio::sync::oneshot;
 use uuid::Uuid;
@@ -143,13 +144,14 @@ pub struct CreateRoomCoreOptions {
     /// The keys associated with the room, not including the default key that is generated from the
     /// room ID.
     pub extra_keys: Vec<RoomKey>,
+    pub creation_strategy: RoomCreationStrategy,
 }
 
 impl<R: RoomHostImpl> RoomCore<R> {
-    pub async fn new(host: R, options: CreateRoomCoreOptions) -> anyhow::Result<(Self, Container)> {
+    pub async fn new(host: R, options: CreateRoomCoreOptions) -> anyhow::Result<Self> {
         let room_id = Uuid::new_v4();
         let secret = generate_room_secret();
-        let container = Container::load_from_binary(
+        let mut container = Container::load_from_binary(
             host.container_runtime(),
             room_id,
             CreateContainerOptions {
@@ -165,20 +167,49 @@ impl<R: RoomHostImpl> RoomCore<R> {
         keys.push(RoomKey::Custom(room_id.to_string()));
         keys.extend(options.extra_keys.clone());
 
-        Ok((
-            Self {
-                inner: Arc::new(RoomCoreInner {
-                    host,
-                    id: room_id,
-                    secret,
-                    container: container.handle(),
-                    bundle: options.bundle,
-                    app: options.app,
-                    keys,
-                }),
-            },
-            container,
-        ))
+        let room = Self {
+            inner: Arc::new(RoomCoreInner {
+                host: host.clone(),
+                id: room_id,
+                secret,
+                container: container.handle(),
+                bundle: options.bundle,
+                app: options.app,
+                keys,
+            }),
+        };
+
+        // Use a different logging based on whether a key was provided or not.
+        let logging_name = match options.creation_strategy {
+            RoomCreationStrategy::AuthenticatedApiRequest => options
+                .extra_keys
+                .first()
+                .map(|key| match key {
+                    RoomKey::Default => room.id().to_string(),
+                    RoomKey::Custom(custom_key) => custom_key.clone(),
+                })
+                .unwrap_or_else(|| room.id().to_string()),
+            RoomCreationStrategy::AutoCreate => "default".to_string(),
+        };
+
+        let room_clone = room.clone();
+        host.set_up_container_logging(&logging_name, &mut container)
+            .await?;
+
+        tokio::spawn(async move { room_clone.run(host.weak(), container).await });
+
+        Ok(room)
+    }
+
+    /// Starts the room's container and runs it until it exits, then cleans up the room.
+    #[tracing::instrument(skip_all, fields(room_id = %self.id()))]
+    async fn run(&self, host: R::WeakRef, mut container: Container) {
+        if let Err(e) = container.run_container().await {
+            // TODO: better error reporting (i.e. for end users)
+            tracing::error!("error running room container: {}", e);
+        }
+
+        self.destroy(host).await;
     }
 
     /// Returns the unique identifier of the room.
@@ -311,5 +342,23 @@ impl<R: RoomHostImpl> RoomCore<R> {
                 .await,
             secret: self.secret().to_string(),
         }
+    }
+
+    /// Cleans up resources associated with the room, such as stopping the container and removing
+    /// the room from the host's storage. This should be called when the room is no longer needed.
+    #[tracing::instrument(skip_all, fields(room_id = %self.id()))]
+    pub async fn destroy(&self, host: R::WeakRef) {
+        let host = match host.upgrade() {
+            Some(host) => host,
+            None => {
+                tracing::warn!(
+                    "host has been dropped, cannot fully destroy room {}",
+                    self.id()
+                );
+                return;
+            }
+        };
+
+        host.room_storage().remove(&self.id()).await;
     }
 }
