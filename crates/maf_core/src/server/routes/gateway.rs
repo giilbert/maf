@@ -71,21 +71,34 @@ async fn connect_route<R: RoomHostImpl>(
     // Check if the request is allowed to connect to/create a room if it doesn't exist yet.
     pre_create_room_auth_check(&query_params, app.config())?;
 
-    let room = match host.room_storage().get_by_key(&app, room_key).await {
+    let room = match host.room_storage().get_by_key(&app, room_key.clone()).await {
         Some(room) => room, // Room is already created, proceed to connect.
         None => {
             // We need to start the room if it exists, or create it if it doesn't exist and the strategy
             // allows for it.
             if let RoomCreationStrategy::AutoCreate = room_creation_strategy {
                 // Create the room automatically since it doesn't exist and the strategy allows for it.
-                host.room_storage()
-                    .create(CreateRoomOptions {
+                match host
+                    .room_storage()
+                    .check_and_create(CreateRoomOptions {
                         app: &app,
                         creation_strategy: RoomCreationStrategy::AutoCreate,
                         room_key: None,
                         meta: None,
                     })
                     .await?
+                {
+                    Some(room) => room,
+                    None => host
+                        .room_storage()
+                        .get_by_key(&app, room_key)
+                        .await
+                        .ok_or_else(|| {
+                            ErrorResponse::not_found(Some(
+                                "Room with requested key not found.",
+                            ))
+                        })?,
+                }
             } else {
                 // The room doesn't exist and the strategy doesn't allow for automatic creation.
                 return Err(ErrorResponse::not_found(Some(

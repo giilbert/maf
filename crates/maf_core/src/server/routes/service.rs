@@ -125,13 +125,14 @@ async fn service_v1_create_room_route<R: RoomHostImpl>(
 
     let room = host
         .room_storage()
-        .create(CreateRoomOptions {
+        .check_and_create(CreateRoomOptions {
             app: &app,
             creation_strategy: RoomCreationStrategy::AuthenticatedApiRequest,
             meta: body.meta,
             room_key: body.key,
         })
-        .await?;
+        .await?
+        .ok_or_else(|| ErrorResponse::conflict(Some("Room with requested key already exists.")))?;
 
     Ok(Json(room.service_room_info().await))
 }

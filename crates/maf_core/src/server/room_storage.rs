@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use anyhow::Context;
@@ -55,7 +56,22 @@ struct RoomStorageInner<R: RoomHostImpl> {
     /// ready to be returned.
     ///
     /// Locks held on this mutex should be super short-lived as it is shared across everyone.
-    pending_room_creations: Mutex<HashMap<RoomKeyAndApp, Arc<Notify>>>,
+    pending_room_creations: Mutex<HashMap<RoomKeyAndApp, Arc<PendingRoomCreation>>>,
+}
+
+#[derive(Debug)]
+struct PendingRoomCreation {
+    notify: Notify,
+    failed: AtomicBool,
+}
+
+impl PendingRoomCreation {
+    fn new() -> Self {
+        Self {
+            notify: Notify::new(),
+            failed: AtomicBool::new(false),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -180,6 +196,9 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
 
     /// Creates a room with the given options.
     ///
+    /// Returns `Ok(Some(room))` when a room is created, `Ok(None)` when a room with the same key
+    /// and app already exists, and an error if creation fails.
+    ///
     /// ## Race Behavior With Room Creation
     /// If the room creation strategy is [`RoomCreationStrategy::AutoCreate`] and two rooms need to
     /// be created for the same app at the same time (e.g. one call to this function is made while
@@ -188,7 +207,10 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
     ///
     /// If the room creation strategy is anything else, the second call will return an error since
     /// the room key is already in use.
-    pub async fn create(&self, options: CreateRoomOptions<'_>) -> anyhow::Result<RoomCore<R>> {
+    pub async fn check_and_create(
+        &self,
+        options: CreateRoomOptions<'_>,
+    ) -> anyhow::Result<Option<RoomCore<R>>> {
         let check_pending_room = match options.creation_strategy {
             // Always check for pending rooms with the default (auto-created) key since there can
             // only be one auto-created room per app if the room creation strategy is AutoCreate.
@@ -208,6 +230,15 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
             }),
         };
 
+        if let Some(key_and_app) = check_pending_room.as_ref()
+            && self
+                .get_by_key(options.app, key_and_app.key.clone())
+                .await
+                .is_some()
+        {
+            return Ok(None);
+        }
+
         let notify_signal = if let Some(key_and_app) = check_pending_room.as_ref() {
             let mut pending_room_creations = self.0.pending_room_creations.lock().await;
             let pending_room = pending_room_creations.get(key_and_app);
@@ -217,10 +248,11 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
                     RoomCreationStrategy::AutoCreate => {
                         // If the room is being created with the AutoCreate strategy, we can wait
                         // for the room to be created and then return it.
+                        let notified = ready_signal.notify.notified();
                         drop(pending_room_creations);
 
                         const WAIT_TIMEOUT: Duration = Duration::from_secs(10);
-                        if tokio::time::timeout(WAIT_TIMEOUT, ready_signal.notified())
+                        if tokio::time::timeout(WAIT_TIMEOUT, notified)
                             .await
                             // Timed out waiting for the room to be created.
                             .is_err()
@@ -234,10 +266,19 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
                             );
                         }
 
+                        if ready_signal.failed.load(Ordering::Acquire) {
+                            anyhow::bail!(
+                                "room creation failed for key {:?} and app {}",
+                                key_and_app.key,
+                                key_and_app.app_id.app
+                            );
+                        }
+
                         return self
                             .get_by_key(options.app, key_and_app.key.clone())
                             .await
-                            .context("failed to find room that was just created!");
+                            .context("failed to find room that was just created!")
+                            .map(Some);
                     }
                     RoomCreationStrategy::AuthenticatedApiRequest => {
                         // TODO: better error type here too
@@ -249,9 +290,19 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
                     }
                 }
             } else {
+                // Re-check after taking the pending lock so we do not create a duplicate room if
+                // another creator finished between the fast-path lookup and this lock acquisition.
+                if self
+                    .get_by_key(options.app, key_and_app.key.clone())
+                    .await
+                    .is_some()
+                {
+                    return Ok(None);
+                }
+
                 // Add the room to the pending rooms set so that other calls to create a room with
                 // the same key will wait for this call to finish.
-                let notify = Arc::new(Notify::new());
+                let notify = Arc::new(PendingRoomCreation::new());
                 pending_room_creations.insert(key_and_app.clone(), notify.clone());
                 Some(notify)
             }
@@ -273,12 +324,11 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
             // been created.
             let mut pending_room_creations = self.0.pending_room_creations.lock().await;
             pending_room_creations.remove(&key_and_app);
-            signal.notify_waiters();
-            // TODO: handle errors during room creation and notify waiters that the room creation
-            // failed
+            signal.failed.store(result.is_err(), Ordering::Release);
+            signal.notify.notify_waiters();
         }
 
-        result
+        result.map(Some)
     }
 
     async fn do_create_room(&self, options: CreateRoomOptions<'_>) -> anyhow::Result<RoomCore<R>> {
