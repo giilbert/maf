@@ -240,6 +240,7 @@ impl<R: RoomHostImpl> RoomCore<R> {
             tracing::error!("error running room container: {}", e);
         }
 
+        drop(container);
         self.destroy(host).await;
     }
 

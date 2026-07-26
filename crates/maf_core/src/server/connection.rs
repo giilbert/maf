@@ -35,6 +35,7 @@ pub struct WsConnectionHandle {
     pub(crate) auth_data: Option<serde_json::Value>,
     message_rx: Arc<Mutex<Option<mpsc::Receiver<bindings::Message>>>>,
     command_tx: mpsc::Sender<ConnectionCommand>,
+    close_on_drop: bool,
 }
 
 /// The parts of a WebSocket connection that can only be owned by one task at a time. When a
@@ -102,6 +103,7 @@ impl WsConnection {
                 auth_data,
                 command_tx: command_tx.clone(),
                 message_rx: Arc::new(Mutex::new(Some(message_rx))),
+                close_on_drop: false,
             },
             takeable: Some(TakeableConnection {
                 command_rx,
@@ -113,7 +115,9 @@ impl WsConnection {
     }
 
     pub fn handle(&self) -> WsConnectionHandle {
-        self.shared.clone()
+        let mut handle = self.shared.clone();
+        handle.close_on_drop = true;
+        handle
     }
 
     /// Called by [`Self::run`] to translate an incoming WebSocket message into a generic "bindings"
@@ -222,6 +226,16 @@ impl crate::Connection for WsConnectionHandle {
             .await
             .take()
             .ok_or_else(|| anyhow::anyhow!("message receiver has already been taken"))
+    }
+}
+
+impl Drop for WsConnectionHandle {
+    fn drop(&mut self) {
+        if !self.close_on_drop {
+            return;
+        }
+
+        let _ = self.command_tx.try_send(ConnectionCommand::Close);
     }
 }
 

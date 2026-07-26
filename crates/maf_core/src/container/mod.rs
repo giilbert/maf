@@ -305,19 +305,20 @@ impl Container {
     /// container into tracking structures and listening for connections. This means that we need a
     /// way to wait for the container to become ready: [`Container::ready`].
     pub async fn run_container(&mut self) -> anyhow::Result<()> {
-        tokio::select! {
+        let result = tokio::select! {
             result = self.instance.call_run(&mut self.store) => {
                 let inner_result = result?;
-                return inner_result.map_err(|_| anyhow::anyhow!("unknown container error"));
+                inner_result.map_err(|_| anyhow::anyhow!("unknown container error"))
             }
             _ = self.cancel_token.cancelled() => {
                 tracing::debug!("container cancelled");
+                Ok(())
             }
-        }
+        };
 
         self.do_cleanup().await;
 
-        Ok(())
+        result
     }
 
     /// Dry-run the container without listening for IO events (connections, hooks, etc).
@@ -325,23 +326,24 @@ impl Container {
     /// This is useful for checking if the container can create the app without errors and report
     /// data for type generation.
     pub async fn dry_run(&mut self) -> anyhow::Result<()> {
-        tokio::select! {
+        let result = tokio::select! {
             result = self.instance.call_dry_run(&mut self.store) => {
                 let inner_result = result?;
-                return inner_result.map_err(|_| anyhow::anyhow!("unknown container error"));
+                inner_result.map_err(|_| anyhow::anyhow!("unknown container error"))
             }
             _ = self.cancel_token.cancelled() => {
                 tracing::debug!("container cancelled");
+                Ok(())
             }
             _ = time::sleep(Duration::from_secs(10)) => {
                 tracing::error!("container dry-run timed out");
-                return Err(anyhow::anyhow!("container dry-run timed out"));
+                Err(anyhow::anyhow!("container dry-run timed out"))
             }
-        }
+        };
 
         self.do_cleanup().await;
 
-        Ok(())
+        result
     }
 
     async fn do_cleanup(&mut self) {
