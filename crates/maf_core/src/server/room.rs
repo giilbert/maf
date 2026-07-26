@@ -181,6 +181,8 @@ impl<R: RoomHostImpl> RoomCore<R> {
         )
         .await?;
 
+        container.start_inactive_shutdown_task();
+
         let mut keys = vec![];
         keys.push(RoomKey::Custom(room_id.to_string()));
         keys.extend(options.extra_keys.clone());

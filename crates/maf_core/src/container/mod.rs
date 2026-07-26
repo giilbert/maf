@@ -282,6 +282,8 @@ impl Container {
 
         tokio::spawn(async move {
             loop {
+                // TODO: let users configure the timeout via room config
+
                 const CHECK_INTERVAL: u64 = 5; // seconds
                 const TIMEOUT: u64 = 60; // seconds
 
