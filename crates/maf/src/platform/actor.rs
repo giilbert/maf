@@ -1,3 +1,5 @@
+use std::sync::atomic::AtomicBool;
+
 use maf_schemas::apps;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::error::TrySendError;
@@ -106,6 +108,7 @@ impl ActorPlatformHandle {
 
 #[derive(Debug)]
 pub struct RawUser {
+    pub is_disconnected: AtomicBool,
     pub meta: UserMeta,
     // Client to server messages
     pub messages_rx: Mutex<mpsc::Receiver<Message>>,
@@ -134,6 +137,17 @@ impl PlatformUser for RawUser {
             .ok_or(crate::user::UserNextMessageError::Listen(
                 ListenError::Closed,
             ))
+    }
+
+    fn disconnect(&self) -> Result<(), super::SendError> {
+        self.is_disconnected
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        todo!("RawUser::disconnect is not implemented yet")
+    }
+
+    fn is_disconnected(&self) -> bool {
+        self.is_disconnected
+            .load(std::sync::atomic::Ordering::SeqCst)
     }
 }
 

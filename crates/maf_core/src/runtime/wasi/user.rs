@@ -157,4 +157,12 @@ impl bindings::HostUser for ContainerData {
 
         Ok(user.connection.send(message))
     }
+
+    async fn disconnect(
+        &mut self,
+        resource: Resource<bindings::User>,
+    ) -> anyhow::Result<Result<(), bindings::SendError>> {
+        let user = self.resources.get_mut(&resource)?;
+        Ok(user.connection.disconnect())
+    }
 }

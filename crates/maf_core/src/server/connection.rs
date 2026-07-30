@@ -216,6 +216,15 @@ impl crate::Connection for WsConnectionHandle {
             })
     }
 
+    fn disconnect(&mut self) -> Result<(), bindings::SendError> {
+        self.command_tx
+            .try_send(ConnectionCommand::Close)
+            .map_err(|e| match e {
+                mpsc::error::TrySendError::Closed(_) => bindings::SendError::Closed,
+                mpsc::error::TrySendError::Full(_) => bindings::SendError::BufferFull,
+            })
+    }
+
     fn auth(&self) -> Option<&serde_json::Value> {
         self.auth_data.as_ref()
     }

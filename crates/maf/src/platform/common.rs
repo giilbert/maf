@@ -65,6 +65,12 @@ pub trait PlatformUser {
     /// `Err(UserNextMessageError::Listen(ListenError::Closed))`.
     fn next_message(&self)
     -> impl Future<Output = Result<platform::Message, UserNextMessageError>>;
+
+    /// Disconnects the user from the MAF room.
+    fn disconnect(&self) -> Result<(), SendError>;
+
+    /// Returns true if the user has disconnected from the MAF room.
+    fn is_disconnected(&self) -> bool;
 }
 
 pub trait PlatformHookRequest {

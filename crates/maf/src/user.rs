@@ -1,6 +1,7 @@
 //! Abstractions for connected users.
 
 use std::collections::HashMap;
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, RwLock};
 
 use maf_schemas::packet::RxPacket;
@@ -126,6 +127,21 @@ impl User {
         let name = name.to_string();
         BoundChannel::new(Channel::new(self.state.clone(), name), self)
     }
+
+    /// Forcibly disconnects the user from the room.
+    pub fn disconnect(&self) -> Result<(), SendError> {
+        self.inner.disconnect()
+    }
+
+    /// Whether the user has been disconnected.
+    ///
+    /// Note that calling [`User::disconnect`] does not destroy the handle to the user, so methods
+    /// in [`User`] (such as [`User::meta`] and [`User::auth`]) can still be called after the user
+    /// has been disconnected. Other methods such as [`User::send`] that rely on the connection
+    /// being active will fail after the user has been disconnected.
+    pub fn is_disconnected(&self) -> bool {
+        self.inner.is_disconnected()
+    }
 }
 
 impl UserMeta {
@@ -218,6 +234,43 @@ impl Users {
     pub async fn count(&self) -> usize {
         let users = self.app.inner.state.users.read().await;
         users.len()
+    }
+
+    /// Forcibly disconnects a user from the room.
+    ///
+    /// If the user does not exist (i.e. in a race condition where the user got removed while this
+    /// function is called), this function will not do anything and will return `Ok(())`.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// use maf::prelude::*;
+    ///
+    /// async fn kick_me(user: User, users: Users) {
+    ///     users.disconnect(&user).await.expect("failed to kick user");
+    /// }
+    ///
+    /// fn build() -> App {
+    ///     App::builder().rpc("kick_me", kick_me).build()
+    /// }
+    ///
+    /// maf::register!(build);
+    /// ```
+    pub async fn disconnect(&self, user: &User) -> Result<(), SendError> {
+        let mut user = match self
+            .app
+            .inner
+            .state
+            .users
+            .write()
+            .await
+            .remove(&user.meta().id())
+        {
+            Some(user) => user,
+            None => return Ok(()),
+        };
+
+        user.disconnect()
     }
 }
 

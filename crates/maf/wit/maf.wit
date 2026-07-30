@@ -26,6 +26,7 @@ interface bindings {
         meta: func() -> user-meta;
         listen-message: func() -> result<future-message, listen-error>;
         send: func(message: message) -> result<_, send-error>;
+        disconnect: func() -> result<_, send-error>;
     }
 
     record user-meta {

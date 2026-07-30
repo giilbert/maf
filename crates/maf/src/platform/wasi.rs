@@ -1,3 +1,5 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use maf_schemas::apps;
 use uuid::Uuid;
 
@@ -73,6 +75,7 @@ impl Platform for WasiPlatform {
 pub struct RawUser {
     inner: bindgen::User,
     messages: bindgen::FutureMessage,
+    is_disconnected: AtomicBool,
 }
 
 impl RawUser {
@@ -80,6 +83,7 @@ impl RawUser {
         Self {
             messages: raw.listen_message().expect("Failed to listen for messages"),
             inner: raw,
+            is_disconnected: AtomicBool::new(false),
         }
     }
 }
@@ -119,6 +123,15 @@ impl PlatformUser for RawUser {
             .map_err(|e| UserNextMessageError::Listen(e.into()))?;
 
         Ok(super::Message::from(message))
+    }
+
+    fn disconnect(&self) -> Result<(), super::SendError> {
+        self.is_disconnected.store(true, Ordering::SeqCst);
+        self.inner.disconnect().map_err(SendError::from)
+    }
+
+    fn is_disconnected(&self) -> bool {
+        self.is_disconnected.load(Ordering::SeqCst)
     }
 }
 

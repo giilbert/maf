@@ -114,6 +114,8 @@ impl App {
         &self.inner.meta
     }
 
+    /// The main loop of the application. This function will run indefinitely, accepting user
+    /// connections and handling messages until the application is terminated.
     async fn handle_connections(self) -> anyhow::Result<()> {
         // TODO: handle errors
         loop {
@@ -122,26 +124,21 @@ impl App {
                 self.inner.platform.next_user().await?,
             );
 
-            self.inner
-                .state
-                .users
-                .write()
-                .await
-                .insert(user.meta().id, user.clone());
-
-            let app = self.clone();
-            tasks::spawn(async move { app.trigger_update(&ObserveDepdendency::Users).await });
-
-            self.refresh_all_stores(&user).await.ok();
-
             // Listen for messages from the user and handle them
-            let user_clone = user.clone();
             let app = self.clone();
             let on_disconnect = self.inner.on_disconnect.clone();
             let on_connect = self.inner.on_connect.clone();
             tasks::spawn(async move {
+                // The `on_connect` handler may choose to disconnect the user immediately, so we
+                // need to check if the user is still connected before proceeding with the message
+                // loop.
+                //
+                // We also want to check if the user is disconnected before sending them the initial
+                // store update, since we don't want to leak any data to a user that has been
+                // disconnected.
                 if let Some(handler) = on_connect.as_ref() {
                     let handler = handler.clone();
+                    let user_clone = user.clone();
                     if let Err(e) = handler(OnConnectDiconnectContext {
                         app: app.clone(),
                         user: user_clone.clone(),
@@ -151,11 +148,32 @@ impl App {
                         println!("failed to run on_connect handler: {e}");
                     }
 
+                    // This is the change detection handler for all users, not just the current one.
+                    // So, we don't check if the user is disconnected before flushing store changes.
                     app.flush_all_store_changes().await.ok();
                 }
 
+                // User got booted in the on_connect handler, so we don't do anything else with
+                // them.
+                if user.is_disconnected() {
+                    return;
+                }
+
+                app.inner
+                    .state
+                    .users
+                    .write()
+                    .await
+                    .insert(user.meta().id, user.clone());
+
+                let app_clone = app.clone();
+                tasks::spawn(
+                    async move { app_clone.trigger_update(&ObserveDepdendency::Users).await },
+                );
+                app.refresh_all_stores(&user).await.ok();
+
                 loop {
-                    let message = match user_clone.next_message().await {
+                    let message = match user.next_message().await {
                         Ok(message) => message,
                         Err(UserNextMessageError::Listen(ListenError::Closed)) => {
                             // User has disconnected
@@ -172,13 +190,11 @@ impl App {
                     }
                 }
 
-                // println!("user disconnected: {}", user_clone.meta.id());
-
                 if let Some(handler) = on_disconnect.as_ref() {
                     let handler = handler.clone();
                     if let Err(e) = handler(OnConnectDiconnectContext {
                         app: app.clone(),
-                        user: user_clone.clone(),
+                        user: user.clone(),
                     })
                     .await
                     {
@@ -188,13 +204,7 @@ impl App {
                     let _ = app.flush_all_store_changes().await;
                 }
 
-                app.inner
-                    .state
-                    .users
-                    .write()
-                    .await
-                    .remove(&user_clone.meta().id);
-
+                app.inner.state.users.write().await.remove(&user.meta().id);
                 app.trigger_update(&ObserveDepdendency::Users).await.ok();
             });
         }
@@ -452,6 +462,10 @@ impl App {
 impl AppBuilder {
     /// Register a function to run when a user connects. To get the user object, use the [`User`]
     /// struct as a parameter.
+    ///
+    /// When a user connects, the `on_connect` handler is ran before any existing data (store
+    /// updates) is sent to the user and before the user is added to the list of connected users
+    /// (see [`crate::Users`]).
     ///
     /// ## Example
     ///
