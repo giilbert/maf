@@ -123,6 +123,9 @@ pub struct CreateRoomOptions<'a> {
     pub room_key: Option<String>,
     /// Optional meta information to be stored in the room's meta storage.
     pub meta: Option<MetaEntryMap>,
+    /// If true, and a room with the same key and app already exists, return the existing room
+    /// instead of returning an error.
+    pub should_return_existing: bool,
 }
 
 impl<R: RoomHostImpl> RoomsStorage<R> {
@@ -174,6 +177,8 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
     }
 
     /// Gets a room by its ID. Returns `None` if no room with the given ID exists.
+    ///
+    /// FIXME: this races with room deletion
     pub async fn get(&self, room_id: &RoomId) -> Option<RoomCore<R>> {
         let maps = self.0.maps.read().await;
         maps.rooms
@@ -211,7 +216,7 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
         &self,
         options: CreateRoomOptions<'_>,
     ) -> anyhow::Result<Option<RoomCore<R>>> {
-        let check_pending_room = match options.creation_strategy {
+        let should_check_pending_room = match options.creation_strategy {
             // Always check for pending rooms with the default (auto-created) key since there can
             // only be one auto-created room per app if the room creation strategy is AutoCreate.
             RoomCreationStrategy::AutoCreate => Some(
@@ -230,64 +235,82 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
             }),
         };
 
-        if let Some(key_and_app) = check_pending_room.as_ref()
+        // The room already exists and is concretely registered in the storage maps, so we can
+        // return the existing room.
+        if let Some(key_and_app) = should_check_pending_room.as_ref()
             && self
                 .get_by_key(options.app, key_and_app.key.clone())
                 .await
                 .is_some()
         {
-            return Ok(None);
+            // If the room already exists and the caller requested to return the existing room, we
+            // can return it, otherwise return Ok(None) to indicate that the room already exists and
+            // was not created.
+            if options.should_return_existing {
+                return self
+                    .get_by_key(options.app, key_and_app.key.clone())
+                    .await
+                    .map(Some)
+                    .context("room should not be None");
+            } else {
+                return Ok(None);
+            }
         }
 
-        let notify_signal = if let Some(key_and_app) = check_pending_room.as_ref() {
+        // The room does not exist yet, but it is in the process of being created by another call to
+        // this function. We need to wait for the other call to finish and then return the same
+        // room.
+        let notify_signal = if let Some(key_and_app) = should_check_pending_room.as_ref() {
             let mut pending_room_creations = self.0.pending_room_creations.lock().await;
             let pending_room = pending_room_creations.get(key_and_app);
 
             if let Some(ready_signal) = pending_room.cloned() {
-                match options.creation_strategy {
-                    RoomCreationStrategy::AutoCreate => {
-                        // If the room is being created with the AutoCreate strategy, we can wait
-                        // for the room to be created and then return it.
-                        let notified = ready_signal.notify.notified();
-                        drop(pending_room_creations);
+                let should_wait_for_pending_room = match options.creation_strategy {
+                    RoomCreationStrategy::AutoCreate => true,
+                    RoomCreationStrategy::AuthenticatedApiRequest => options.should_return_existing,
+                };
 
-                        const WAIT_TIMEOUT: Duration = Duration::from_secs(10);
-                        if tokio::time::timeout(WAIT_TIMEOUT, notified)
-                            .await
-                            // Timed out waiting for the room to be created.
-                            .is_err()
-                        {
-                            // TODO: better error type, as we might want to return an error through
-                            // the API
-                            anyhow::bail!(
-                                "timed out waiting for room with key {:?} to be created for app {}",
-                                key_and_app.key,
-                                key_and_app.app_id.app
-                            );
-                        }
+                if should_wait_for_pending_room {
+                    // If the room is being created with the AutoCreate strategy, we can wait
+                    // for the room to be created and then return it.
+                    let notified = ready_signal.notify.notified();
+                    drop(pending_room_creations);
 
-                        if ready_signal.failed.load(Ordering::Acquire) {
-                            anyhow::bail!(
-                                "room creation failed for key {:?} and app {}",
-                                key_and_app.key,
-                                key_and_app.app_id.app
-                            );
-                        }
-
-                        return self
-                            .get_by_key(options.app, key_and_app.key.clone())
-                            .await
-                            .context("failed to find room that was just created!")
-                            .map(Some);
-                    }
-                    RoomCreationStrategy::AuthenticatedApiRequest => {
-                        // TODO: better error type here too
+                    const WAIT_TIMEOUT: Duration = Duration::from_secs(10);
+                    if tokio::time::timeout(WAIT_TIMEOUT, notified)
+                        .await
+                        // Timed out waiting for the room to be created.
+                        .is_err()
+                    {
+                        // TODO: better error type, as we might want to return an error through
+                        // the API
                         anyhow::bail!(
-                            "room with key {:?} is already being created for app {}",
+                            "timed out waiting for room with key {:?} to be created for app {}",
                             key_and_app.key,
                             key_and_app.app_id.app
                         );
                     }
+
+                    if ready_signal.failed.load(Ordering::Acquire) {
+                        anyhow::bail!(
+                            "room creation failed for key {:?} and app {}",
+                            key_and_app.key,
+                            key_and_app.app_id.app
+                        );
+                    }
+
+                    return self
+                        .get_by_key(options.app, key_and_app.key.clone())
+                        .await
+                        .context("failed to find room that was just created!")
+                        .map(Some);
+                } else {
+                    // TODO: better error type here too
+                    anyhow::bail!(
+                        "room with key {:?} is already being created for app {}",
+                        key_and_app.key,
+                        key_and_app.app_id.app
+                    );
                 }
             } else {
                 // Re-check after taking the pending lock so we do not create a duplicate room if
@@ -315,7 +338,7 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
 
         let result = self.do_create_room(options).await;
 
-        if let Some(key_and_app) = check_pending_room {
+        if let Some(key_and_app) = should_check_pending_room {
             // TODO: refactor to type level guarantee instead of runtime error
             let signal =
                 notify_signal.context("check_pending_room is Some but missing notify_signal!")?;

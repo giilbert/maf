@@ -85,6 +85,7 @@ async fn connect_route<R: RoomHostImpl>(
                         creation_strategy: RoomCreationStrategy::AutoCreate,
                         room_key: None,
                         meta: None,
+                        should_return_existing: true,
                     })
                     .await?
                 {
@@ -94,9 +95,7 @@ async fn connect_route<R: RoomHostImpl>(
                         .get_by_key(&app, room_key)
                         .await
                         .ok_or_else(|| {
-                            ErrorResponse::not_found(Some(
-                                "Room with requested key not found.",
-                            ))
+                            ErrorResponse::not_found(Some("Room with requested key not found."))
                         })?,
                 }
             } else {

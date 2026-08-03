@@ -185,12 +185,12 @@ export class Rooms {
   }
 
   /**
-   * **POST** `/api/v1/apps/{app}/rooms`
+   * **POST** `/api/v1/apps/{app}/rooms` or **PUT** `/api/v1/apps/{app}/rooms`.
    *
-   * Creates a new room for the current app. The app should be configured to use
-   * API-managed rooms.
+   * We abstract this into a single method since the API will handle both cases
+   * with the same endpoint and request bodies.
    */
-  async create(options: CreateRoomOptions = {}) {
+  async _createInner(method: "POST" | "PUT", options: CreateRoomOptions = {}) {
     // Fix options.meta to match expected format
     if (options.meta) {
       const fixedMeta: Record<
@@ -221,7 +221,7 @@ export class Rooms {
     const response = await this.client.fetch(
       `/api/v1/apps/${this.client.app}/rooms`,
       {
-        method: "POST",
+        method,
         body: JSON.stringify(options),
       },
     );
@@ -236,5 +236,27 @@ export class Rooms {
 
     const data = (await response.json()) as RoomInit;
     return new Room(this.client, data);
+  }
+
+  /**
+   * **POST** `/api/v1/apps/{app}/rooms`
+   *
+   * Creates a new room for the current app. The app should be configured to use
+   * API-managed rooms.
+   */
+  async create(options: CreateRoomOptions = {}) {
+    return this._createInner("POST", options);
+  }
+
+  /**
+   * **PUT** `/api/v1/apps/{app}/rooms`
+   *
+   * Creates a new room for the current app if the room key is not already in
+   * use, or returns information about the existing room if it does exist. If
+   * the room already exists, this will reset its auto-shutdown timer
+   * atomically.
+   */
+  async fetch(options: CreateRoomOptions = {}) {
+    return this._createInner("PUT", options);
   }
 }

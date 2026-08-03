@@ -1,3 +1,4 @@
+use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 use anyhow::Context;
@@ -94,6 +95,7 @@ impl Connection {
                     id,
                     auth: auth_data,
                 },
+                is_disconnected: AtomicBool::new(false),
             },
         })
     }

@@ -404,4 +404,9 @@ impl<R: RoomHostImpl> RoomCore<R> {
 
         host.room_storage().remove(&self.id()).await;
     }
+
+    /// Marks the room as active, which can be used to reset the auto-shutdown timer for the room.
+    pub fn mark_activity(&self) {
+        self.inner.container.mark_activity();
+    }
 }

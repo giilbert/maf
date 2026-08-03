@@ -1,3 +1,4 @@
+use anyhow::Context;
 use axum::extract::{Path, State};
 use axum::routing::get;
 use axum::{Json, Router, middleware};
@@ -25,9 +26,11 @@ pub fn create_service_v1_router<R: RoomHostImpl>(host: &R) -> Router<R> {
     let rooms_router = Router::<R>::new()
         .route(
             "/",
-            get(service_v1_get_rooms_route::<R>).post(service_v1_create_room_route::<R>),
+            get(service_v1_get_rooms_route::<R>)
+                .post(service_v1_create_room_route::<R>)
+                .put(service_v1_fetch_room_route::<R>),
         )
-        .route("/{room_key_or_id}", get(service_v1_get_room_route::<R>));
+        .route("/{room_key}", get(service_v1_get_room_route::<R>));
 
     let apps_router = Router::<R>::new()
         .nest("/{org_slug}/{app_name}/rooms", rooms_router)
@@ -56,7 +59,7 @@ async fn service_v1_get_rooms_route<R: RoomHostImpl>(
     Json(rooms)
 }
 
-/// GET `/api/v1/apps/{org_slug}/{app_name}/rooms/{room_key_or_id}`
+/// GET `/api/v1/apps/{org_slug}/{app_name}/rooms/{room_key}`
 ///
 /// Returns information about a specific room for the specified app. This route is used by service
 /// accounts to manage rooms for an app. This is different from the client-facing route that returns
@@ -75,53 +78,69 @@ async fn service_v1_get_room_route<R: RoomHostImpl>(
     Ok(Json(room.service_room_info().await))
 }
 
+trait ValidateCreateRoomOptions {
+    fn validate(&self, app: &App) -> Result<(), ErrorResponse>;
+}
+
+impl ValidateCreateRoomOptions for ServiceCreateRoomOptions {
+    fn validate(&self, app: &App) -> Result<(), ErrorResponse> {
+        let room_creation_strategy = app.config().rooms;
+
+        // TODO: currently autocreated rooms cannot be created through the service API. change? it can
+        // be a way to "prepare" a room for a user before they connect to it.
+        if room_creation_strategy != RoomCreationStrategy::AuthenticatedApiRequest {
+            return Err(ErrorResponse::bad_request(Some(
+                "Autocreated rooms cannot be created through the service API.",
+            )));
+        }
+
+        // Validate the custom room key if one is provided.
+        if let Some(key) = &self.key {
+            // This key is reserved for autocreated rooms.
+            if key == "default" {
+                return Err(ErrorResponse::bad_request(Some(
+                    "Room key cannot be 'default'.",
+                )));
+            }
+
+            if key.is_empty() {
+                return Err(ErrorResponse::bad_request(Some(
+                    "Room key cannot be empty.",
+                )));
+            }
+
+            if key.len() > MAX_ROOM_KEY_LENGTH {
+                return Err(ErrorResponse::bad_request(Some(concat!(
+                    "Room key cannot be longer than ",
+                    stringify!(MAX_ROOM_KEY_LENGTH),
+                    " characters."
+                ))));
+            }
+
+            if Uuid::parse_str(key).is_ok() {
+                return Err(ErrorResponse::bad_request(Some(
+                    "Room key cannot be a valid UUID.",
+                )));
+            }
+        }
+
+        Ok(())
+    }
+}
+
 /// POST `/api/v1/apps/{org_slug}/{app_name}/rooms`
 ///
 /// Creates a new room for the specified app and returns information about the newly created room.
+/// If a room with the requested key already exists or is being created, this will error.
+///
+/// TODO: the "is being created" error is being handled as a internal server error, but it should be
+/// a conflict error.
 async fn service_v1_create_room_route<R: RoomHostImpl>(
     State(host): State<R>,
     app: App,
     Json(body): Json<ServiceCreateRoomOptions>,
 ) -> Result<Json<ServiceRoomInfo>, ErrorResponse> {
-    let room_creation_strategy = app.config().rooms;
-
-    // TODO: currently autocreated rooms cannot be created through the service API. change? it can
-    // be a way to "prepare" a room for a user before they connect to it.
-    if room_creation_strategy != RoomCreationStrategy::AuthenticatedApiRequest {
-        return Err(ErrorResponse::bad_request(Some(
-            "Autocreated rooms cannot be created through the service API.",
-        )));
-    }
-
-    // Validate the custom room key if one is provided.
-    if let Some(key) = &body.key {
-        // This key is reserved for autocreated rooms.
-        if key == "default" {
-            return Err(ErrorResponse::bad_request(Some(
-                "Room key cannot be 'default'.",
-            )));
-        }
-
-        if key.is_empty() {
-            return Err(ErrorResponse::bad_request(Some(
-                "Room key cannot be empty.",
-            )));
-        }
-
-        if key.len() > MAX_ROOM_KEY_LENGTH {
-            return Err(ErrorResponse::bad_request(Some(concat!(
-                "Room key cannot be longer than ",
-                stringify!(MAX_ROOM_KEY_LENGTH),
-                " characters."
-            ))));
-        }
-
-        if Uuid::parse_str(key).is_ok() {
-            return Err(ErrorResponse::bad_request(Some(
-                "Room key cannot be a valid UUID.",
-            )));
-        }
-    }
+    body.validate(&app)?;
 
     let room = host
         .room_storage()
@@ -130,9 +149,44 @@ async fn service_v1_create_room_route<R: RoomHostImpl>(
             creation_strategy: RoomCreationStrategy::AuthenticatedApiRequest,
             meta: body.meta,
             room_key: body.key,
+            should_return_existing: false,
         })
         .await?
         .ok_or_else(|| ErrorResponse::conflict(Some("Room with requested key already exists.")))?;
+
+    Ok(Json(room.service_room_info().await))
+}
+
+/// PUT `/api/v1/apps/{org_slug}/{app_name}/rooms`
+///
+/// Creates a new room for the specified app if the room key is not already in use, or returns
+/// information about the existing room if it does exist. If the room already exists, this will
+/// reset its auto-shutdown timer.
+///
+/// If two of the same room key are requested at the same time, only one will be created and the
+/// other will wait for the first to finish and return the same room.
+async fn service_v1_fetch_room_route<R: RoomHostImpl>(
+    State(host): State<R>,
+    app: App,
+    Json(body): Json<ServiceCreateRoomOptions>,
+) -> Result<Json<ServiceRoomInfo>, ErrorResponse> {
+    body.validate(&app)?;
+
+    let room = host
+        .room_storage()
+        .check_and_create(CreateRoomOptions {
+            app: &app,
+            creation_strategy: RoomCreationStrategy::AuthenticatedApiRequest,
+            meta: body.meta,
+            room_key: body.key,
+            should_return_existing: true,
+        })
+        .await?
+        .context("room should not be None")?;
+
+    // Reset the room's auto-shutdown timer since it was just fetched.
+    // XXX: this probably races
+    room.mark_activity();
 
     Ok(Json(room.service_room_info().await))
 }

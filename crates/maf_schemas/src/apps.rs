@@ -183,6 +183,7 @@ pub const MAX_ROOM_KEY_LENGTH: usize = 128;
 ///
 /// Used by:
 /// - POST `/api/v1/apps/{org_slug}/{app_name}/rooms`
+/// - PUT `/api/v1/apps/{org_slug}/{app_name}/rooms}`
 #[derive(Debug, Deserialize)]
 pub struct ServiceCreateRoomOptions {
     /// An additional key used to identify the room. A default key being the room's ID will always
