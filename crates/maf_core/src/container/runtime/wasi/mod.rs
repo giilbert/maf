@@ -16,9 +16,11 @@ use tokio::sync::oneshot;
 pub use user::{FutureMessageImpl, FutureUserImpl, UserImpl};
 use wasmtime::component::Resource;
 
-use crate::container::{ContainerData, MAX_ADDITIONAL_KEYS};
+use crate::container::{AdditionalKeyRequest, ContainerData, MAX_ADDITIONAL_KEYS};
 
 mod generated {
+    use crate::container::runtime::wasi as wasi_impl;
+
     wasmtime::component::bindgen!({
         path: "../maf/wit",
         world: "imports",
@@ -26,14 +28,14 @@ mod generated {
         exports: { default: async },
         with: {
             "wasi:io/poll": wasmtime_wasi_io::bindings::wasi::io::poll,
-            "maf:bindings/bindings.future-user": crate::runtime::wasi::FutureUserImpl,
-            "maf:bindings/bindings.future-message": crate::runtime::wasi::FutureMessageImpl,
-            "maf:bindings/bindings.future-hook-request": crate::runtime::wasi::FutureHookRequest,
-            "maf:bindings/bindings.user": crate::runtime::wasi::UserImpl,
-            "maf:bindings/bindings.hook-request": crate::runtime::wasi::HookRequest,
+            "maf:bindings/bindings.future-user": wasi_impl::FutureUserImpl,
+            "maf:bindings/bindings.future-message": wasi_impl::FutureMessageImpl,
+            "maf:bindings/bindings.future-hook-request": wasi_impl::FutureHookRequest,
+            "maf:bindings/bindings.user": wasi_impl::UserImpl,
+            "maf:bindings/bindings.hook-request": wasi_impl::HookRequest,
         },
         trappable_error_type: {
-            "maf:bindings/bindings.listen-error" => crate::runtime::wasi::ListenError
+            "maf:bindings/bindings.listen-error" => wasi_impl::ListenError
         },
         anyhow: true,
     });
@@ -59,7 +61,7 @@ fn serialize_meta_entry(
 impl bindings::Host for ContainerData {
     async fn listen_user(&mut self) -> Result<Resource<FutureUserImpl>, ListenError> {
         let res = FutureUserImpl::new(self)?;
-        self.readied.cancel();
+        self.signals.readied.cancel();
         Ok(self.resources.push(res)?)
     }
 
@@ -140,16 +142,21 @@ impl bindings::Host for ContainerData {
             return Ok(Err(bindings::AddKeyError::InvalidKey));
         }
 
-        let (tx, rx) = oneshot::channel();
+        let (response_tx, response_rx) = oneshot::channel();
         self.num_additional_keys += 1;
-        match self.additional_keys_tx.send((key, tx)).await {
+
+        match self
+            .add_additional_keys_tx
+            .send(AdditionalKeyRequest { key, response_tx })
+            .await
+        {
             Ok(_) => {}
             Err(_) => {
                 return Ok(Err(bindings::AddKeyError::Other));
             }
         };
 
-        match rx.await {
+        match response_rx.await {
             Ok(result) => Ok(result),
             Err(_) => Ok(Err(bindings::AddKeyError::Other)),
         }

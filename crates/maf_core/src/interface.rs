@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use crate::runtime::wasi::bindings;
+use crate::container::runtime::wasi::bindings;
 
 #[async_trait]
 pub trait Connection: Send + Sync + 'static {

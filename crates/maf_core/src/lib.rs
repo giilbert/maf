@@ -1,13 +1,12 @@
 mod container;
 mod interface;
-mod runtime;
 
 pub mod server;
 pub mod utils;
 
+pub use container::runtime::{ContainerRuntime, wasi};
 pub use container::{
     Container, ContainerData, ContainerResourceLimit, ContainerResourceStats,
     CreateContainerOptions,
 };
 pub use interface::{BoxedConnection, Connection};
-pub use runtime::{ContainerRuntime, wasi};

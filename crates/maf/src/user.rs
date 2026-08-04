@@ -1,7 +1,6 @@
 //! Abstractions for connected users.
 
 use std::collections::HashMap;
-use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, RwLock};
 
 use maf_schemas::packet::RxPacket;
@@ -257,7 +256,7 @@ impl Users {
     /// maf::register!(build);
     /// ```
     pub async fn disconnect(&self, user: &User) -> Result<(), SendError> {
-        let mut user = match self
+        let user = match self
             .app
             .inner
             .state

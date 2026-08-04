@@ -171,8 +171,8 @@ impl<R: RoomHostImpl> RoomCore<R> {
         let secret = generate_room_secret();
         let mut container = Container::load_from_binary(
             host.container_runtime(),
-            room_id,
             CreateContainerOptions {
+                room_id,
                 bytes: options.bundle.wasm_module_bytes(),
                 resource_limit: options.resource_limit,
                 meta: options.meta,
@@ -234,14 +234,27 @@ impl<R: RoomHostImpl> RoomCore<R> {
 
     /// Starts the room's container and runs it until it exits, then cleans up the room.
     #[tracing::instrument(skip_all, fields(room_id = %self.id()))]
-    async fn run(&self, host: R::WeakRef, mut container: Container) {
-        if let Err(e) = container.run_container().await {
-            // TODO: better error reporting (i.e. for end users)
+    async fn run(&self, host: R::WeakRef, container: Container) {
+        if let Err(e) = self.run_inner(host.clone(), container).await {
             tracing::error!("error running room container: {}", e);
         }
 
-        drop(container);
         self.destroy(host).await;
+    }
+
+    async fn run_inner(&self, host: R::WeakRef, mut container: Container) -> anyhow::Result<()> {
+        let rt = host
+            .upgrade()
+            .context("host has been dropped, cannot run room")?
+            .container_runtime()
+            .clone();
+
+        container
+            .run_container(rt)
+            .await
+            .context("failed to run room container")?;
+
+        Ok(())
     }
 
     /// See [`ContainerHandle::ready`].
@@ -289,12 +302,12 @@ impl<R: RoomHostImpl> RoomCore<R> {
     /// Returns a reference to the room's [`MetaStorage`], which can be used to read and write
     /// metadata (MAF service) entries associated with the room.
     pub fn meta_storage(&self) -> &MetaStorage {
-        &self.inner.container.meta
+        self.inner.container.meta()
     }
 
     /// Returns a struct containing information about the room's container's resource usage.
     pub fn resource_usage(&self) -> &ContainerResourceStats {
-        &self.inner.container.resources
+        self.inner.container.resources()
     }
 
     /// Adds a new connection to the room. The connection will be managed by the room and will be

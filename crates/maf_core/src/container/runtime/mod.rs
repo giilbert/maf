@@ -4,10 +4,11 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 
+use tokio::sync::mpsc;
 use wasmtime::component::HasSelf;
 use wasmtime::{self as wt};
 
-use crate::container::ContainerData;
+use crate::container::{AdditionalKeyRequest, ContainerData, ContainerHandle};
 use crate::server::{RoomHostImpl, UpgradeableRoomHostImpl};
 use crate::wasi::bindings::AddKeyError;
 
@@ -53,31 +54,32 @@ impl<R: RoomHostImpl> ContainerRuntime<R> {
 
     /// Spawns a task that listens for additional room key requests from the container and handles
     /// them.
-    pub fn handle_additional_keys(&self, container: &mut ContainerData) -> anyhow::Result<()> {
-        let mut additional_keys_rx = container
-            .additional_keys_rx
-            .take()
-            .ok_or_else(|| anyhow::anyhow!("additional_keys_rx already taken"))?;
+    pub(super) fn handle_additional_keys(
+        &self,
+        container: ContainerHandle,
+        mut rx: mpsc::Receiver<AdditionalKeyRequest>,
+    ) -> anyhow::Result<()> {
         let host = self.host.clone();
-        let cancel_token = container.cancel_token.clone();
+        let cancel_token = container.signals.cancel.clone();
         let room_id = container.room_id;
 
         tokio::spawn(async move {
             loop {
                 tokio::select! {
                     _ = cancel_token.cancelled() => {}
-                    key = additional_keys_rx.recv() => {
+                    key = rx.recv() => {
                         let host = match host.upgrade() {
                             Some(host) => host,
                             None => break,
                         };
-                        let (key, tx) = match key {
+
+                        let req = match key {
                             Some(key) => key,
                             None => break,
                         };
 
-                        let res = host.room_storage().add_key(&room_id, key).await;
-                        let _ = tx.send(res.map_err(|_| AddKeyError::Other));
+                        let res = host.room_storage().add_key(&room_id, req.key).await;
+                        let _ = req.response_tx.send(res.map_err(|_| AddKeyError::Other));
                     }
                 }
             }

@@ -124,8 +124,8 @@ async fn generate_types(
     let bundle = state.load_default_bundle().await?;
     let mut container = Container::load_from_binary(
         state.container_runtime(),
-        Uuid::nil(),
         CreateContainerOptions {
+            room_id: Uuid::nil(),
             bytes: bundle.wasm_module_bytes(),
             resource_limit: ContainerResourceLimit::small_defaults(),
             meta: None,
@@ -139,7 +139,7 @@ async fn generate_types(
     // We need to run the code in the container in order for it to report its schema and send it
     // back to us (through the channel).
     container.dry_run().await?;
-    let schema = container.recv_app_schema().await?;
+    let schema = container.get_app_schema().await?;
     tracing::debug!("{}", format!("app schema received: {schema:?}").dimmed());
 
     typed::create_types_file_for_project(project, config, schema).await?;

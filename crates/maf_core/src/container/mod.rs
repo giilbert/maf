@@ -1,21 +1,25 @@
 mod io;
 mod limits;
 pub mod meta;
+pub mod runtime;
 
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
+use anyhow::Context;
 use io::ContainerStdoutFactory;
 use maf_schemas::apps::JsonMetaEntry;
 use maf_schemas::typed::AppSchema;
+use runtime::wasi::Bindings;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time;
 use tokio_util::sync::CancellationToken;
 use tracing::Instrument;
 use uuid::Uuid;
 use wasmtime as wt;
+use wasmtime::component::Component;
 use wasmtime_wasi::{ResourceTable, WasiCtxView, WasiView};
 use wasmtime_wasi_http::p2::body::HyperOutgoingBody;
 use wasmtime_wasi_http::p2::types::{HostFutureIncomingResponse, OutgoingRequestConfig};
@@ -27,11 +31,19 @@ use wasmtime_wasi_io::IoView;
 use crate::container::limits::ContainerResourceLimiter;
 use crate::container::meta::MetaStorage;
 use crate::interface::BoxedConnection;
-use crate::runtime::wasi::Bindings;
 use crate::server::RoomHostImpl;
-use crate::utils;
 use crate::wasi::HookRequest;
 use crate::wasi::bindings::AddKeyError;
+use crate::{ContainerRuntime, utils};
+
+type TakeableReceiver<T> = Option<mpsc::Receiver<T>>;
+type TakeableOneshot<T> = Option<oneshot::Receiver<T>>;
+
+#[derive(Debug)]
+pub(super) struct AdditionalKeyRequest {
+    key: String,
+    response_tx: oneshot::Sender<Result<(), AddKeyError>>,
+}
 
 /// An instance of user-written WASI code running in a sandboxed environment.
 ///
@@ -46,40 +58,41 @@ pub struct Container {
     /// The room in which this container was created for, used for logging and identification
     /// purposes.
     room_id: Uuid,
-    pub store: wt::Store<ContainerData>,
-    cancel_token: CancellationToken,
+    /// Contains the resources and host-defined state for running the WASI code.
+    store: wt::Store<ContainerData>,
+    /// An interface to call functions in the WASI code, such as `run` and `dry_run`.
     instance: Bindings,
-    output: Option<mpsc::Receiver<String>>,
+    /// Shared data between this struct and outside users of the container, such as the host and
+    /// tasks that manage the container's lifecycle.
     shared: ContainerHandle,
+
+    /// A channel for receiving output from the WASI code.
+    output_rx: TakeableReceiver<String>,
+    /// A channel for receiving additional room key requests from the WASI code. This is used to
+    /// allow the WASI code to request additional keys for the room.
+    additional_keys_rx: TakeableReceiver<AdditionalKeyRequest>,
+    /// A channel for receiving the app schema from the WASI code. This is used to generate type
+    /// information for the app, and is only used during the initial setup of the container.
+    app_schema_rx: TakeableOneshot<AppSchema>,
 }
 
 impl std::fmt::Debug for Container {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Container")
+            .field("room_id", &self.room_id)
             .field("store", &self.store)
-            .field("output", &self.output)
             .finish_non_exhaustive()
     }
 }
 
-/// Contains shared data for the container, including container statistics and signals.
-///
-/// This struct is lightweight and can be cloned cheaply, allowing it to be passed around without
-/// significant overhead.
-#[derive(Debug, Clone)]
-pub struct ContainerHandle {
-    pub room_id: Uuid,
-    pub resources: Arc<ContainerResourceStats>,
-    pub meta: MetaStorage,
-    last_activity: Arc<AtomicU64>,
-    connection_tx: mpsc::Sender<BoxedConnection>,
-    hook_request_tx: mpsc::Sender<HookRequest>,
+#[derive(Debug, Clone, Default)]
+struct ContainerSignals {
     /// A cancellation token that can be used to signal the container to stop executing.
     ///
     /// This does not immediately stop the container, but signals it to stop at the next
     /// opportunity. Once the container has actually stopped, the `finished` token will be
     /// triggered. Once a cancellation token is triggered
-    cancel_token: CancellationToken,
+    cancel: CancellationToken,
     /// A token that is triggered when the container has finished executing and cleaned up its
     /// resources. See the comment for `cancel_token` for more details and [`ContainerHandle::stop`]
     /// for usage.
@@ -90,7 +103,33 @@ pub struct ContainerHandle {
     readied: CancellationToken,
 }
 
+/// Contains shared data for the container, including container statistics and signals.
+///
+/// This struct is lightweight and can be cloned cheaply, allowing it to be passed around without
+/// significant overhead.
+#[derive(Debug, Clone)]
+pub struct ContainerHandle {
+    room_id: Uuid,
+    resources: Arc<ContainerResourceStats>,
+    meta: MetaStorage,
+    last_activity: Arc<AtomicU64>,
+
+    /// A channel for sending new connections to the WASI code running in the container. The user is
+    /// [`runtime::wasi::FutureUserImpl`].
+    connection_tx: mpsc::Sender<BoxedConnection>,
+    /// A channel for sending hook requests to the WASI code running in the container. The user is
+    /// [`runtime::wasi::FutureHookRequest`].
+    hook_request_tx: mpsc::Sender<HookRequest>,
+
+    signals: ContainerSignals,
+}
+
 impl ContainerHandle {
+    /// Returns the room ID associated with this container.
+    pub fn room_id(&self) -> Uuid {
+        self.room_id
+    }
+
     /// Stop executing container code and clean up resources associated with the container.
     ///
     /// This is not the same as just calling `cancel_token.cancel()`, which only signals the
@@ -99,7 +138,7 @@ impl ContainerHandle {
     ///
     /// TODO: graceful/user-defined shutdown?
     pub fn stop(&self) {
-        self.cancel_token.cancel();
+        self.signals.cancel.cancel();
     }
 
     /// Updates the last activity timestamp for the container to the current time.
@@ -142,30 +181,30 @@ pub struct ContainerResourceStats {
 /// such as the WASI context, resource table, and actor communication channels. This struct is
 /// heavier and should be used when the container's internal state is needed.
 pub struct ContainerData {
-    pub resources: wasmtime_wasi::ResourceTable,
-    pub wasi_ctx: wasmtime_wasi::WasiCtx,
-    pub wasi_http_ctx: wasmtime_wasi_http::WasiHttpCtx,
+    resources: wasmtime_wasi::ResourceTable,
+    wasi_ctx: wasmtime_wasi::WasiCtx,
+    wasi_http_ctx: wasmtime_wasi_http::WasiHttpCtx,
+    http_hooks: WasiHttpHooksData,
+    meta: MetaStorage,
 
-    pub connection_tx: mpsc::Sender<BoxedConnection>,
-    pub hook_request_tx: mpsc::Sender<HookRequest>,
-    pub additional_keys_tx: mpsc::Sender<(String, oneshot::Sender<Result<(), AddKeyError>>)>,
+    /// A channel for sending hook requests to the WASI code running in the container. When room
+    /// code calls `listen-user` (`maf.wit`) to start listening for new connections, the host
+    /// runtime creates a [`runtime::wasi::FutureHookRequest`] and takes the receiving end of this
+    /// channel.
+    connection_rx: TakeableReceiver<BoxedConnection>,
+    /// A channel for sending hook requests to the WASI code running in the container. When room
+    /// code calls `listen-hook-request` (`maf.wit`) to start listening for new hook requests, the
+    /// host runtime creates a [`runtime::wasi::FutureHookRequest`] and takes the receiving end of
+    /// this channel.
+    hook_request_rx: TakeableReceiver<HookRequest>,
+    app_schema_tx: Option<oneshot::Sender<AppSchema>>,
+    add_additional_keys_tx: mpsc::Sender<AdditionalKeyRequest>,
 
-    pub connection_rx: Option<mpsc::Receiver<BoxedConnection>>,
-    pub hook_request_rx: Option<mpsc::Receiver<HookRequest>>,
-    pub additional_keys_rx:
-        Option<mpsc::Receiver<(String, oneshot::Sender<Result<(), AddKeyError>>)>>,
-    pub http_hooks: WasiHttpHooksData,
-
-    pub app_schema_tx: Option<oneshot::Sender<AppSchema>>,
-    pub app_schema_rx: Option<oneshot::Receiver<AppSchema>>,
-    pub readied: CancellationToken,
-    pub cancel_token: CancellationToken,
     /// The number of additional room keys that have been added to the room associated since this
     /// container was created. This is limited by [`MAX_ADDITIONAL_KEYS`].
-    pub num_additional_keys: u8,
+    num_additional_keys: u8,
+    signals: ContainerSignals,
 
-    pub room_id: Uuid,
-    pub(crate) meta: MetaStorage,
     pub(crate) last_activity: Arc<AtomicU64>,
     pub(crate) app_activity: &'static AtomicU64,
     pub(crate) limiter: ContainerResourceLimiter,
@@ -180,6 +219,7 @@ impl std::fmt::Debug for ContainerData {
 }
 
 pub struct CreateContainerOptions<'a> {
+    pub room_id: Uuid,
     /// The WebAssembly module bytes to load into the container.
     pub bytes: &'a [u8],
     pub resource_limit: ContainerResourceLimit,
@@ -190,95 +230,88 @@ pub struct CreateContainerOptions<'a> {
 impl Container {
     pub async fn load_from_binary<R: RoomHostImpl>(
         runtime: &super::ContainerRuntime<R>,
-        room_id: Uuid,
         options: CreateContainerOptions<'_>,
     ) -> anyhow::Result<Self> {
-        let component = wt::component::Component::new(&runtime.engine, options.bytes)?;
+        let (connection_tx, connection_rx) = mpsc::channel::<BoxedConnection>(10);
+        let (output_tx, output_rx) = mpsc::channel::<String>(100);
+        let (add_additional_keys_tx, add_additional_keys_rx) =
+            mpsc::channel::<AdditionalKeyRequest>(1);
+        let (hook_request_tx, hook_request_rx) = mpsc::channel::<HookRequest>(100);
+        let (app_schema_tx, app_schema_rx) = oneshot::channel::<AppSchema>();
 
-        let (connection_tx, connection_rx) = mpsc::channel(10);
-        let (output_tx, output_rx) = mpsc::channel(100);
-        let (add_additional_keys_tx, add_additional_keys_rx) = mpsc::channel(1);
-        let (hook_request_tx, hook_request_rx) = mpsc::channel(1000);
-        let (app_schema_tx, app_schema_rx) = oneshot::channel();
-
-        let meta = MetaStorage::new(options.meta);
+        let meta = MetaStorage::new(options.meta.clone());
         let resource_stats = Arc::<ContainerResourceStats>::default();
-        let cancel_token = CancellationToken::new();
-        let finished_token = CancellationToken::new();
         let last_activity = Arc::new(AtomicU64::new(utils::now_as_secs()));
         let resources = wasmtime_wasi::ResourceTable::default();
+        let http_hooks = WasiHttpHooksData::new(&options);
         let stdout = ContainerStdoutFactory::new(output_tx.clone());
         let wasi_ctx = wasmtime_wasi::WasiCtx::builder().stdout(stdout).build();
         let wasi_http_ctx = wasmtime_wasi_http::WasiHttpCtx::new();
-        let readied = CancellationToken::new();
+
+        let signals = ContainerSignals::default();
 
         let shared = ContainerHandle {
-            room_id,
+            room_id: options.room_id,
             resources: resource_stats.clone(),
-            connection_tx: connection_tx.clone(),
-            hook_request_tx: hook_request_tx.clone(),
-            cancel_token: cancel_token.clone(),
-            finished: finished_token.clone(),
             meta: meta.clone(),
             last_activity: last_activity.clone(),
-            readied: readied.clone(),
+
+            connection_tx: connection_tx.clone(),
+            hook_request_tx: hook_request_tx.clone(),
+
+            signals: signals.clone(),
         };
+        let limiter = ContainerResourceLimiter::new(
+            shared.clone(),
+            resource_stats.clone(),
+            options.resource_limit,
+        );
 
         let mut store = wt::Store::new(
             &runtime.engine,
-            // XXX: reorganize
             ContainerData {
                 resources,
                 wasi_ctx,
                 wasi_http_ctx,
-                connection_tx,
-                hook_request_tx,
-                additional_keys_tx: add_additional_keys_tx.clone(),
+                http_hooks,
+                meta,
+                limiter,
+
                 connection_rx: Some(connection_rx),
                 hook_request_rx: Some(hook_request_rx),
-                app_schema_rx: Some(app_schema_rx),
                 app_schema_tx: Some(app_schema_tx),
-                readied: readied.clone(),
-                cancel_token: cancel_token.clone(),
-                additional_keys_rx: Some(add_additional_keys_rx),
-                http_hooks: WasiHttpHooksData {
-                    id: room_id,
-                    secret: options.secret,
-                },
-                meta,
+                add_additional_keys_tx,
+
+                num_additional_keys: 0,
+
+                signals: signals.clone(),
                 last_activity,
                 app_activity: runtime.app_activity,
-                limiter: ContainerResourceLimiter {
-                    room_id,
-                    stats: resource_stats.clone(),
-                    limits: options.resource_limit,
-                },
-                num_additional_keys: 0,
-                room_id,
             },
         );
 
         store.limiter_async(|data| &mut data.limiter);
         store.epoch_deadline_async_yield_and_update(1);
 
-        runtime.handle_additional_keys(store.data_mut())?;
-
+        let component = Component::new(&runtime.engine, options.bytes)?;
         let instance = Bindings::instantiate_async(&mut store, &component, &runtime.linker).await?;
 
         Ok(Self {
-            room_id,
+            room_id: options.room_id,
             instance,
             store,
-            output: Some(output_rx),
-            cancel_token: cancel_token.clone(),
             shared,
+
+            app_schema_rx: Some(app_schema_rx),
+            additional_keys_rx: Some(add_additional_keys_rx),
+            output_rx: Some(output_rx),
         })
     }
 
     pub fn start_inactive_shutdown_task(&mut self) {
         // Spawn a task to monitor inactivity and stop the container
         let last_activity = self.store.data().last_activity.clone();
-        let token_clone = self.cancel_token.clone();
+        let token_clone = self.shared.signals.cancel.clone();
 
         tokio::spawn(async move {
             loop {
@@ -304,13 +337,23 @@ impl Container {
     /// This method is meant to run in the background with other tasks, such as inserting the
     /// container into tracking structures and listening for connections. This means that we need a
     /// way to wait for the container to become ready: [`Container::ready`].
-    pub async fn run_container(&mut self) -> anyhow::Result<()> {
+    pub async fn run_container<R: RoomHostImpl>(
+        &mut self,
+        runtime: ContainerRuntime<R>,
+    ) -> anyhow::Result<()> {
+        runtime.handle_additional_keys(
+            self.handle(),
+            self.additional_keys_rx
+                .take()
+                .context("additional_keys_rx already taken")?,
+        )?;
+
         let result = tokio::select! {
             result = self.instance.call_run(&mut self.store) => {
                 let inner_result = result?;
                 inner_result.map_err(|_| anyhow::anyhow!("unknown container error"))
             }
-            _ = self.cancel_token.cancelled() => {
+            _ = self.shared.signals.cancel.cancelled() => {
                 tracing::debug!("container cancelled");
                 Ok(())
             }
@@ -331,7 +374,7 @@ impl Container {
                 let inner_result = result?;
                 inner_result.map_err(|_| anyhow::anyhow!("unknown container error"))
             }
-            _ = self.cancel_token.cancelled() => {
+            _ = self.shared.signals.cancel.cancelled() => {
                 tracing::debug!("container cancelled");
                 Ok(())
             }
@@ -349,17 +392,19 @@ impl Container {
     async fn do_cleanup(&mut self) {
         // Drop the output channel to signal that ensure that an output channel cannot be created
         // after the container has been stopped.
-        drop(self.output.take());
+        drop(self.output_rx.take());
 
         // We are finished! This marks that the container has finished executing and cleaned up its
         // resources, in case any other tasks are waiting for it to finish.
-        self.shared.finished.cancel();
+        self.shared.signals.finished.cancel();
     }
 
-    pub async fn recv_app_schema(&mut self) -> anyhow::Result<AppSchema> {
+    /// Wait for the container to send its app schema through the channel.
+    ///
+    /// If this function is called more than once, it will return an error, since the channel can
+    /// only be received once.
+    pub async fn get_app_schema(&mut self) -> anyhow::Result<AppSchema> {
         let rx = self
-            .store
-            .data_mut()
             .app_schema_rx
             .take()
             .ok_or_else(|| anyhow::anyhow!("app schema receiver already taken"))?;
@@ -368,7 +413,7 @@ impl Container {
     }
 
     pub fn output(&mut self) -> Option<mpsc::Receiver<String>> {
-        self.output.take()
+        self.output_rx.take()
     }
 
     /// Consumes the container's output channel and forwards all output lines to tracing logs.
@@ -417,7 +462,7 @@ impl ContainerHandle {
     }
 
     pub async fn wait_for_finish(&self) {
-        self.finished.cancelled().await;
+        self.signals.finished.cancelled().await;
     }
 
     /// Returns the time it took the container to become ready to receive connections and other
@@ -425,7 +470,7 @@ impl ContainerHandle {
     pub async fn ready(&self, timeout: Duration) -> anyhow::Result<Duration> {
         let start = Instant::now();
 
-        match tokio::time::timeout(timeout, self.readied.cancelled()).await {
+        match tokio::time::timeout(timeout, self.signals.readied.cancelled()).await {
             Ok(()) => Ok(start.elapsed()),
             Err(_) => {
                 anyhow::bail!(
@@ -435,6 +480,17 @@ impl ContainerHandle {
                 )
             }
         }
+    }
+
+    /// Gets the [`MetaStorage`] associated with this container, which can be used to read and write
+    /// meta values associated with the room.
+    pub fn meta(&self) -> &MetaStorage {
+        &self.meta
+    }
+
+    /// Returns a struct containing information about the container's resource usage.
+    pub fn resources(&self) -> &ContainerResourceStats {
+        &self.resources
     }
 }
 
@@ -471,9 +527,19 @@ impl WasiHttpView for ContainerData {
     }
 }
 
+#[derive(Debug)]
 pub struct WasiHttpHooksData {
     id: Uuid,
     secret: String,
+}
+
+impl WasiHttpHooksData {
+    pub fn new(options: &CreateContainerOptions<'_>) -> Self {
+        Self {
+            id: options.room_id,
+            secret: options.secret.clone(),
+        }
+    }
 }
 
 impl WasiHttpHooks for WasiHttpHooksData {
