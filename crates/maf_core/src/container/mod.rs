@@ -1,3 +1,4 @@
+mod activity;
 mod io;
 mod limits;
 pub mod meta;
@@ -28,6 +29,7 @@ use wasmtime_wasi_http::p2::{
 };
 use wasmtime_wasi_io::IoView;
 
+use crate::container::activity::ActivityState;
 use crate::container::limits::ContainerResourceLimiter;
 use crate::container::meta::MetaStorage;
 use crate::interface::BoxedConnection;
@@ -112,7 +114,7 @@ pub struct ContainerHandle {
     room_id: Uuid,
     resources: Arc<ContainerResourceStats>,
     meta: MetaStorage,
-    last_activity: Arc<AtomicU64>,
+    activity: Arc<ActivityState>,
 
     /// A channel for sending new connections to the WASI code running in the container. The user is
     /// [`runtime::wasi::FutureUserImpl`].
@@ -138,13 +140,13 @@ impl ContainerHandle {
     ///
     /// TODO: graceful/user-defined shutdown?
     pub fn stop(&self) {
+        self.activity.stop();
         self.signals.cancel.cancel();
     }
 
     /// Updates the last activity timestamp for the container to the current time.
     pub fn mark_activity(&self) {
-        self.last_activity
-            .store(utils::now_as_secs(), Ordering::SeqCst);
+        self.activity.record_activity(utils::now_as_secs());
     }
 }
 
@@ -205,7 +207,7 @@ pub struct ContainerData {
     num_additional_keys: u8,
     signals: ContainerSignals,
 
-    pub(crate) last_activity: Arc<AtomicU64>,
+    activity: Arc<ActivityState>,
     pub(crate) app_activity: &'static AtomicU64,
     pub(crate) limiter: ContainerResourceLimiter,
 }
@@ -241,7 +243,6 @@ impl Container {
 
         let meta = MetaStorage::new(options.meta.clone());
         let resource_stats = Arc::<ContainerResourceStats>::default();
-        let last_activity = Arc::new(AtomicU64::new(utils::now_as_secs()));
         let resources = wasmtime_wasi::ResourceTable::default();
         let http_hooks = WasiHttpHooksData::new(&options);
         let stdout = ContainerStdoutFactory::new(output_tx.clone());
@@ -249,12 +250,13 @@ impl Container {
         let wasi_http_ctx = wasmtime_wasi_http::WasiHttpCtx::new();
 
         let signals = ContainerSignals::default();
+        let activity = Arc::new(ActivityState::new(utils::now_as_secs()));
 
         let shared = ContainerHandle {
             room_id: options.room_id,
             resources: resource_stats.clone(),
             meta: meta.clone(),
-            last_activity: last_activity.clone(),
+            activity: activity.clone(),
 
             connection_tx: connection_tx.clone(),
             hook_request_tx: hook_request_tx.clone(),
@@ -285,7 +287,7 @@ impl Container {
                 num_additional_keys: 0,
 
                 signals: signals.clone(),
-                last_activity,
+                activity,
                 app_activity: runtime.app_activity,
             },
         );
@@ -310,8 +312,9 @@ impl Container {
 
     pub fn start_inactive_shutdown_task(&mut self) {
         // Spawn a task to monitor inactivity and stop the container
-        let last_activity = self.store.data().last_activity.clone();
+        let activity = self.store.data().activity.clone();
         let token_clone = self.shared.signals.cancel.clone();
+        let finished = self.shared.signals.finished.clone();
 
         tokio::spawn(async move {
             loop {
@@ -320,10 +323,16 @@ impl Container {
                 const CHECK_INTERVAL: u64 = 5; // seconds
                 const TIMEOUT: u64 = 60; // seconds
 
-                time::sleep(Duration::from_secs(CHECK_INTERVAL)).await;
+                tokio::select! {
+                    _ = time::sleep(Duration::from_secs(CHECK_INTERVAL)) => {}
+                    // If the container has finished executing, we can stop the task.
+                    _ = finished.cancelled() => break,
+                }
 
-                // Check if the container has been inactive for more than TIMEOUT seconds
-                if utils::now_as_secs() - last_activity.load(Ordering::Relaxed) > TIMEOUT {
+                // Atomically check whether the container has been idle long enough and mark it
+                // stopped in the same step so activity cannot sneak in between the comparison and
+                // the shutdown transition.
+                if activity.stop_if_inactive(utils::now_as_secs(), TIMEOUT) {
                     tracing::info!("container is inactive for too long, stopping...");
                     token_clone.cancel();
                     break;
@@ -390,6 +399,10 @@ impl Container {
     }
 
     async fn do_cleanup(&mut self) {
+        // Mark the container as stopped before dropping any handles so late activity updates are
+        // ignored instead of extending the shutdown timer after the room is already gone.
+        self.shared.stop();
+
         // Drop the output channel to signal that ensure that an output channel cannot be created
         // after the container has been stopped.
         drop(self.output_rx.take());
@@ -444,14 +457,27 @@ impl Container {
     pub fn room_id(&self) -> Uuid {
         self.room_id
     }
+
+    /// Returns the last activity timestamp in seconds since the Unix epoch.
+    pub fn last_activity(&self) -> u64 {
+        self.store.data().activity.last_activity()
+    }
 }
 
 impl ContainerHandle {
     pub async fn add_connection(&self, connection: BoxedConnection) -> anyhow::Result<()> {
-        self.connection_tx
-            .send(connection)
-            .await
-            .map_err(|_| anyhow::anyhow!("failed to add connection to room {}", self.room_id))
+        if self.activity.is_stopped() {
+            anyhow::bail!("room {} is shutting down", self.room_id);
+        }
+
+        tokio::select! {
+            result = self.connection_tx.send(connection) => {
+                result.map_err(|_| anyhow::anyhow!("connection channel for room {} closed", self.room_id))
+            }
+            _ = self.signals.cancel.cancelled() => {
+                anyhow::bail!("room {} is shutting down", self.room_id);
+            }
+        }
     }
 
     pub async fn send_hook_request(&self, request: HookRequest) -> anyhow::Result<()> {
@@ -496,9 +522,13 @@ impl ContainerHandle {
 
 impl ContainerData {
     pub fn update_last_activity(&self) {
+        if self.activity.is_stopped() {
+            return;
+        }
+
         let now = utils::now_as_secs();
         self.app_activity.store(now, Ordering::Relaxed);
-        self.last_activity.store(now, Ordering::Relaxed);
+        self.activity.record_activity(now);
     }
 }
 

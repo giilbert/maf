@@ -439,6 +439,8 @@ impl<R: RoomHostImpl> RoomsStorage<R> {
             None => return None,
         };
 
+        room.container().stop();
+
         // Remove the room from the app_to_rooms map.
         maps.app_to_rooms
             .entry(room.app().clone())

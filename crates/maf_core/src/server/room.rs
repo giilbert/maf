@@ -313,10 +313,12 @@ impl<R: RoomHostImpl> RoomCore<R> {
     /// Adds a new connection to the room. The connection will be managed by the room and will be
     /// automatically closed when the room is closed.
     pub async fn add_connection(&self, connection: impl Connection) -> anyhow::Result<()> {
-        match self.container().add_connection(Box::new(connection)).await {
-            Ok(_) => tracing::info!("connection added to room {}", self.id()),
-            Err(_) => anyhow::bail!("failed to add connection to room {}", self.id()),
-        }
+        self.container()
+            .add_connection(Box::new(connection))
+            .await
+            .context("failed to add connection to room")?;
+
+        tracing::info!("connection added to room {}", self.id());
 
         Ok(())
     }
@@ -415,6 +417,9 @@ impl<R: RoomHostImpl> RoomCore<R> {
             }
         };
 
+        // Stop the room before it is removed from storage so no late activity update can keep the
+        // shutdown timer alive after the room is logically gone.
+        self.container().stop();
         host.room_storage().remove(&self.id()).await;
     }
 
