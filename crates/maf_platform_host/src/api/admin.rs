@@ -94,9 +94,11 @@ async fn create_user(
             Box::pin(async move {
                 let new_user = user::ActiveModel {
                     id: Set(Uuid::new_v4()),
-                    username: Set(payload.username.clone()),
+                    username: Set(Some(payload.username.clone())),
                     name: Set(payload.name),
                     permissions: Set(migrations::entity::user::Permissions::empty()),
+                    email: Set(payload.email),
+                    ..Default::default()
                 };
                 let new_org = org::ActiveModel {
                     id: Set(Uuid::new_v4()),

@@ -17,6 +17,7 @@ use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
+use crate::api::auth;
 use crate::storage::bundle::BundleStorage;
 use crate::storage::db::user::{self, Permissions};
 use crate::storage::db::{self, TxnError};
@@ -57,6 +58,8 @@ struct AppStateInner {
     last_activity: &'static AtomicU64,
     /// A cancellation token that fires when the server should shut down.
     cancel_server: CancellationToken,
+    /// The OAuth clients used for authenticating users. Currently, only Google OAuth is used.
+    oauth: auth::OAuthClients,
 }
 
 impl AppState {
@@ -65,8 +68,10 @@ impl AppState {
 
         let database_url = dotenvy::var("DATABASE_URL")
             .map_err(|_| anyhow::anyhow!("DATABASE_URL environment variable not found"))?;
+
         let mut db_options = ConnectOptions::new(database_url.clone());
         db_options.connect_timeout(Duration::from_secs(5));
+
         let db = sea_orm::Database::connect(db_options).await?;
         tracing::info!("Connected to database `{}`", database_url);
 
@@ -102,6 +107,7 @@ impl AppState {
                 environment,
                 last_activity,
                 cancel_server: CancellationToken::new(),
+                oauth: auth::OAuthClients::new(),
             }
         }));
 
@@ -142,6 +148,11 @@ impl AppState {
         &self.0.cancel_server
     }
 
+    /// Gets a reference to the [`auth::OAuthClients`] used for generating OAuth requests.
+    pub fn oauth_clients(&self) -> &auth::OAuthClients {
+        &self.0.oauth
+    }
+
     // TODO: should this run migrations?
     async fn init_database(&self) -> anyhow::Result<()> {
         if let (Some(default_admin_username), Some(default_admin_token)) = (
@@ -173,13 +184,15 @@ impl AppState {
             self.db()
                 .transaction::<_, (), TxnError>(|txn| {
                     Box::pin(async move {
-                        let (user, _org) = user_repo::create_user_with_default_org(
+                        let (user, _org) = user_repo::txn_create_user_with_default_org(
                             txn,
                             user::ActiveModel {
                                 id: Set(Uuid::new_v4()),
-                                username: Set(default_admin_username.clone()),
+                                username: Set(Some(default_admin_username.clone())),
                                 name: Set(default_admin_username),
                                 permissions: Set(Permissions::MANAGE_SERVER),
+                                email: Set("test@example.com".into()),
+                                ..Default::default()
                             },
                         )
                         .await

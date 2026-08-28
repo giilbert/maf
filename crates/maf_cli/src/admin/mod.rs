@@ -2,7 +2,7 @@ use anyhow::Context as _;
 use clap::Subcommand;
 use maf_schemas::admin::UserWithOrgsAdminView;
 
-use crate::{pretty, Context};
+use crate::{Context, pretty};
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum AdminCommands {
@@ -23,6 +23,9 @@ pub enum UserCommands {
         /// The name for the new user
         #[clap(long)]
         name: String,
+        /// An email address for the new user
+        #[clap(long)]
+        email: String,
     },
     /// Delete a user by ID
     ///
@@ -38,7 +41,11 @@ pub async fn handle_commands(context: &mut Context, command: AdminCommands) -> a
     match command {
         AdminCommands::User(user_command) => match user_command {
             UserCommands::List => list_users(context).await,
-            UserCommands::Create { username, name } => create_user(context, &name, &username).await,
+            UserCommands::Create {
+                username,
+                name,
+                email,
+            } => create_user(context, &name, &username, email).await,
             UserCommands::Delete { id } => delete_user(context, &id).await,
         },
     }
@@ -58,11 +65,14 @@ async fn list_users(context: &Context) -> anyhow::Result<()> {
         pretty::info!("Users ({}):", users.len());
         for UserWithOrgsAdminView { orgs, user } in users {
             pretty::info!(
-                "- {} Username: {} {} | Permissions: {}",
+                "- {} Username: {} {} | Permissions: {} | Email: {}",
                 user.id.to_string().dimmed(),
-                user.username.blue(),
+                user.username
+                    .unwrap_or_else(|| "<username not set>".into())
+                    .blue(),
                 format!("`{}`", user.name).dimmed(),
-                user.permissions.yellow()
+                user.permissions.yellow(),
+                user.email
             );
 
             for org in orgs {
@@ -83,12 +93,18 @@ async fn list_users(context: &Context) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn create_user(context: &Context, name: &str, username: &str) -> anyhow::Result<()> {
+async fn create_user(
+    context: &Context,
+    name: &str,
+    username: &str,
+    email: String,
+) -> anyhow::Result<()> {
     context.assert_token();
 
     let payload = maf_schemas::admin::CreateUser {
         name: name.to_string(),
         username: username.to_string(),
+        email: email.to_string(),
     };
 
     let res = context
@@ -100,7 +116,10 @@ async fn create_user(context: &Context, name: &str, username: &str) -> anyhow::R
 
     pretty::info!(
         "Created user {} with ID {} and default org.",
-        res.user.username.blue(),
+        res.user
+            .username
+            .unwrap_or_else(|| "<username not set>".into())
+            .blue(),
         res.user.id.to_string().dimmed()
     );
 
@@ -118,7 +137,10 @@ async fn delete_user(context: &Context, user_id: &str) -> anyhow::Result<()> {
 
     pretty::info!(
         "Deleted user {} with ID {}.",
-        res.deleted_user.username.blue(),
+        res.deleted_user
+            .username
+            .unwrap_or_else(|| "<username not set>".into())
+            .blue(),
         res.deleted_user.id.to_string().dimmed()
     );
 

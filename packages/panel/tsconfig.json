@@ -7,10 +7,17 @@
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": true,
-    "jsx": "preserve"
+    "jsx": "preserve",
+    "types": [
+      "node",
+      "bun"
+    ]
   },
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",
-  ]
+    "prerender/**/*.ts",
+    "prerender/**/*.tsx",
+    "vite-env.d.ts"
+  ],
 }

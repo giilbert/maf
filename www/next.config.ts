@@ -10,7 +10,7 @@ const createRewrites = async () => {
 
   console.log("-> [panel] configuring rewrites for /_panel static assets.");
   const manifest: Manifest = JSON.parse(
-    await fs.readFile(path.join(panelDir, "prerender/manifest.json"), "utf-8")
+    await fs.readFile(path.join(panelDir, "prerender/manifest.json"), "utf-8"),
   );
 
   console.log(`-> [panel] found ${manifest.files.length} prerendered files.`);
@@ -27,9 +27,10 @@ const createRewrites = async () => {
   ];
   for (const rewrite of result) {
     console.log(
-      `-> [panel] rewrite: ${rewrite.source} -> ${rewrite.destination}`
+      `-> [panel] rewrite: ${rewrite.source} -> ${rewrite.destination}`,
     );
   }
+
   return result;
 };
 

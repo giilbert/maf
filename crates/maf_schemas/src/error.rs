@@ -3,6 +3,7 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use serde_json::json;
 
+#[derive(Debug)]
 pub struct ErrorResponse {
     status_code: StatusCode,
     message: String,

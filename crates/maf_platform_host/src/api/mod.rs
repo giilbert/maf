@@ -34,6 +34,7 @@ pub async fn create_app() -> anyhow::Result<(AppState, Router)> {
 fn create_api_v1_router(state: AppState) -> Router<AppState> {
     Router::new()
         .nest("/admin", admin::create_admin_router(state.clone()))
+        .nest("/auth", auth::create_auth_router(state.clone()))
         .nest("/apps", user_app::create_user_app_router(state.clone()))
 }
 

@@ -15,15 +15,20 @@ pub async fn get_token_user(
         .await?)
 }
 
-pub async fn create_user_with_default_org(
+pub async fn txn_create_user_with_default_org(
     conn: &impl ConnectionTrait,
     user: user::ActiveModel,
 ) -> anyhow::Result<(user::Model, org::Model)> {
     let user = user.insert(conn).await.context("failed to create user")?;
 
+    let username = match &user.username {
+        Some(username) => username.clone(),
+        None => user.id.to_string(),
+    };
+
     let org = org::ActiveModel {
         id: Set(user.id),
-        slug: Set(user.username.clone()),
+        slug: Set(username),
         name: Set(user.name.clone()),
         is_default: Set(true),
     }

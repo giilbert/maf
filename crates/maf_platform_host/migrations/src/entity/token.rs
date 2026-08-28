@@ -9,6 +9,7 @@ pub struct Model {
     pub id: Uuid,
     pub user_id: Uuid,
     pub name: String,
+    /// TODO: We should probably store the token in a hashed format instead of plaintext...
     pub token: String,
 }
 

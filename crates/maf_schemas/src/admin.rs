@@ -4,8 +4,9 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserAdminView {
     pub id: Uuid,
-    pub username: String,
+    pub username: Option<String>,
     pub name: String,
+    pub email: String,
     pub permissions: String,
 }
 
@@ -27,6 +28,7 @@ pub struct UserWithOrgsAdminView {
 pub struct CreateUser {
     pub name: String,
     pub username: String,
+    pub email: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

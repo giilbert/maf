@@ -12,6 +12,7 @@ maf_schemas = { path = "../maf_schemas", features = ["error-response"] }
 anyhow = "^1.0.96"
 async-trait = "0.1.88"
 axum = { version = "0.8.3", features = ["macros", "ws"] }
+async-recursion = "1.1.1"
 async_zip = { version = "0.0.17", features = ["full"] }
 base64 = "0.22.1"
 bitflags = { version = "2.9.0", features = ["serde"] }
@@ -34,9 +35,15 @@ tokio = { version = "1.44.2", features = ["full"] }
 tokio-tungstenite = "0.26.2"
 tokio-util = { version = "0.7.15", features = ["io"] }
 tower = "0.5.2"
-tower-http = { version = "0.6.8", features = ["normalize-path"] }
+tower-http = { version = "0.6.8", features = ["cors", "normalize-path"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 uuid = { version = "1.16.0", features = ["serde", "v4"] }
 chrono = { version = "0.4.40", features = ["serde"] }
 toml = "0.8.23"
+oauth2 = "5.0.0"
+axum-extra = { version = "0.12.6", features = ["cookie"] }
+time = "0.3.55"
+# NOTE: The `reqwest` version must match the version used by `oauth2` to avoid dependency conflicts.
+reqwest = { version = "0.12.28", features = ["json"] }
+sha2 = "0.11.0"

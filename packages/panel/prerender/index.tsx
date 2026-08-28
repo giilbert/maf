@@ -52,7 +52,7 @@ const preRenderRoute = async (ctx: Ctx, route: AnyRoute) => {
   await router.load();
 
   const markup = ReactDomServer.renderToString(
-    <RouterServer router={router} />
+    <RouterServer router={router} />,
   );
 
   const htmlContent = await htmlContentPromise;
@@ -60,7 +60,7 @@ const preRenderRoute = async (ctx: Ctx, route: AnyRoute) => {
 
   const outputFilePath = path.join(
     PRERENDER_OUTPUT_PATH,
-    route.fullPath === "/" ? "index.html" : `${route.fullPath}.html`
+    route.fullPath === "/" ? "index.html" : `${route.fullPath}.html`,
   );
   await Bun.write(outputFilePath, finalHtml);
 
@@ -108,16 +108,16 @@ if (await htmlFile.exists()) {
   tracing.log();
   tracing.log(`generated ${ctx.manifest.files.length} files:`);
   const firstColumnMaxLength = Math.max(
-    ...ctx.manifest.files.map((f) => f.route.length)
+    ...ctx.manifest.files.map((f) => f.route.length),
   );
   for (const file of ctx.manifest.files) {
     tracing.log(
-      ` - route: ${chalk.cyan(file.route.padEnd(firstColumnMaxLength, " "))} -> ${chalk.green(file.outputFilePath)}`
+      ` - route: ${chalk.cyan(file.route.padEnd(firstColumnMaxLength, " "))} -> ${chalk.green(file.outputFilePath)}`,
     );
   }
 
   Bun.file(path.join(PRERENDER_OUTPUT_PATH, "manifest.json")).write(
-    JSON.stringify(ctx.manifest, null, 2)
+    JSON.stringify(ctx.manifest, null, 2),
   );
 
   tracing.log(`manifest written to ${chalk.green("prerender/manifest.json")}`);

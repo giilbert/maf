@@ -8,11 +8,13 @@ import {
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import "./globals.css";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useState } from "react";
 
 const rootRoute = createRootRouteWithContext()({
   component: () => {
     return (
-      <div className="p-8">
+      <div>
         <Outlet />
         <TanStackRouterDevtools initialIsOpen={false} />
       </div>
@@ -27,56 +29,33 @@ const homeRoute = createRoute({
     return (
       <>
         <h1>Home Page</h1>
-        <Link to="/loader">Go to Loader</Link>
+        <Link to="/login">Login</Link>
       </>
     );
   },
 });
 
-const layoutRoute = createRoute({
-  id: "_layout",
+const loginRoute = createRoute({
+  path: "/login",
   getParentRoute: () => rootRoute,
-  component: () => {
-    return (
-      <div>
-        <p>Layout</p>
-        <Outlet />
-      </div>
-    );
-  },
+  component: lazyRouteComponent(() => import("./routes/login"), "LoginPage"),
 });
 
-const loaderRoute = createRoute({
-  path: "/loader",
-  getParentRoute: () => layoutRoute,
-  loader: async () => {
-    await new Promise((r) => setTimeout(r, 1000));
-    return { message: "hello from the loader!" };
-  },
-  pendingComponent: () => <p>/loader is pending...</p>,
-  component: lazyRouteComponent(() => import("./routes/loader"), "LoaderPage"),
-});
-
-const dynamicRoute = createRoute({
-  path: "/dynamic/$param",
-  getParentRoute: () => layoutRoute,
-  pendingComponent: () => <p>/dynamic is pending...</p>,
-  component: lazyRouteComponent(
-    () => import("./routes/dynamic"),
-    "DynamicPage"
-  ),
-});
-
-export const routeTree = rootRoute.addChildren([
-  homeRoute,
-  layoutRoute.addChildren([loaderRoute, dynamicRoute]),
-]);
+export const routeTree = rootRoute.addChildren([homeRoute, loginRoute]);
 
 export const createAppRouter = () =>
   createRouter({
     routeTree,
     basepath: "/~",
     defaultNotFoundComponent: () => <h1>Not Found</h1>,
+    Wrap: ({ children }) => {
+      const [queryClient] = useState(() => new QueryClient({}));
+      return (
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
+      );
+    },
   });
 
 declare module "@tanstack/react-router" {

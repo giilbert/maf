@@ -9,6 +9,10 @@ _start-db:
 deploy:
     fly deploy --ha=false -c scripts/fly.toml
 
+# runs pgcli for the local development database
+pgcli: _start-db
+    pgcli postgres://postgres:ferris@localhost:5432
+
 # build the maf-server docker image
 docker-build:
     docker build -f scripts/fly.dockerfile -t maf-server:latest .

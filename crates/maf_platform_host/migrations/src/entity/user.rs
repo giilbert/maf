@@ -1,9 +1,9 @@
+use sea_orm::TryGetable;
 use sea_orm::entity::prelude::*;
 use sea_orm::sea_query::{ArrayType, ValueType, ValueTypeErr};
-use sea_orm::TryGetable;
 use serde::{Deserialize, Serialize};
 
-use super::{org_member, token};
+use super::{account, org_member, session, token};
 use crate::entity::org;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, DeriveEntityModel)]
@@ -12,9 +12,21 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: Uuid,
     #[sea_orm(unique)]
-    pub username: String,
+    pub username: Option<String>,
     pub name: String,
     pub permissions: Permissions,
+
+    #[sea_orm(default_value = "None")]
+    pub avatar_url: Option<String>,
+    #[sea_orm(unique)]
+    pub email: String,
+    #[sea_orm(default_value = false)]
+    pub email_verified: bool,
+
+    #[sea_orm(default_expr = "Expr::current_timestamp()")]
+    pub created_at: DateTimeUtc,
+    #[sea_orm(default_expr = "Expr::current_timestamp()")]
+    pub updated_at: DateTimeUtc,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -23,6 +35,10 @@ pub enum Relation {
     Token,
     #[sea_orm(has_many = "org_member::Entity")]
     OrgMember,
+    #[sea_orm(has_many = "account::Entity")]
+    Account,
+    #[sea_orm(has_many = "session::Entity")]
+    Session,
 }
 
 impl Related<token::Entity> for Entity {
@@ -44,6 +60,18 @@ impl Related<org::Entity> for Entity {
 impl Related<org_member::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::OrgMember.def()
+    }
+}
+
+impl Related<account::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Account.def()
+    }
+}
+
+impl Related<session::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Session.def()
     }
 }
 
@@ -109,6 +137,7 @@ impl From<Model> for maf_schemas::admin::UserAdminView {
             id: val.id,
             username: val.username,
             name: val.name,
+            email: val.email,
             permissions: format!("{:?}", val.permissions),
         }
     }

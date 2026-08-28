@@ -209,7 +209,7 @@ impl DevConsole {
             dev_print!(
                 "- ID: {}, Username: {}, Name: {}",
                 user.id,
-                user.username,
+                user.username.unwrap_or_else(|| "<not chosen>".to_string()),
                 user.name
             );
         }
