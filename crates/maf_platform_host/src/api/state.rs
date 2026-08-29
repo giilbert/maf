@@ -17,7 +17,7 @@ use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-use crate::api::auth;
+use crate::api::auth::{self, oauth};
 use crate::storage::bundle::BundleStorage;
 use crate::storage::db::user::{self, Permissions};
 use crate::storage::db::{self, TxnError};
@@ -213,6 +213,20 @@ impl AppState {
                 })
                 .await?;
         }
+
+        let state = self.clone();
+        tokio::spawn(async move {
+            loop {
+                if let Err(error) = oauth::delete_expired_tokens(&state).await {
+                    tracing::error!(?error, "failed to delete expired tokens; skipping");
+                }
+
+                // We sleep after deleting expired tokens as our servers can be very very
+                // short-lived.
+                const DELETE_EXPIRED_TOKENS_INTERVAL: Duration = Duration::from_mins(15);
+                tokio::time::sleep(DELETE_EXPIRED_TOKENS_INTERVAL).await;
+            }
+        });
 
         Ok(())
     }

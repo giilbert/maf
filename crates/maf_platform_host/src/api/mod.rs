@@ -3,13 +3,14 @@ mod auth;
 mod state;
 mod user_app;
 
-use axum::Router;
 use axum::extract::{Request, State};
 use axum::middleware::{self, Next};
 use axum::response::Response;
 use axum::routing::get;
+use axum::{Router, http};
 use maf_schemas::error::ErrorResponse;
 pub use state::{AppState, Environment};
+use tower_http::cors::{AllowMethods, CorsLayer};
 
 pub async fn create_app() -> anyhow::Result<(AppState, Router)> {
     let state = AppState::new().await?;
@@ -32,10 +33,30 @@ pub async fn create_app() -> anyhow::Result<(AppState, Router)> {
 }
 
 fn create_api_v1_router(state: AppState) -> Router<AppState> {
+    let cors = CorsLayer::new()
+        .allow_origin(
+            "http://localhost:5173"
+                .parse::<http::HeaderValue>()
+                .unwrap(),
+            // TODO: add other origins here, like the production panel URL
+        )
+        .allow_methods(AllowMethods::list([
+            http::Method::GET,
+            http::Method::POST,
+            http::Method::PUT,
+            http::Method::DELETE,
+        ]))
+        .allow_credentials(true)
+        .allow_headers(vec![
+            http::header::AUTHORIZATION,
+            http::header::CONTENT_TYPE,
+        ]);
+
     Router::new()
         .nest("/admin", admin::create_admin_router(state.clone()))
         .nest("/auth", auth::create_auth_router(state.clone()))
         .nest("/apps", user_app::create_user_app_router(state.clone()))
+        .layer(cors)
 }
 
 async fn update_last_activity(

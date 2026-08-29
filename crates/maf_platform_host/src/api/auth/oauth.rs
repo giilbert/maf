@@ -4,7 +4,9 @@
 //! Google and handles the callback after the user has authenticated.
 
 use anyhow::Context;
+use axum::Json;
 use axum::extract::{Query, State};
+use axum::http::Method;
 use axum::response::{IntoResponse, Redirect};
 use axum_extra::extract::CookieJar;
 use axum_extra::extract::cookie::{Cookie, SameSite};
@@ -23,6 +25,7 @@ use rand::Rng;
 use rand::distr::Alphanumeric;
 use reqwest::redirect::Policy;
 use sea_orm::ActiveValue::*;
+use sea_orm::sea_query::Expr;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseTransaction, EntityTrait, QueryFilter, QuerySelect,
     TransactionTrait,
@@ -523,18 +526,39 @@ pub async fn oauth_callback_google(
     )
     .await?;
 
-    let session_token = generate_session_token();
-    // Create a new session for the user and set a cookie with the session ID.
-    let session = session::ActiveModel {
-        id: Set(Uuid::new_v4()),
-        user_id: Set(user.id),
-        created_at: Set(Utc::now()),
-        expires_at: Set(Utc::now() + SESSION_LENGTH),
-        token_hash: Set(hash_token(&session_token)),
-    }
-    .insert(state.db())
-    .await
-    .context("failed to create new session")?;
+    // Loop in case the session token we generate already exists in the database (which is very
+    // unlikely, but possible).
+    let (session_token, session) = loop {
+        let session_token = generate_session_token();
+        // Create a new session for the user and set a cookie with the session ID.
+        let create_session_result = session::ActiveModel {
+            id: Set(Uuid::new_v4()),
+            user_id: Set(user.id),
+            created_at: Set(Utc::now()),
+            expires_at: Set(Utc::now() + SESSION_LENGTH),
+            // We send the real session token (plaintext) to the user in a cookie, but we store a
+            // hashed version of the token in the database for security reasons.
+            token_hash: Set(hash_token(&session_token)),
+        }
+        .insert(state.db())
+        .await;
+
+        let mut tries = 5;
+        if let Err(err) = &create_session_result
+            && err.is_unique_violation()
+        {
+            tries -= 1;
+            if tries == 0 {
+                return Err(anyhow::anyhow!("failed to create session after 5 tries").into());
+            }
+
+            // The session token already exists, so we need to generate a new one and try again.
+            continue;
+        } else {
+            let session = create_session_result.context("failed to create new session")?;
+            break (session_token, session);
+        }
+    };
 
     let jar = jar.add(
         Cookie::build((SESSION_COOKIE_NAME, session_token))
@@ -555,11 +579,141 @@ pub async fn oauth_callback_google(
     Ok((jar, Redirect::to("/")))
 }
 
-/// **POST** `/api/v1/auth/session`
+/// Fetches the user associated with the given session token.
+///
+/// If the session token is expired, this function will delete the session from the database and
+/// return `Ok(None)`. If the session token is invalid (i.e. does not exist in the database), this
+/// function will return `Ok(None)`.
+///
+/// If the session is valid, this function will return the user associated with the session.
+pub async fn fetch_user_by_session_token(
+    state: &AppState,
+    session_token: &str,
+    update_expires_at: bool,
+) -> Result<Option<(user::Model, session::Model)>, anyhow::Error> {
+    let token_hash = hash_token(session_token);
+
+    let session = if update_expires_at {
+        // We want to update the session's expiration time atomically.
+        let sessions_updated = session::Entity::update_many()
+            .col_expr(
+                session::Column::ExpiresAt,
+                Expr::value(Utc::now() + SESSION_LENGTH),
+            )
+            .filter(
+                session::Column::TokenHash
+                    .eq(token_hash)
+                    .and(session::Column::ExpiresAt.gt(Utc::now())),
+            )
+            .exec_with_returning(state.db())
+            .await
+            .context("failed to update session expiration time")?;
+
+        if sessions_updated.is_empty() {
+            // The session token is either invalid or expired, so we return `Ok(None)`.
+            return Ok(None);
+        } else {
+            // We successfully updated the session's expiration time, so we can return the session.
+            sessions_updated
+                .into_iter()
+                .next()
+                .expect("update_many with returning should return at least one row")
+        }
+    } else {
+        // We are not updating the session's expiration time, so we just fetch the session from the
+        // database.
+        match session::Entity::find()
+            .filter(
+                session::Column::TokenHash
+                    .eq(token_hash)
+                    .and(session::Column::ExpiresAt.gt(Utc::now())),
+            )
+            .one(state.db())
+            .await
+            .context("failed to fetch session")?
+        {
+            Some(session) => session,
+            None => {
+                // The session token is either invalid or expired, so we return `Ok(None)`.
+                return Ok(None);
+            }
+        }
+    };
+
+    let user = user::Entity::find()
+        .filter(user::Column::Id.eq(session.user_id))
+        .one(state.db())
+        .await
+        .context("failed to fetch user by session")?
+        .context("session exists but does not have a related user")?;
+
+    Ok(Some((user, session)))
+}
+
+/// This is ran inside a background task to delete expired sessions from the database.
+pub async fn delete_expired_tokens(state: &AppState) -> Result<(), anyhow::Error> {
+    let delete_result = session::Entity::delete_many()
+        .filter(session::Column::ExpiresAt.lt(Utc::now()))
+        .exec(state.db())
+        .await
+        .context("failed to delete expired sessions")?;
+
+    if delete_result.rows_affected > 0 {
+        tracing::debug!(
+            deleted_count = delete_result.rows_affected,
+            "deleted expired sessions"
+        );
+    }
+
+    Ok(())
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SessionInfo {
+    pub id: Uuid,
+    pub name: String,
+    pub email: String,
+}
+
+/// **POST** `/api/v1/auth/session` or **GET** `/api/v1/auth/session`.
 ///
 /// Refreshes the user's session by creating a new session token and updating the existing session's
-/// expiration time. Refreshes the session cookie with the new token and returns the user's
-/// information.
+/// expiration time. Refreshes the session cookie with the new token (if the method is a POST) and
+/// returns the user's information.
 ///
 /// If the user is not logged in, this endpoint will return a 401 Unauthorized response.
-pub async fn update_session(state: State<AppState>) {}
+pub async fn fetch_session(
+    method: Method,
+    state: State<AppState>,
+    cookies: CookieJar,
+) -> Result<(CookieJar, Json<SessionInfo>), ErrorResponse> {
+    let session_token = cookies
+        .get(SESSION_COOKIE_NAME)
+        .map(|c| c.value())
+        .ok_or_else(|| ErrorResponse::unauthorized(Some("Missing session token cookie")))?;
+
+    tracing::debug!(?session_token, "fetching session for user");
+
+    // We want to update the session's expiration time if the method is a POST, but not if GET.
+    let (user, _session) =
+        match fetch_user_by_session_token(&state, session_token, method == Method::POST)
+            .await
+            .context("failed to fetch user by session token")?
+        {
+            Some(res) => res,
+            None => {
+                return Err(ErrorResponse::unauthorized(Some(
+                    "Invalid or expired session token",
+                )));
+            }
+        };
+
+    Ok((
+        cookies,
+        Json(SessionInfo {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+        }),
+    ))
+}

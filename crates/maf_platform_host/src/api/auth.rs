@@ -9,7 +9,7 @@
 //!   API (e.g. creating rooms, authenticating users, etc.). The middleware that handles this is in
 //!   [`maf_core::server`].
 
-mod oauth;
+pub mod oauth;
 
 use axum::Router;
 use axum::extract::{FromRequestParts, Request, State};
@@ -19,7 +19,6 @@ use axum::response::Response;
 use axum::routing::get;
 use maf_schemas::error::ErrorResponse;
 pub use oauth::OAuthClients;
-use tower_http::cors::CorsLayer;
 use uuid::Uuid;
 
 use super::state::AppState;
@@ -95,21 +94,11 @@ impl AuthedUser {
 }
 
 pub fn create_auth_router(_state: AppState) -> Router<AppState> {
-    let cors = CorsLayer::new()
-        .allow_origin(
-            "http://localhost:5173"
-                .parse::<axum::http::HeaderValue>()
-                .unwrap(),
-            // TODO: add other origins here, like the production panel URL
-        )
-        .allow_methods(tower_http::cors::Any)
-        .allow_headers(vec![
-            axum::http::header::AUTHORIZATION,
-            axum::http::header::CONTENT_TYPE,
-        ]);
-
     Router::new()
         .route("/login", get(oauth::oauth_login))
+        .route(
+            "/session",
+            get(oauth::fetch_session).post(oauth::fetch_session),
+        )
         .route("/callback/google", get(oauth::oauth_callback_google))
-        .layer(cors)
 }
