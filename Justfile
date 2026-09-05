@@ -21,6 +21,10 @@ docker-build:
 dev-platform: _start-db
     RUST_LOG=info,maf_platform_host=debug,maf_core=trace cargo run --bin maf_platform_host
 
+dev-platform-panel:
+    tmux split-window -h "just dev-platform"
+    cd packages/panel && pnpm run dev
+
 # apply the schema migrations
 migrate: _start-db
     cargo run --package migrations up --verbose

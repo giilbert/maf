@@ -311,10 +311,14 @@ async fn update_database_with_user_info_inner(
         .context("failed to find accounts for user")?;
 
     // The user has an account associated with Google, so we can allow them to log in.
-    if accounts.iter().any(|a| a.provider == OAuthProvider::Google) {
+    if let Some(existing_account) = accounts
+        .iter()
+        .find(|a| a.provider == OAuthProvider::Google)
+    {
         // Update their account with the new access token and refresh token and check if the
         // account is actually the same user as the one we are trying to log in with.
         let update_account_result = account::Entity::update(account::ActiveModel {
+            id: Unchanged(existing_account.id),
             access_token: Set(options.access_token.clone()),
             refresh_token: Set(options.refresh_token.clone()),
             updated_at: Set(chrono::Utc::now()),
@@ -475,6 +479,7 @@ pub async fn oauth_callback_google(
         )
         .request_async(&state.oauth_clients().reqwest)
         .await
+        .inspect_err(|err| tracing::error!(?err, "failed to exchange code for token"))
         .context("failed to exchange code for token")?;
 
     let access_token_string = token_response.access_token().secret().clone();
