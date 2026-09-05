@@ -39,6 +39,7 @@ use crate::storage::repos::utils::DbErrorExt;
 
 const CSRF_COOKIE: &str = "maf_oauth_csrf_state";
 const PKCE_VERIFIER_COOKIE: &str = "maf_oauth_pkce_verifier";
+const REDIRECT_PATH_COOKIE: &str = "maf_oauth_redirect_path";
 
 /// Represents an initialized OAuth client with all required endpoints set. (The `oauth2` crate uses
 /// this weird builder pattern to ensure that all variables are set before the client can be used.)
@@ -114,12 +115,22 @@ const GOOGLE_SCOPES: &[&str] = &[
     "https://www.googleapis.com/auth/userinfo.profile",
 ];
 
-/// **GET** `/api/v1/auth/login`
+#[derive(Debug, Deserialize)]
+pub struct OAuthLoginQuery {
+    /// The path to redirect the user to after they have logged in.
+    ///
+    /// When the OAuth login process is finished, the user will be redirected to
+    /// `<env.FRONTEND_URL>/<redirect>`. If this is not set, the user will be redirected to `/`.
+    pub redirect: Option<String>,
+}
+
+/// **GET** `/api/v1/auth/login?redirect=<path>`
 ///
 /// Initiates the OAuth login process with Google.
 pub async fn oauth_login(
     State(state): State<AppState>,
     jar: CookieJar,
+    query: Query<OAuthLoginQuery>,
 ) -> Result<(CookieJar, Redirect), ErrorResponse> {
     let (pkce_code_challenge, pkce_code_verifier) = PkceCodeChallenge::new_random_sha256();
 
@@ -154,7 +165,21 @@ pub async fn oauth_login(
         .max_age(COOKIE_MAX_AGE)
         .build();
 
-    let jar = jar.add(verifier_cookie).add(csrf_cookie);
+    let mut jar = jar.add(verifier_cookie).add(csrf_cookie);
+
+    // Persist the redirect path in a cookie so that we can redirect the user back to the correct
+    // page.
+    if let Some(redirect) = &query.redirect {
+        let redirect_cookie = Cookie::build((REDIRECT_PATH_COOKIE, redirect.clone()))
+            .http_only(true)
+            .secure(true)
+            .same_site(SameSite::Lax)
+            .path(COOKIE_PATH)
+            .max_age(COOKIE_MAX_AGE)
+            .build();
+
+        jar = jar.add(redirect_cookie);
+    }
 
     Ok((jar, Redirect::to(authorize_url.as_str())))
 }
@@ -451,6 +476,9 @@ pub async fn oauth_callback_google(
     jar: CookieJar,
     query: Query<GoogleOauthCallbackQuery>,
 ) -> Result<(CookieJar, Redirect), OAuthErrorResponse> {
+    let frontend_url =
+        std::env::var("FRONTEND_URL").context("failed to read FRONTEND_URL from environment")?;
+
     // Validate CSRF state before doing anything else with the code.
     let csrf_cookie_value = jar
         .get(CSRF_COOKIE)
@@ -581,7 +609,12 @@ pub async fn oauth_callback_google(
         "created new session for user"
     );
 
-    Ok((jar, Redirect::to("/")))
+    let redirect_path = jar
+        .get(REDIRECT_PATH_COOKIE)
+        .map(|c| c.value().to_string())
+        .unwrap_or_else(|| "/".to_string());
+
+    Ok((jar, Redirect::to(&format!("{frontend_url}{redirect_path}"))))
 }
 
 /// Fetches the user associated with the given session token.

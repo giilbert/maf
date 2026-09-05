@@ -13,8 +13,13 @@ export const LoginPage: React.FC = () => {
   return (
     <div>
       <h1>login</h1>
+      <p>signed in as {session.data?.email}</p>
 
-      <a href={`${API_SERVER_URL}/api/v1/auth/login`}>google</a>
+      <a
+        href={`${API_SERVER_URL}/api/v1/auth/login?redirect=${window.location.pathname}`}
+      >
+        google
+      </a>
     </div>
   );
 };
