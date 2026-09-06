@@ -18,9 +18,8 @@ Promise.all([
   router.load(),
   new Promise<void>((r) => {
     const shouldDelay = !import.meta.env.DEV;
-
     // delay if prerendered to avoid flickering the loading UI for too short
-    if (shouldDelay) setTimeout(r, 200);
+    if (shouldDelay) setTimeout(r, 350);
     else r();
   }),
 ]).then(setup);

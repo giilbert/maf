@@ -16,7 +16,7 @@ use axum::extract::{FromRequestParts, Request, State};
 use axum::http::request::Parts;
 use axum::middleware::Next;
 use axum::response::Response;
-use axum::routing::get;
+use axum::routing::{get, post};
 use maf_schemas::error::ErrorResponse;
 pub use oauth::OAuthClients;
 use uuid::Uuid;
@@ -96,6 +96,7 @@ impl AuthedUser {
 pub fn create_auth_router(_state: AppState) -> Router<AppState> {
     Router::new()
         .route("/login", get(oauth::oauth_login))
+        .route("/logout", post(oauth::logout))
         .route(
             "/session",
             get(oauth::fetch_session).post(oauth::fetch_session),

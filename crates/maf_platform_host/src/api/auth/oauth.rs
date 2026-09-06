@@ -755,3 +755,34 @@ pub async fn fetch_session(
         }),
     ))
 }
+
+/// **POST** `/api/v1/auth/logout`
+///
+/// Logs the user out by deleting their session from the database and clearing the session cookie.
+pub async fn logout(
+    state: State<AppState>,
+    cookies: CookieJar,
+) -> Result<(CookieJar, Json<()>), ErrorResponse> {
+    let session_token = cookies
+        .get(SESSION_COOKIE_NAME)
+        .map(|c| c.value())
+        .ok_or_else(|| ErrorResponse::unauthorized(Some("Missing session token cookie")))?;
+
+    let token_hash = hash_token(session_token);
+
+    let delete_result = session::Entity::delete_many()
+        .filter(session::Column::TokenHash.eq(token_hash))
+        .exec(state.db())
+        .await
+        .context("failed to delete session")?;
+
+    if delete_result.rows_affected == 0 {
+        return Err(ErrorResponse::unauthorized(Some(
+            "Invalid or expired session token",
+        )));
+    }
+
+    let jar = cookies.remove(Cookie::from(SESSION_COOKIE_NAME));
+
+    Ok((jar, Json(())))
+}
