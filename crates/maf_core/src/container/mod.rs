@@ -22,10 +22,8 @@ use uuid::Uuid;
 use wasmtime as wt;
 use wasmtime::component::Component;
 use wasmtime_wasi::{ResourceTable, WasiCtxView, WasiView};
-use wasmtime_wasi_http::p2::body::HyperOutgoingBody;
-use wasmtime_wasi_http::p2::types::{HostFutureIncomingResponse, OutgoingRequestConfig};
-use wasmtime_wasi_http::p2::{
-    HttpResult, WasiHttpCtxView, WasiHttpHooks, WasiHttpView, default_send_request,
+use wasmtime_wasi_http::{
+    RequestOptions, WasiBody, WasiHttpCtxView, WasiHttpHooks, WasiHttpView, default_send_request,
 };
 use wasmtime_wasi_io::IoView;
 
@@ -575,9 +573,17 @@ impl WasiHttpHooksData {
 impl WasiHttpHooks for WasiHttpHooksData {
     fn send_request(
         &mut self,
-        mut request: hyper::Request<HyperOutgoingBody>,
-        config: OutgoingRequestConfig,
-    ) -> HttpResult<HostFutureIncomingResponse> {
+        mut request: http::Request<WasiBody>,
+        options: Option<RequestOptions>,
+        _fut: Box<dyn Future<Output = Result<(), wasmtime_wasi_http::Error>> + Send>,
+    ) -> Box<
+        dyn Future<
+                Output = wasmtime_wasi_http::Result<(
+                    http::Response<WasiBody>,
+                    Box<dyn Future<Output = Result<(), wasmtime_wasi_http::Error>> + Send>,
+                )>,
+            > + Send,
+    > {
         // Insert a header allowing the server to identify the room making the request and verify
         // its authenticity. The header is in the format `X-Maf-Id: room:<id>:<secret>`.
         request.headers_mut().insert(
@@ -585,6 +591,14 @@ impl WasiHttpHooks for WasiHttpHooksData {
             format!("room:{}:{}", self.id, self.secret).parse().unwrap(),
         );
 
-        Ok(default_send_request(request, config))
+        Box::new(async move {
+            use http_body_util::BodyExt;
+
+            let (res, io) = default_send_request(request, options).await?;
+            Ok((
+                res.map(BodyExt::boxed_unsync),
+                Box::new(io) as Box<dyn Future<Output = _> + Send>,
+            ))
+        })
     }
 }
