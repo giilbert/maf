@@ -13,10 +13,9 @@
       "bun"
     ],
     "ignoreDeprecations": "6.0", // FIXME: upgrade typescript
-    "baseUrl": "src",
     "paths": {
       "@/*": [
-        "*"
+        "./src/*"
       ]
     }
   },
