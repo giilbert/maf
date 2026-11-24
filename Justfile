@@ -22,7 +22,12 @@ dev-platform: _start-db
     RUST_LOG=info,maf_platform_host=debug,maf_core=trace cargo run --bin maf_platform_host
 
 dev-platform-panel:
-    tmux split-window -h "just dev-platform"
+    # run the dev-platform command in a different tmux pane, keeping the pane
+    # alive when the command exits
+    tmux split-window -v "$SHELL"
+    sleep 3
+    tmux send-keys -t 1 "just dev-platform" C-m
+    tmux resize-pane -t 1 -y 75
     cd packages/panel && pnpm run dev
 
 # apply the schema migrations

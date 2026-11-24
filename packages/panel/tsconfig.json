@@ -11,7 +11,14 @@
     "types": [
       "node",
       "bun"
-    ]
+    ],
+    "ignoreDeprecations": "6.0", // FIXME: upgrade typescript
+    "baseUrl": "src",
+    "paths": {
+      "@/*": [
+        "*"
+      ]
+    }
   },
   "include": [
     "src/**/*.ts",
